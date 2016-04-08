@@ -264,6 +264,16 @@ public class WorkflowRunTest {
         InterruptedBuildAction iba = b1.getAction(InterruptedBuildAction.class);
         assertNotNull(iba);
         assertEquals(Collections.singletonList(new CauseOfInterruption.UserInterruption("bob")), iba.getCauses());
+        WorkflowRun b2 = p.scheduleBuild2(0).waitForStart();
+        assertEquals(2, b2.getNumber());
+        SemaphoreStep.waitForStart("hang/2", b2);
+        ex = b2.getExecutor();
+        assertNotNull(ex);
+        ex.interrupt();
+        r.assertBuildStatus(Result.ABORTED, r.waitForCompletion(b2));
+        iba = b2.getAction(InterruptedBuildAction.class);
+        assertNotNull(iba);
+        assertEquals(Collections.emptyList(), iba.getCauses());
     }
 
 }
