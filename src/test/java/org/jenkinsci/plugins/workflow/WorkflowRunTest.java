@@ -25,6 +25,7 @@
 package org.jenkinsci.plugins.workflow;
 
 import hudson.model.BallColor;
+import hudson.model.Executor;
 import hudson.model.Item;
 import hudson.model.ParametersAction;
 import hudson.model.ParametersDefinitionProperty;
@@ -38,9 +39,12 @@ import hudson.security.Permission;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
+import jenkins.model.CauseOfInterruption;
+import jenkins.model.InterruptedBuildAction;
 import jenkins.model.Jenkins;
 import org.apache.commons.io.FileUtils;
 import org.jenkinsci.plugins.scriptsecurity.scripts.ScriptApproval;
@@ -246,6 +250,30 @@ public class WorkflowRunTest {
             }
             assertEquals("[echo]", steps.toString());
         }
+    }
+
+    @Test public void interruptWithResult() throws Exception {
+        WorkflowJob p = r.jenkins.createProject(WorkflowJob.class, "p");
+        p.setDefinition(new CpsFlowDefinition("semaphore 'hang'"));
+        WorkflowRun b1 = p.scheduleBuild2(0).waitForStart();
+        SemaphoreStep.waitForStart("hang/1", b1);
+        Executor ex = b1.getExecutor();
+        assertNotNull(ex);
+        ex.interrupt(Result.NOT_BUILT, new CauseOfInterruption.UserInterruption("bob"));
+        r.assertBuildStatus(Result.NOT_BUILT, r.waitForCompletion(b1));
+        InterruptedBuildAction iba = b1.getAction(InterruptedBuildAction.class);
+        assertNotNull(iba);
+        assertEquals(Collections.singletonList(new CauseOfInterruption.UserInterruption("bob")), iba.getCauses());
+        WorkflowRun b2 = p.scheduleBuild2(0).waitForStart();
+        assertEquals(2, b2.getNumber());
+        SemaphoreStep.waitForStart("hang/2", b2);
+        ex = b2.getExecutor();
+        assertNotNull(ex);
+        ex.interrupt();
+        r.assertBuildStatus(Result.ABORTED, r.waitForCompletion(b2));
+        iba = b2.getAction(InterruptedBuildAction.class);
+        assertNotNull(iba);
+        assertEquals(Collections.emptyList(), iba.getCauses());
     }
 
 }
