@@ -226,13 +226,18 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
                 if (forShutdown) {
                     return;
                 }
-                try {
-                    execution.interrupt(getExecutor().abortResult());
-                } catch (Exception x) {
-                    LOGGER.log(Level.WARNING, null, x);
-                }
-                getExecutor().recordCauseOfInterruption(WorkflowRun.this, listener);
-                printLater("term", "Click here to forcibly terminate running steps");
+                Timer.get().submit(new Runnable() {
+                    @Override public void run() {
+                        Executor executor = getExecutor();
+                        try {
+                            execution.interrupt(executor.abortResult());
+                        } catch (Exception x) {
+                            LOGGER.log(Level.WARNING, null, x);
+                        }
+                        executor.recordCauseOfInterruption(WorkflowRun.this, listener);
+                        printLater("term", "Click here to forcibly terminate running steps");
+                    }
+                });
             }
             @Override public boolean blocksRestart() {
                 return execution.blocksRestart();
