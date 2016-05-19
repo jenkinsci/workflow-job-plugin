@@ -557,9 +557,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
     }
 
     @Override public void deleteArtifacts() throws IOException {
-        synchronized (this) {
-            super.deleteArtifacts();
-        }
+        super.deleteArtifacts();
         StashManager.clearAll(this);
     }
 
