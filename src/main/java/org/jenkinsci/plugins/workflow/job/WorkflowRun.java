@@ -556,6 +556,11 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
         }
     }
 
+    @Override public void deleteArtifacts() throws IOException {
+        super.deleteArtifacts();
+        StashManager.clearAll(this);
+    }
+
     /**
      * Gets the associated execution state.
      * @return non-null after the flow has started, even after finished (but may be null temporarily when about to start, or if starting failed)
