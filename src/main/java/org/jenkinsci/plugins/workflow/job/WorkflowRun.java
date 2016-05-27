@@ -127,6 +127,12 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
     };
     private transient StreamBuildListener listener;
 
+    private transient boolean stopCalled;
+
+    private transient boolean termCalled;
+
+    private transient boolean killCalled;
+
     /**
      * Flag for whether or not the build has completed somehow.
      * Non-null soon after the build starts or is reloaded from disk.
@@ -288,6 +294,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
         if (!isInProgress()) {
             return;
         }
+        termCalled = true;
         final Throwable x = new FlowInterruptedException(Result.ABORTED);
         Futures.addCallback(execution.getCurrentExecutions(/* cf. JENKINS-26148 */true), new FutureCallback<List<StepExecution>>() {
             @Override public void onSuccess(List<StepExecution> l) {
@@ -316,6 +323,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
         if (!isBuilding()) {
             return;
         }
+        killCalled = true;
         if (listener != null) {
             listener.getLogger().println("Hard kill!");
         }
@@ -324,6 +332,18 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
         finish(Result.ABORTED, suddenDeath);
         executionPromise.setException(suddenDeath);
         // TODO CpsFlowExecution.onProgramEnd does some cleanup which we cannot access here; perhaps need a FlowExecution.halt(Throwable) API?
+    }
+
+    public boolean hasStopBeenCalled() {
+        return stopCalled;
+    }
+
+    public boolean hasTermBeenCalled() {
+        return termCalled;
+    }
+
+    public boolean hasKillBeenCalled() {
+        return killCalled;
     }
 
     @GuardedBy("completed")
@@ -634,6 +654,9 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
 
     @RequirePOST
     public synchronized HttpResponse doStop() {
+        if (hasPermission(Item.CANCEL)) {
+            stopCalled = true;
+        }
         Executor e = getOneOffExecutor();
         if (e != null) {
             return e.doStop();
