@@ -754,6 +754,16 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
         @Override public String getUrl() throws IOException {
             return run().getUrl();
         }
+        @Override public TaskListener getListener() throws IOException {
+            StreamBuildListener l = run().listener;
+            if (l != null) {
+                return l;
+            } else {
+                // TODO this seems to happen at least once during resume; can we get the listener ready earlier?
+                LOGGER.log(Level.FINE, "No listener yet for {0}", this);
+                return TaskListener.NULL;
+            }
+        }
         @Override public String toString() {
             return "Owner[" + key() + ":" + run + "]";
         }
