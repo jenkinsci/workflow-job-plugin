@@ -759,7 +759,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
             if (l != null) {
                 return l;
             } else {
-                // TODO this seems to happen at least once during resume; can we get the listener ready earlier?
+                // Seems to happen at least once during resume, but anyway TryRepeatedly will call this method again, rather than caching the result.
                 LOGGER.log(Level.FINE, "No listener yet for {0}", this);
                 return TaskListener.NULL;
             }
