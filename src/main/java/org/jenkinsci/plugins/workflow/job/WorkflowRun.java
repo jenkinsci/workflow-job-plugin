@@ -754,6 +754,16 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
         @Override public String getUrl() throws IOException {
             return run().getUrl();
         }
+        @Override public TaskListener getListener() throws IOException {
+            StreamBuildListener l = run().listener;
+            if (l != null) {
+                return l;
+            } else {
+                // Seems to happen at least once during resume, but anyway TryRepeatedly will call this method again, rather than caching the result.
+                LOGGER.log(Level.FINE, "No listener yet for {0}", this);
+                return TaskListener.NULL;
+            }
+        }
         @Override public String toString() {
             return "Owner[" + key() + ":" + run + "]";
         }
