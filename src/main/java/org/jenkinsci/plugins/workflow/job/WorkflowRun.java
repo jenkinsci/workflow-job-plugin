@@ -675,6 +675,13 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
             this.changelogFile = changelogFile;
             this.pollingBaseline = pollingBaseline;
         }
+        // TODO replace with Run.XSTREAM2.addCriticalField(SCMCheckout.class, "scm") when not @Restricted(NoExternalUse.class)
+        private Object readResolve() {
+            if (scm == null) {
+                throw new IllegalStateException("Unloadable scm field");
+            }
+            return this;
+        }
     }
 
     private static final class Owner extends FlowExecutionOwner {
