@@ -25,6 +25,7 @@
 package org.jenkinsci.plugins.workflow.job;
 
 import hudson.AbortException;
+import hudson.BulkChange;
 import hudson.Extension;
 import hudson.ExtensionList;
 import hudson.FilePath;
@@ -89,6 +90,7 @@ import net.sf.json.JSONObject;
 import org.acegisecurity.Authentication;
 import org.jenkinsci.plugins.workflow.flow.FlowDefinition;
 import org.jenkinsci.plugins.workflow.flow.FlowDefinitionDescriptor;
+import org.jenkinsci.plugins.workflow.job.properties.WorkflowConcurrentBuildJobProperty;
 import org.kohsuke.accmod.Restricted;
 import org.kohsuke.accmod.restrictions.DoNotUse;
 import org.kohsuke.stapler.QueryParameter;
@@ -106,7 +108,7 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements B
     @SuppressWarnings("deprecation")
     private hudson.model.BuildAuthorizationToken authToken;
     private transient LazyBuildMixIn<WorkflowJob,WorkflowRun> buildMixIn;
-    /** defaults to true */
+    /** @deprecated replaced by {@link WorkflowConcurrentBuildJobProperty} defaults to true */
     private @CheckForNull Boolean concurrentBuild;
     /**
      * Map from {@link SCM#getKey} to last version we encountered during polling.
@@ -185,7 +187,6 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements B
         for (Trigger t : triggers) {
             t.start(this, true);
         }
-        concurrentBuild = json.optBoolean("concurrentBuild") ? null : false;
     }
     
     @Override public boolean isBuildable() {
@@ -339,12 +340,24 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements B
 
     @Exported
     @Override public boolean isConcurrentBuild() {
-        return !Boolean.FALSE.equals(concurrentBuild);
+        WorkflowConcurrentBuildJobProperty p = getProperty(WorkflowConcurrentBuildJobProperty.class);
+        if (p != null) {
+            return p.getConcurrentBuild();
+        } else {
+            /* settings compatibility */
+            return !Boolean.FALSE.equals(concurrentBuild);
+        }
     }
     
     public void setConcurrentBuild(boolean b) throws IOException {
-        concurrentBuild = b ? null : false;
-        save();
+        BulkChange bc = new BulkChange(this);
+        try {
+            removeProperty(WorkflowConcurrentBuildJobProperty.class);
+            addProperty(new WorkflowConcurrentBuildJobProperty(b));
+            bc.commit();
+        } finally {
+            bc.abort();
+        }
     }
 
     @Override public ACL getACL() {
