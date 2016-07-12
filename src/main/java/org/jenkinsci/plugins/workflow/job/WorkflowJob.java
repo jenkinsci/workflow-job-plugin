@@ -74,6 +74,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -91,6 +92,7 @@ import org.acegisecurity.Authentication;
 import org.jenkinsci.plugins.workflow.flow.FlowDefinition;
 import org.jenkinsci.plugins.workflow.flow.FlowDefinitionDescriptor;
 import org.jenkinsci.plugins.workflow.job.properties.DisableConcurrentBuildsJobProperty;
+import org.jenkinsci.plugins.workflow.job.properties.WorkflowTriggersJobProperty;
 import org.kohsuke.accmod.Restricted;
 import org.kohsuke.accmod.restrictions.DoNotUse;
 import org.kohsuke.stapler.QueryParameter;
@@ -103,6 +105,7 @@ import org.kohsuke.stapler.interceptor.RequirePOST;
 public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements BuildableItem, LazyBuildMixIn.LazyLoadingJob<WorkflowJob,WorkflowRun>, ParameterizedJobMixIn.ParameterizedJob, TopLevelItem, Queue.FlyweightTask, SCMTriggerItem {
 
     private FlowDefinition definition;
+    /** @deprecated - use {@link WorkflowTriggersJobProperty} */
     private DescribableList<Trigger<?>,TriggerDescriptor> triggers = new DescribableList<Trigger<?>,TriggerDescriptor>(this);
     private volatile Integer quietPeriod;
     @SuppressWarnings("deprecation")
@@ -132,13 +135,14 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements B
             buildMixIn = createBuildMixIn();
         }
         buildMixIn.onLoad(parent, name);
-        if (triggers == null) {
-            triggers = new DescribableList<Trigger<?>,TriggerDescriptor>(this);
-        } else {
-            triggers.setOwner(this);
+        if (triggers != null) {
+            setTriggers(triggers.toList());
         }
-        for (Trigger t : triggers) {
-            t.start(this, Items.currentlyUpdatingByXml());
+        // Since we would have already started them in setTriggers...
+        else {
+            for (Trigger t : getTriggersJobProperty().getTriggers()) {
+                t.start(this, Items.currentlyUpdatingByXml());
+            }
         }
         if (concurrentBuild != null) {
             setConcurrentBuild(concurrentBuild);
@@ -178,7 +182,7 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements B
         JSONObject json = req.getSubmittedForm();
         definition = req.bindJSON(FlowDefinition.class, json.getJSONObject("definition"));
         authToken = hudson.model.BuildAuthorizationToken.create(req);
-        for (Trigger t : triggers) {
+        for (Trigger t : getTriggersJobProperty().getTriggers()) {
             t.stop();
         }
         if (req.getParameter("hasCustomQuietPeriod") != null) {
@@ -186,8 +190,8 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements B
         } else {
             quietPeriod = null;
         }
-        triggers.rebuild(req, json, Trigger.for_(this));
-        for (Trigger t : triggers) {
+
+        for (Trigger t : getTriggersJobProperty().getTriggers()) {
             t.start(this, true);
         }
     }
@@ -437,24 +441,76 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements B
     }
 
     @Override public Map<TriggerDescriptor, Trigger<?>> getTriggers() {
-        return triggers.toMap();
+        WorkflowTriggersJobProperty triggerProp = getTriggersJobProperty();
+        if (triggerProp != null) {
+            return triggerProp.getTriggersMap();
+        } else {
+            return new HashMap<>();
+        }
     }
 
-    public void addTrigger(Trigger trigger) {
-        Trigger old = triggers.get(trigger.getDescriptor());
-        if (old != null) {
-            old.stop();
-            triggers.remove(old);
+    private WorkflowTriggersJobProperty getTriggersJobProperty() {
+        return getProperty(WorkflowTriggersJobProperty.class);
+    }
+
+    public void setTriggers(List<Trigger<?>> inputTriggers) throws IOException {
+        triggers = null;
+        BulkChange bc = new BulkChange(this);
+        try {
+            WorkflowTriggersJobProperty originalProp = getTriggersJobProperty();
+
+            removeProperty(WorkflowTriggersJobProperty.class);
+
+            WorkflowTriggersJobProperty triggerProp = new WorkflowTriggersJobProperty(inputTriggers);
+
+            addProperty(triggerProp);
+            bc.commit();
+
+            for (Trigger t : originalProp.getTriggers()) {
+                t.stop();
+            }
+
+            for (Trigger t2 : triggerProp.getTriggers()) {
+                t2.start(this, true);
+            }
+        } finally {
+            bc.abort();
         }
-        triggers.add(trigger);
-        trigger.start(this, true);
+    }
+
+    public void addTrigger(Trigger trigger) throws IOException {
+        BulkChange bc = new BulkChange(this);
+        try {
+            WorkflowTriggersJobProperty originalProp = getTriggersJobProperty();
+
+            Trigger old = originalProp.getTriggerForDescriptor(trigger.getDescriptor());
+            if (old != null) {
+                originalProp.removeTrigger(old);
+            }
+            originalProp.addTrigger(trigger);
+
+            removeProperty(WorkflowTriggersJobProperty.class);
+
+            addProperty(originalProp);
+            bc.commit();
+
+            if (old != null) {
+                old.stop();
+            }
+            trigger.start(this, true);
+        } finally {
+            bc.abort();
+        }
     }
 
     @SuppressWarnings("deprecation")
     @Override public List<Action> getActions() {
         List<Action> actions = new ArrayList<Action>(super.getActions());
-        for (Trigger<?> trigger : triggers) {
-            actions.addAll(trigger.getProjectActions());
+        WorkflowTriggersJobProperty triggerProp = getTriggersJobProperty();
+        if (triggerProp != null) {
+            for (Trigger<?> trigger : triggerProp.getTriggers()) {
+                actions.addAll(trigger.getProjectActions());
+            }
         }
         return actions;
     }
@@ -483,7 +539,7 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements B
     }
 
     @Override public SCMTrigger getSCMTrigger() {
-        return triggers.get(SCMTrigger.class);
+        return (SCMTrigger) getTriggers().get(SCMTrigger.DescriptorImpl.class);
     }
 
     @Override public Collection<? extends SCM> getSCMs() {
