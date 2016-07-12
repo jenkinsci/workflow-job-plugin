@@ -74,13 +74,13 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import javax.annotation.CheckForNull;
 import javax.servlet.ServletException;
+
 import jenkins.model.Jenkins;
 import jenkins.model.ParameterizedJobMixIn;
 import jenkins.model.lazy.LazyBuildMixIn;
@@ -342,7 +342,7 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements B
     @Override public boolean isConcurrentBuild() {
         WorkflowConcurrentBuildJobProperty p = getProperty(WorkflowConcurrentBuildJobProperty.class);
         if (p != null) {
-            return p.getConcurrentBuild();
+            return p.getAllowConcurrentBuilds();
         } else {
             /* settings compatibility */
             return !Boolean.FALSE.equals(concurrentBuild);

@@ -25,7 +25,9 @@ package org.jenkinsci.plugins.workflow.job.properties;
 
 import hudson.Extension;
 import hudson.model.JobPropertyDescriptor;
+import org.jenkinsci.Symbol;
 import org.jenkinsci.plugins.workflow.job.WorkflowJobProperty;
+import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.export.Exported;
 import org.kohsuke.stapler.export.ExportedBean;
 
@@ -37,22 +39,24 @@ import javax.annotation.CheckForNull;
 @ExportedBean
 public class WorkflowConcurrentBuildJobProperty extends WorkflowJobProperty {
     /** Defaults to true */
-    private @CheckForNull Boolean concurrentBuild;
+    private @CheckForNull Boolean allowConcurrentBuilds;
 
+    @DataBoundConstructor
     public WorkflowConcurrentBuildJobProperty(boolean b) {
-        this.concurrentBuild = b ? null : false;
+        this.allowConcurrentBuilds = b ? null : false;
     }
 
     @Exported
-    public synchronized Boolean getConcurrentBuild() {
-        return concurrentBuild;
+    public synchronized Boolean getAllowConcurrentBuilds() {
+        return allowConcurrentBuilds;
     }
 
-    synchronized void setConcurrentBuild(boolean b) {
-        this.concurrentBuild = b ? null : false;
+    synchronized void setAllowConcurrentBuilds(boolean b) {
+        this.allowConcurrentBuilds = b ? null : false;
     }
 
     @Extension
+    @Symbol("concurrentBuildProperty")
     public static class DescriptorImpl extends JobPropertyDescriptor {
 
         @Override public String getDisplayName() {
