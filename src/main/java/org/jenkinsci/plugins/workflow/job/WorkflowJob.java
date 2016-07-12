@@ -108,7 +108,7 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements B
     @SuppressWarnings("deprecation")
     private hudson.model.BuildAuthorizationToken authToken;
     private transient LazyBuildMixIn<WorkflowJob,WorkflowRun> buildMixIn;
-    /** @deprecated replaced by {@link WorkflowConcurrentBuildJobProperty} defaults to true */
+    /** @deprecated replaced by {@link WorkflowConcurrentBuildJobProperty} */
     private @CheckForNull Boolean concurrentBuild;
     /**
      * Map from {@link SCM#getKey} to last version we encountered during polling.
@@ -342,7 +342,7 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements B
     @Override public boolean isConcurrentBuild() {
         WorkflowConcurrentBuildJobProperty p = getProperty(WorkflowConcurrentBuildJobProperty.class);
         if (p != null) {
-            return p.getAllowConcurrentBuilds();
+            return false;
         } else {
             /* settings compatibility */
             return !Boolean.FALSE.equals(concurrentBuild);
@@ -353,7 +353,9 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements B
         BulkChange bc = new BulkChange(this);
         try {
             removeProperty(WorkflowConcurrentBuildJobProperty.class);
-            addProperty(new WorkflowConcurrentBuildJobProperty(b));
+            if (!b) {
+                addProperty(new WorkflowConcurrentBuildJobProperty());
+            }
             bc.commit();
         } finally {
             bc.abort();

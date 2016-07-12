@@ -25,39 +25,25 @@ package org.jenkinsci.plugins.workflow.job.properties;
 
 import hudson.Extension;
 import hudson.model.JobPropertyDescriptor;
+import jenkins.model.OptionalJobProperty;
 import org.jenkinsci.Symbol;
-import org.jenkinsci.plugins.workflow.job.WorkflowJobProperty;
+import org.jenkinsci.plugins.workflow.job.WorkflowJob;
 import org.kohsuke.stapler.DataBoundConstructor;
-import org.kohsuke.stapler.export.Exported;
 import org.kohsuke.stapler.export.ExportedBean;
 
-import javax.annotation.CheckForNull;
-
 /**
- * {@link WorkflowJobProperty} for setting whether a job should allow concurrent builds.
+ * {@link OptionalJobProperty} for setting whether a job should allow concurrent builds.
  */
 @ExportedBean
-public class WorkflowConcurrentBuildJobProperty extends WorkflowJobProperty {
-    /** Defaults to true */
-    private @CheckForNull Boolean allowConcurrentBuilds;
+public class WorkflowConcurrentBuildJobProperty extends OptionalJobProperty<WorkflowJob> {
 
     @DataBoundConstructor
-    public WorkflowConcurrentBuildJobProperty(boolean b) {
-        this.allowConcurrentBuilds = b ? null : false;
-    }
-
-    @Exported
-    public synchronized Boolean getAllowConcurrentBuilds() {
-        return allowConcurrentBuilds;
-    }
-
-    synchronized void setAllowConcurrentBuilds(boolean b) {
-        this.allowConcurrentBuilds = b ? null : false;
+    public WorkflowConcurrentBuildJobProperty() {
     }
 
     @Extension
     @Symbol("concurrentBuildProperty")
-    public static class DescriptorImpl extends JobPropertyDescriptor {
+    public static class DescriptorImpl extends OptionalJobPropertyDescriptor {
 
         @Override public String getDisplayName() {
             return "Execute concurrent builds if necessary";
