@@ -140,6 +140,9 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements B
         for (Trigger t : triggers) {
             t.start(this, Items.currentlyUpdatingByXml());
         }
+        if (concurrentBuild != null) {
+            setConcurrentBuild(concurrentBuild);
+        }
     }
 
     private LazyBuildMixIn<WorkflowJob,WorkflowRun> createBuildMixIn() {
@@ -348,8 +351,13 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements B
             return !Boolean.FALSE.equals(concurrentBuild);
         }
     }
-    
+
+    /**
+     * @deprecated since 2.4.
+     */
+    @Deprecated
     public void setConcurrentBuild(boolean b) throws IOException {
+        concurrentBuild = null;
         BulkChange bc = new BulkChange(this);
         try {
             removeProperty(WorkflowConcurrentBuildJobProperty.class);

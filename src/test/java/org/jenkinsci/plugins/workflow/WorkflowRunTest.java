@@ -56,6 +56,7 @@ import org.jenkinsci.plugins.workflow.graph.FlowGraphWalker;
 import org.jenkinsci.plugins.workflow.graph.FlowNode;
 import org.jenkinsci.plugins.workflow.job.WorkflowJob;
 import org.jenkinsci.plugins.workflow.job.WorkflowRun;
+import org.jenkinsci.plugins.workflow.job.properties.WorkflowConcurrentBuildJobProperty;
 import org.jenkinsci.plugins.workflow.test.steps.SemaphoreStep;
 import static org.junit.Assert.*;
 import org.junit.ClassRule;
@@ -276,4 +277,21 @@ public class WorkflowRunTest {
         assertEquals(Collections.emptyList(), iba.getCauses());
     }
 
+    @Issue("JENKINS-34547")
+    @LocalData
+    @Test public void concurrentBuildsMigrationOnByDefault() throws Exception {
+        WorkflowJob p = r.jenkins.getItemByFullName("p", WorkflowJob.class);
+        assertNotNull(p);
+        assertNull(p.getProperty(WorkflowConcurrentBuildJobProperty.class));
+        assertTrue(p.isConcurrentBuild());
+    }
+
+    @Issue("JENKINS-34547")
+    @LocalData
+    @Test public void concurrentBuildsMigrationFromFalse() throws Exception {
+        WorkflowJob p = r.jenkins.getItemByFullName("p", WorkflowJob.class);
+        assertNotNull(p);
+        assertNotNull(p.getProperty(WorkflowConcurrentBuildJobProperty.class));
+        assertFalse(p.isConcurrentBuild());
+    }
 }
