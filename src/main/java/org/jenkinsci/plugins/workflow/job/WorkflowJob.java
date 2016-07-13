@@ -349,12 +349,12 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements B
     public void setConcurrentBuild(boolean b) throws IOException {
         concurrentBuild = null;
 
-        boolean propertyExists = getProperty(DisableConcurrentBuildsJobProperty.class) == null;
+        boolean propertyExists = getProperty(DisableConcurrentBuildsJobProperty.class) != null;
 
         // If the property exists, concurrent builds are disabled. So if the argument here is true and the
         // property exists, we need to remove the property, while if the argument is false and the property
         // does not exist, we need to add the property. Yay for flipping boolean values around!
-        if (propertyExists != b) {
+        if (propertyExists == b) {
             BulkChange bc = new BulkChange(this);
             try {
                 removeProperty(DisableConcurrentBuildsJobProperty.class);
