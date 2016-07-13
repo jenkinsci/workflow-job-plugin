@@ -551,7 +551,8 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements B
     }
 
     @Override public SCMTrigger getSCMTrigger() {
-        return (SCMTrigger) getTriggers().get(SCMTrigger.DescriptorImpl.class);
+        // TODO: This seems fairly weird to me and I'm not 100% sure why it works.
+        return (SCMTrigger) getTriggers().get(getDescriptorByName("SCMTrigger"));
     }
 
     @Override public Collection<? extends SCM> getSCMs() {
