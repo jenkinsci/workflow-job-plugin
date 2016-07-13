@@ -24,7 +24,6 @@
 package org.jenkinsci.plugins.workflow.job.properties;
 
 import hudson.Extension;
-import hudson.model.JobPropertyDescriptor;
 import jenkins.model.OptionalJobProperty;
 import org.jenkinsci.Symbol;
 import org.jenkinsci.plugins.workflow.job.WorkflowJob;
@@ -35,18 +34,18 @@ import org.kohsuke.stapler.export.ExportedBean;
  * {@link OptionalJobProperty} for setting whether a job should allow concurrent builds.
  */
 @ExportedBean
-public class WorkflowConcurrentBuildJobProperty extends OptionalJobProperty<WorkflowJob> {
+public class DisableConcurrentBuildsJobProperty extends OptionalJobProperty<WorkflowJob> {
 
     @DataBoundConstructor
-    public WorkflowConcurrentBuildJobProperty() {
+    public DisableConcurrentBuildsJobProperty() {
     }
 
     @Extension
-    @Symbol("concurrentBuildProperty")
+    @Symbol("disableConcurrentBuilds")
     public static class DescriptorImpl extends OptionalJobPropertyDescriptor {
 
         @Override public String getDisplayName() {
-            return "Execute concurrent builds if necessary";
+            return "Do not allow concurrent builds";
         }
 
     }
