@@ -459,15 +459,19 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements B
         try {
             WorkflowTriggersJobProperty originalProp = getTriggersJobProperty();
 
-            removeProperty(WorkflowTriggersJobProperty.class);
+            if (originalProp != null) {
+                removeProperty(WorkflowTriggersJobProperty.class);
+            }
 
             WorkflowTriggersJobProperty triggerProp = new WorkflowTriggersJobProperty(inputTriggers);
 
             addProperty(triggerProp);
             bc.commit();
 
-            for (Trigger t : originalProp.getTriggers()) {
-                t.stop();
+            if (originalProp != null) {
+                for (Trigger t : originalProp.getTriggers()) {
+                    t.stop();
+                }
             }
 
             for (Trigger t2 : triggerProp.getTriggers()) {
