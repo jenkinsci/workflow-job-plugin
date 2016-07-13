@@ -43,11 +43,11 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-public class WorkflowTriggersJobProperty extends JobProperty<WorkflowJob> {
+public class PipelineTriggersJobProperty extends JobProperty<WorkflowJob> {
     private List<Trigger<?>> triggers;
 
     @DataBoundConstructor
-    public WorkflowTriggersJobProperty(List<Trigger<?>> triggers) {
+    public PipelineTriggersJobProperty(List<Trigger<?>> triggers) {
         this.triggers = triggers;
     }
 
@@ -95,12 +95,12 @@ public class WorkflowTriggersJobProperty extends JobProperty<WorkflowJob> {
 
     @CheckForNull
     @Override
-    public WorkflowTriggersJobProperty reconfigure(@Nonnull StaplerRequest req, @CheckForNull JSONObject form) throws Descriptor.FormException {
-        WorkflowTriggersJobProperty thisProp;
+    public PipelineTriggersJobProperty reconfigure(@Nonnull StaplerRequest req, @CheckForNull JSONObject form) throws Descriptor.FormException {
+        PipelineTriggersJobProperty thisProp;
 
         // TODO: See if we actually need to check this or can assume it's always non-null
         if (form != null) {
-            thisProp = (WorkflowTriggersJobProperty)getDescriptor().newInstance(req, form);
+            thisProp = (PipelineTriggersJobProperty)getDescriptor().newInstance(req, form);
         } else {
             thisProp = this;
         }

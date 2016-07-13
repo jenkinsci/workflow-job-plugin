@@ -92,7 +92,7 @@ import org.acegisecurity.Authentication;
 import org.jenkinsci.plugins.workflow.flow.FlowDefinition;
 import org.jenkinsci.plugins.workflow.flow.FlowDefinitionDescriptor;
 import org.jenkinsci.plugins.workflow.job.properties.DisableConcurrentBuildsJobProperty;
-import org.jenkinsci.plugins.workflow.job.properties.WorkflowTriggersJobProperty;
+import org.jenkinsci.plugins.workflow.job.properties.PipelineTriggersJobProperty;
 import org.kohsuke.accmod.Restricted;
 import org.kohsuke.accmod.restrictions.DoNotUse;
 import org.kohsuke.stapler.QueryParameter;
@@ -105,7 +105,7 @@ import org.kohsuke.stapler.interceptor.RequirePOST;
 public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements BuildableItem, LazyBuildMixIn.LazyLoadingJob<WorkflowJob,WorkflowRun>, ParameterizedJobMixIn.ParameterizedJob, TopLevelItem, Queue.FlyweightTask, SCMTriggerItem {
 
     private FlowDefinition definition;
-    /** @deprecated - use {@link WorkflowTriggersJobProperty} */
+    /** @deprecated - use {@link PipelineTriggersJobProperty} */
     private DescribableList<Trigger<?>,TriggerDescriptor> triggers = new DescribableList<Trigger<?>,TriggerDescriptor>(this);
     private volatile Integer quietPeriod;
     @SuppressWarnings("deprecation")
@@ -182,7 +182,7 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements B
         JSONObject json = req.getSubmittedForm();
         definition = req.bindJSON(FlowDefinition.class, json.getJSONObject("definition"));
         authToken = hudson.model.BuildAuthorizationToken.create(req);
-        WorkflowTriggersJobProperty triggerProp = getTriggersJobProperty();
+        PipelineTriggersJobProperty triggerProp = getTriggersJobProperty();
         if (triggerProp != null) {
             for (Trigger t : triggerProp.getTriggers()) {
                 t.stop();
@@ -446,7 +446,7 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements B
     }
 
     @Override public Map<TriggerDescriptor, Trigger<?>> getTriggers() {
-        WorkflowTriggersJobProperty triggerProp = getTriggersJobProperty();
+        PipelineTriggersJobProperty triggerProp = getTriggersJobProperty();
         if (triggerProp != null) {
             return triggerProp.getTriggersMap();
         } else {
@@ -454,21 +454,21 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements B
         }
     }
 
-    private WorkflowTriggersJobProperty getTriggersJobProperty() {
-        return getProperty(WorkflowTriggersJobProperty.class);
+    private PipelineTriggersJobProperty getTriggersJobProperty() {
+        return getProperty(PipelineTriggersJobProperty.class);
     }
 
     public void setTriggers(List<Trigger<?>> inputTriggers) throws IOException {
         triggers = null;
         BulkChange bc = new BulkChange(this);
         try {
-            WorkflowTriggersJobProperty originalProp = getTriggersJobProperty();
+            PipelineTriggersJobProperty originalProp = getTriggersJobProperty();
 
             if (originalProp != null) {
-                removeProperty(WorkflowTriggersJobProperty.class);
+                removeProperty(PipelineTriggersJobProperty.class);
             }
 
-            WorkflowTriggersJobProperty triggerProp = new WorkflowTriggersJobProperty(inputTriggers);
+            PipelineTriggersJobProperty triggerProp = new PipelineTriggersJobProperty(inputTriggers);
 
             addProperty(triggerProp);
             bc.commit();
@@ -490,7 +490,7 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements B
     public void addTrigger(Trigger trigger) throws IOException {
         BulkChange bc = new BulkChange(this);
         try {
-            WorkflowTriggersJobProperty originalProp = getTriggersJobProperty();
+            PipelineTriggersJobProperty originalProp = getTriggersJobProperty();
             Trigger old = null;
             if (originalProp != null) {
                 old = originalProp.getTriggerForDescriptor(trigger.getDescriptor());
@@ -498,9 +498,9 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements B
                     originalProp.removeTrigger(old);
                 }
                 originalProp.addTrigger(trigger);
-                removeProperty(WorkflowTriggersJobProperty.class);
+                removeProperty(PipelineTriggersJobProperty.class);
             } else {
-                originalProp = new WorkflowTriggersJobProperty(Collections.<Trigger<?>>singletonList(trigger));
+                originalProp = new PipelineTriggersJobProperty(Collections.<Trigger<?>>singletonList(trigger));
             }
 
             addProperty(originalProp);
@@ -518,7 +518,7 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements B
     @SuppressWarnings("deprecation")
     @Override public List<Action> getActions() {
         List<Action> actions = new ArrayList<Action>(super.getActions());
-        WorkflowTriggersJobProperty triggerProp = getTriggersJobProperty();
+        PipelineTriggersJobProperty triggerProp = getTriggersJobProperty();
         if (triggerProp != null) {
             for (Trigger<?> trigger : triggerProp.getTriggers()) {
                 actions.addAll(trigger.getProjectActions());
