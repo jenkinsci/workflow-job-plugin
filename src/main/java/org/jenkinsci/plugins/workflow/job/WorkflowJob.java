@@ -140,7 +140,7 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements B
         for (Trigger t : triggers) {
             t.start(this, Items.currentlyUpdatingByXml());
         }
-        if (concurrentBuild != null && !concurrentBuild) {
+        if (concurrentBuild != null) {
             setConcurrentBuild(concurrentBuild);
         }
     }
@@ -343,26 +343,28 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements B
 
     @Exported
     @Override public boolean isConcurrentBuild() {
-        DisableConcurrentBuildsJobProperty p = getProperty(DisableConcurrentBuildsJobProperty.class);
-        if (p != null) {
-            return false;
-        } else {
-            /* settings compatibility */
-            return !Boolean.FALSE.equals(concurrentBuild);
-        }
+        return getProperty(DisableConcurrentBuildsJobProperty.class) == null;
     }
 
     public void setConcurrentBuild(boolean b) throws IOException {
         concurrentBuild = null;
-        BulkChange bc = new BulkChange(this);
-        try {
-            removeProperty(DisableConcurrentBuildsJobProperty.class);
-            if (!b) {
-                addProperty(new DisableConcurrentBuildsJobProperty());
+
+        boolean propertyExists = getProperty(DisableConcurrentBuildsJobProperty.class) == null;
+
+        // If the property exists, concurrent builds are disabled. So if the argument here is true and the
+        // property exists, we need to remove the property, while if the argument is false and the property
+        // does not exist, we need to add the property. Yay for flipping boolean values around!
+        if (propertyExists != b) {
+            BulkChange bc = new BulkChange(this);
+            try {
+                removeProperty(DisableConcurrentBuildsJobProperty.class);
+                if (!b) {
+                    addProperty(new DisableConcurrentBuildsJobProperty());
+                }
+                bc.commit();
+            } finally {
+                bc.abort();
             }
-            bc.commit();
-        } finally {
-            bc.abort();
         }
     }
 
