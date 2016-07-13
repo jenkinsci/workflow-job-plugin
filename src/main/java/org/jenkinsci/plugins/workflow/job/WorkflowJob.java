@@ -182,8 +182,11 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements B
         JSONObject json = req.getSubmittedForm();
         definition = req.bindJSON(FlowDefinition.class, json.getJSONObject("definition"));
         authToken = hudson.model.BuildAuthorizationToken.create(req);
-        for (Trigger t : getTriggersJobProperty().getTriggers()) {
-            t.stop();
+        WorkflowTriggersJobProperty triggerProp = getTriggersJobProperty();
+        if (triggerProp != null) {
+            for (Trigger t : triggerProp.getTriggers()) {
+                t.stop();
+            }
         }
         if (req.getParameter("hasCustomQuietPeriod") != null) {
             quietPeriod = Integer.parseInt(req.getParameter("quiet_period"));
@@ -191,8 +194,10 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements B
             quietPeriod = null;
         }
 
-        for (Trigger t : getTriggersJobProperty().getTriggers()) {
-            t.start(this, true);
+        if (triggerProp != null) {
+            for (Trigger t : triggerProp.getTriggers()) {
+                t.start(this, true);
+            }
         }
     }
     
@@ -486,14 +491,17 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements B
         BulkChange bc = new BulkChange(this);
         try {
             WorkflowTriggersJobProperty originalProp = getTriggersJobProperty();
-
-            Trigger old = originalProp.getTriggerForDescriptor(trigger.getDescriptor());
-            if (old != null) {
-                originalProp.removeTrigger(old);
+            Trigger old = null;
+            if (originalProp != null) {
+                old = originalProp.getTriggerForDescriptor(trigger.getDescriptor());
+                if (old != null) {
+                    originalProp.removeTrigger(old);
+                }
+                originalProp.addTrigger(trigger);
+                removeProperty(WorkflowTriggersJobProperty.class);
+            } else {
+                originalProp = new WorkflowTriggersJobProperty(Collections.<Trigger<?>>singletonList(trigger));
             }
-            originalProp.addTrigger(trigger);
-
-            removeProperty(WorkflowTriggersJobProperty.class);
 
             addProperty(originalProp);
             bc.commit();
