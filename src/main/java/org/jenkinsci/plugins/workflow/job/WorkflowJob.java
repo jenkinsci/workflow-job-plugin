@@ -434,12 +434,7 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements B
     }
 
     @Override public Map<TriggerDescriptor, Trigger<?>> getTriggers() {
-        PipelineTriggersJobProperty triggerProp = getTriggersJobProperty();
-        if (triggerProp != null) {
-            return triggerProp.getTriggersMap();
-        } else {
-            return new HashMap<>();
-        }
+        return getTriggersJobProperty().getTriggersMap();
     }
 
     public PipelineTriggersJobProperty getTriggersJobProperty() {
