@@ -31,8 +31,10 @@ import hudson.model.Descriptor;
 import hudson.model.Items;
 import hudson.model.JobProperty;
 import hudson.model.JobPropertyDescriptor;
+import hudson.model.Saveable;
 import hudson.triggers.Trigger;
 import hudson.triggers.TriggerDescriptor;
+import hudson.util.DescribableList;
 import jenkins.model.TransientActionFactory;
 import net.sf.json.JSONObject;
 import org.jenkinsci.Symbol;
@@ -42,6 +44,7 @@ import org.kohsuke.stapler.StaplerRequest;
 
 import javax.annotation.CheckForNull;
 import javax.annotation.Nonnull;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -49,7 +52,7 @@ import java.util.List;
 import java.util.Map;
 
 public class PipelineTriggersJobProperty extends JobProperty<WorkflowJob> {
-    private List<Trigger<?>> triggers;
+    private List<Trigger<?>> triggers = new ArrayList<>();
 
     @DataBoundConstructor
     public PipelineTriggersJobProperty(List<Trigger<?>> triggers) {
@@ -85,7 +88,7 @@ public class PipelineTriggersJobProperty extends JobProperty<WorkflowJob> {
     }
 
     public void startTriggers(boolean newInstance) {
-        for (Trigger trigger: triggers) {
+        for (Trigger trigger : triggers) {
             trigger.start(owner, newInstance);
         }
     }
@@ -130,14 +133,16 @@ public class PipelineTriggersJobProperty extends JobProperty<WorkflowJob> {
     @CheckForNull
     @Override
     public PipelineTriggersJobProperty reconfigure(@Nonnull StaplerRequest req, @CheckForNull JSONObject form) throws Descriptor.FormException {
-        PipelineTriggersJobProperty thisProp;
-
-        // TODO: See if we actually need to check this or can assume it's always non-null
-        if (form != null) {
-            thisProp = (PipelineTriggersJobProperty)getDescriptor().newInstance(req, form);
-        } else {
-            thisProp = this;
+        DescribableList<Trigger<?>,TriggerDescriptor> trigList = new DescribableList<>(Saveable.NOOP);
+        try {
+            trigList.rebuild(req, form, Trigger.for_(owner));
+        } catch (IOException e) {
+            // TODO: Not sure what form field would make sense here?
+            throw new Descriptor.FormException(e, null);
         }
+
+        PipelineTriggersJobProperty thisProp = new PipelineTriggersJobProperty(new ArrayList<>(trigList.toList()));
+        thisProp.setOwner(owner);
 
         this.stopTrigggers();
 
