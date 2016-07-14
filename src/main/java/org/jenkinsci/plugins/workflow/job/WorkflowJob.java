@@ -131,16 +131,19 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements B
 
     @Override public void onLoad(ItemGroup<? extends Item> parent, String name) throws IOException {
         super.onLoad(parent, name);
+
         if (buildMixIn == null) {
             buildMixIn = createBuildMixIn();
         }
         buildMixIn.onLoad(parent, name);
-        if (triggers != null) {
+        if (triggers != null && !triggers.isEmpty()) {
             setTriggers(triggers.toList());
         }
         if (concurrentBuild != null) {
             setConcurrentBuild(concurrentBuild);
         }
+
+        getTriggersJobProperty().startTriggers(Items.currentlyUpdatingByXml());
     }
 
     private LazyBuildMixIn<WorkflowJob,WorkflowRun> createBuildMixIn() {
@@ -176,17 +179,12 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements B
         JSONObject json = req.getSubmittedForm();
         definition = req.bindJSON(FlowDefinition.class, json.getJSONObject("definition"));
         authToken = hudson.model.BuildAuthorizationToken.create(req);
-        PipelineTriggersJobProperty triggerProp = getTriggersJobProperty();
-
-        triggerProp.stopTrigggers();
 
         if (req.getParameter("hasCustomQuietPeriod") != null) {
             quietPeriod = Integer.parseInt(req.getParameter("quiet_period"));
         } else {
             quietPeriod = null;
         }
-
-        triggerProp.startTriggers(true);
     }
     
     @Override public boolean isBuildable() {
@@ -475,6 +473,7 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements B
             Trigger old = originalProp.getTriggerForDescriptor(trigger.getDescriptor());
             if (old != null) {
                 originalProp.removeTrigger(old);
+                old.stop();
             }
 
             originalProp.addTrigger(trigger);
@@ -482,12 +481,6 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements B
 
             addProperty(originalProp);
             bc.commit();
-
-            // TODO: decide whether to just explicitly stop/start the specific trigger or stop/start all
-            // triggers beforehand.
-            if (old != null) {
-                old.stop();
-            }
             trigger.start(this, true);
         } finally {
             bc.abort();

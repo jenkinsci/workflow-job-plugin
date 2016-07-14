@@ -128,13 +128,6 @@ public class PipelineTriggersJobProperty extends JobProperty<WorkflowJob> {
         return triggerActions;
     }
 
-    @Override
-    public void setOwner(WorkflowJob owner) {
-        this.owner = owner;
-
-        startTriggers(Items.currentlyUpdatingByXml());
-    }
-
     @CheckForNull
     @Override
     public PipelineTriggersJobProperty reconfigure(@Nonnull StaplerRequest req, @CheckForNull JSONObject form) throws Descriptor.FormException {
@@ -146,10 +139,10 @@ public class PipelineTriggersJobProperty extends JobProperty<WorkflowJob> {
             throw new Descriptor.FormException(e, null);
         }
 
+        this.stopTrigggers();
+
         PipelineTriggersJobProperty thisProp = new PipelineTriggersJobProperty(new ArrayList<>(trigList.toList()));
         thisProp.setOwner(owner);
-
-        this.stopTrigggers();
 
         thisProp.startTriggers(true);
 
