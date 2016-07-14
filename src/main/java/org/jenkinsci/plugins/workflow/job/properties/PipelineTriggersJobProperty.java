@@ -56,7 +56,12 @@ public class PipelineTriggersJobProperty extends JobProperty<WorkflowJob> {
 
     @DataBoundConstructor
     public PipelineTriggersJobProperty(List<Trigger<?>> triggers) {
-        this.triggers = triggers;
+        // Defensive handling of when we get called via {@code Descriptor.newInstance} with no form data.
+        if (triggers == null) {
+            this.triggers = new ArrayList<>();
+        } else {
+            this.triggers = triggers;
+        }
     }
 
     public void setTriggers(List<Trigger<?>> triggers) {

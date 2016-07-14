@@ -441,7 +441,7 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements B
         PipelineTriggersJobProperty triggerProp = getProperty(PipelineTriggersJobProperty.class);
 
         if (triggerProp == null) {
-            triggerProp = new PipelineTriggersJobProperty(Collections.<Trigger<?>>emptyList());
+            triggerProp = new PipelineTriggersJobProperty(new ArrayList<Trigger<?>>());
         }
 
         return triggerProp;
@@ -476,6 +476,7 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements B
             if (old != null) {
                 originalProp.removeTrigger(old);
             }
+
             originalProp.addTrigger(trigger);
             removeProperty(PipelineTriggersJobProperty.class);
 
