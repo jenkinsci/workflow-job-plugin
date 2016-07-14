@@ -26,11 +26,14 @@
 package org.jenkinsci.plugins.workflow.job.properties;
 
 import hudson.Extension;
+import hudson.model.Action;
 import hudson.model.Descriptor;
+import hudson.model.Items;
 import hudson.model.JobProperty;
 import hudson.model.JobPropertyDescriptor;
 import hudson.triggers.Trigger;
 import hudson.triggers.TriggerDescriptor;
+import jenkins.model.TransientActionFactory;
 import net.sf.json.JSONObject;
 import org.jenkinsci.Symbol;
 import org.jenkinsci.plugins.workflow.job.WorkflowJob;
@@ -39,6 +42,8 @@ import org.kohsuke.stapler.StaplerRequest;
 
 import javax.annotation.CheckForNull;
 import javax.annotation.Nonnull;
+import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -73,6 +78,18 @@ public class PipelineTriggersJobProperty extends JobProperty<WorkflowJob> {
         return null;
     }
 
+    public void stopTrigggers() {
+        for (Trigger trigger : triggers) {
+            trigger.stop();
+        }
+    }
+
+    public void startTriggers(boolean newInstance) {
+        for (Trigger trigger: triggers) {
+            trigger.start(owner, newInstance);
+        }
+    }
+
     public void removeTrigger(Trigger t) {
         // TODO: Will we get equality for trigger instances of the same Descriptor?
         Trigger toRemove = getTriggerForDescriptor(t.getDescriptor());
@@ -93,6 +110,23 @@ public class PipelineTriggersJobProperty extends JobProperty<WorkflowJob> {
         return triggerMap;
     }
 
+    public List<Action> getAllTriggerActions() {
+        List<Action> triggerActions = new ArrayList<>();
+
+        for (Trigger<?> t : triggers) {
+            triggerActions.addAll(t.getProjectActions());
+        }
+
+        return triggerActions;
+    }
+
+    @Override
+    public void setOwner(WorkflowJob owner) {
+        this.owner = owner;
+
+        startTriggers(Items.currentlyUpdatingByXml());
+    }
+
     @CheckForNull
     @Override
     public PipelineTriggersJobProperty reconfigure(@Nonnull StaplerRequest req, @CheckForNull JSONObject form) throws Descriptor.FormException {
@@ -105,13 +139,9 @@ public class PipelineTriggersJobProperty extends JobProperty<WorkflowJob> {
             thisProp = this;
         }
 
-        for (Trigger t : triggers) {
-            t.stop();
-        }
+        this.stopTrigggers();
 
-        for (Trigger t2 : thisProp.getTriggers()) {
-            t2.start(owner, true);
-        }
+        thisProp.startTriggers(true);
 
         return thisProp;
     }
@@ -124,6 +154,21 @@ public class PipelineTriggersJobProperty extends JobProperty<WorkflowJob> {
         public String getDisplayName() {
             return "Build triggers";
         }
+    }
+
+    @Extension
+    public static class Factory extends TransientActionFactory<WorkflowJob> {
+
+        @Override
+        public Class<WorkflowJob> type() {
+            return WorkflowJob.class;
+        }
+
+        @Override
+        public @Nonnull Collection<? extends Action> createFor(@Nonnull WorkflowJob job) {
+            return job.getTriggersJobProperty().getAllTriggerActions();
+        }
+
     }
 
 }

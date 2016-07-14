@@ -138,12 +138,6 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements B
         if (triggers != null) {
             setTriggers(triggers.toList());
         }
-        // Since we would have already started them in setTriggers...
-        else {
-            for (Trigger t : getTriggersJobProperty().getTriggers()) {
-                t.start(this, Items.currentlyUpdatingByXml());
-            }
-        }
         if (concurrentBuild != null) {
             setConcurrentBuild(concurrentBuild);
         }
@@ -183,22 +177,16 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements B
         definition = req.bindJSON(FlowDefinition.class, json.getJSONObject("definition"));
         authToken = hudson.model.BuildAuthorizationToken.create(req);
         PipelineTriggersJobProperty triggerProp = getTriggersJobProperty();
-        if (triggerProp != null) {
-            for (Trigger t : triggerProp.getTriggers()) {
-                t.stop();
-            }
-        }
+
+        triggerProp.stopTrigggers();
+
         if (req.getParameter("hasCustomQuietPeriod") != null) {
             quietPeriod = Integer.parseInt(req.getParameter("quiet_period"));
         } else {
             quietPeriod = null;
         }
 
-        if (triggerProp != null) {
-            for (Trigger t : triggerProp.getTriggers()) {
-                t.start(this, true);
-            }
-        }
+        triggerProp.startTriggers(true);
     }
     
     @Override public boolean isBuildable() {
@@ -454,8 +442,14 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements B
         }
     }
 
-    private PipelineTriggersJobProperty getTriggersJobProperty() {
-        return getProperty(PipelineTriggersJobProperty.class);
+    public PipelineTriggersJobProperty getTriggersJobProperty() {
+        PipelineTriggersJobProperty triggerProp = getProperty(PipelineTriggersJobProperty.class);
+
+        if (triggerProp == null) {
+            triggerProp = new PipelineTriggersJobProperty(Collections.<Trigger<?>>emptyList());
+        }
+
+        return triggerProp;
     }
 
     public void setTriggers(List<Trigger<?>> inputTriggers) throws IOException {
@@ -464,24 +458,16 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements B
         try {
             PipelineTriggersJobProperty originalProp = getTriggersJobProperty();
 
-            if (originalProp != null) {
-                removeProperty(PipelineTriggersJobProperty.class);
-            }
+            removeProperty(PipelineTriggersJobProperty.class);
 
             PipelineTriggersJobProperty triggerProp = new PipelineTriggersJobProperty(inputTriggers);
 
             addProperty(triggerProp);
             bc.commit();
 
-            if (originalProp != null) {
-                for (Trigger t : originalProp.getTriggers()) {
-                    t.stop();
-                }
-            }
+            originalProp.stopTrigggers();
 
-            for (Trigger t2 : triggerProp.getTriggers()) {
-                t2.start(this, true);
-            }
+            triggerProp.startTriggers(true);
         } finally {
             bc.abort();
         }
@@ -491,21 +477,18 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements B
         BulkChange bc = new BulkChange(this);
         try {
             PipelineTriggersJobProperty originalProp = getTriggersJobProperty();
-            Trigger old = null;
-            if (originalProp != null) {
-                old = originalProp.getTriggerForDescriptor(trigger.getDescriptor());
-                if (old != null) {
-                    originalProp.removeTrigger(old);
-                }
-                originalProp.addTrigger(trigger);
-                removeProperty(PipelineTriggersJobProperty.class);
-            } else {
-                originalProp = new PipelineTriggersJobProperty(Collections.<Trigger<?>>singletonList(trigger));
+            Trigger old = originalProp.getTriggerForDescriptor(trigger.getDescriptor());
+            if (old != null) {
+                originalProp.removeTrigger(old);
             }
+            originalProp.addTrigger(trigger);
+            removeProperty(PipelineTriggersJobProperty.class);
 
             addProperty(originalProp);
             bc.commit();
 
+            // TODO: decide whether to just explicitly stop/start the specific trigger or stop/start all
+            // triggers beforehand.
             if (old != null) {
                 old.stop();
             }
@@ -513,18 +496,6 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements B
         } finally {
             bc.abort();
         }
-    }
-
-    @SuppressWarnings("deprecation")
-    @Override public List<Action> getActions() {
-        List<Action> actions = new ArrayList<Action>(super.getActions());
-        PipelineTriggersJobProperty triggerProp = getTriggersJobProperty();
-        if (triggerProp != null) {
-            for (Trigger<?> trigger : triggerProp.getTriggers()) {
-                actions.addAll(trigger.getProjectActions());
-            }
-        }
-        return actions;
     }
 
     @Override
@@ -551,8 +522,13 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements B
     }
 
     @Override public SCMTrigger getSCMTrigger() {
-        // TODO: This seems fairly weird to me and I'm not 100% sure why it works.
-        return (SCMTrigger) getTriggers().get(getDescriptorByName("SCMTrigger"));
+        for (Trigger t : getTriggersJobProperty().getTriggers()) {
+            if (t instanceof SCMTrigger) {
+                return (SCMTrigger) t;
+            }
+        }
+
+        return null;
     }
 
     @Override public Collection<? extends SCM> getSCMs() {
