@@ -25,23 +25,22 @@
  */
 package org.jenkinsci.plugins.workflow.properties;
 
+import hudson.diagnosis.OldDataMonitor;
 import hudson.model.Item;
 import hudson.model.Items;
+import hudson.model.Saveable;
 import hudson.triggers.TimerTrigger;
 import hudson.triggers.Trigger;
-import hudson.triggers.TriggerDescriptor;
 import org.jenkinsci.plugins.workflow.job.WorkflowJob;
 import org.jenkinsci.plugins.workflow.job.properties.PipelineTriggersJobProperty;
+import org.junit.After;
 import org.junit.ClassRule;
 import org.junit.Rule;
 import org.junit.Test;
 import org.jvnet.hudson.test.BuildWatcher;
 import org.jvnet.hudson.test.JenkinsRule;
-import org.jvnet.hudson.test.TestExtension;
 import org.jvnet.hudson.test.recipes.LocalData;
-import org.kohsuke.stapler.DataBoundConstructor;
 
-import java.io.ObjectStreamException;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -56,6 +55,15 @@ public class PipelineTriggersJobPropertyTest {
     @Rule
     public JenkinsRule r = new JenkinsRule();
 
+    /**
+     * Needed to ensure that we get a fresh {@code startsAndStops} with each test run. Has to be *after* rather than
+     * *before* to avoid weird ordering issues with {@code @LocalData}.
+     */
+    @After
+    public void resetStartsAndStops() {
+        MockTrigger.startsAndStops = new ArrayList<>();
+    }
+
     @Test
     public void loadCallsStartFalse() throws Exception {
         WorkflowJob p = r.jenkins.createProject(WorkflowJob.class, "p");
@@ -63,10 +71,13 @@ public class PipelineTriggersJobPropertyTest {
         p.addTrigger(t);
         p.save();
         p = (WorkflowJob) Items.load(p.getParent(), p.getRootDir());
-        t = (MockTrigger)p.getTriggers().get(t.getDescriptor());
+        t = (MockTrigger) p.getTriggers().get(t.getDescriptor());
         assertNotNull(t);
-        assertEquals("[false]", t.calls.toString());
-        assertTrue(t.isStarted);
+        // The  first "null, false" is due to the p.addTrigger(t) call and won't apply in the real world.
+        assertEquals("[null, false, null, false]", MockTrigger.startsAndStops.toString());
+        Boolean currentStatus = t.currentStatus();
+        assertNotNull(currentStatus);
+        assertFalse(currentStatus);
     }
 
     @Test
@@ -75,11 +86,14 @@ public class PipelineTriggersJobPropertyTest {
         MockTrigger t = new MockTrigger();
         p.addTrigger(t);
         p.save();
-        p = (WorkflowJob) r.configRoundtrip((Item)p);
-        t = (MockTrigger)p.getTriggers().get(t.getDescriptor());
+        p = (WorkflowJob) r.configRoundtrip((Item) p);
+        t = (MockTrigger) p.getTriggers().get(t.getDescriptor());
         assertNotNull(t);
-        assertEquals("[true]", t.calls.toString());
-        assertTrue(t.isStarted);
+        // The  first "null, false" is due to the p.addTrigger(t) call and won't apply in the real world.
+        assertEquals("[null, false, null, true]", MockTrigger.startsAndStops.toString());
+        Boolean currentStatus = t.currentStatus();
+        assertNotNull(currentStatus);
+        assertTrue(currentStatus);
     }
 
     @Test
@@ -88,7 +102,6 @@ public class PipelineTriggersJobPropertyTest {
         MockTrigger t = new MockTrigger();
         p.addTrigger(t);
         p.save();
-        assertTrue(t.isStarted);
         MockTrigger t2 = new MockTrigger();
         p.addTrigger(t2);
         p.save();
@@ -105,14 +118,26 @@ public class PipelineTriggersJobPropertyTest {
 
         PipelineTriggersJobProperty triggerProp = p.getProperty(PipelineTriggersJobProperty.class);
         assertNotNull(triggerProp);
-        assertEquals(1, triggerProp.getTriggers().size());
-        assertEquals(1, p.getTriggers().size());
 
-        Trigger fromProp = triggerProp.getTriggers().get(0);
-        assertEquals(TimerTrigger.class, fromProp.getClass());
+        assertEquals(2, triggerProp.getTriggers().size());
+        assertEquals(2, p.getTriggers().size());
 
-        Trigger fromJob = p.getTriggers().get(fromProp.getDescriptor());
-        assertEquals(fromProp, fromJob);
+        Trigger timerFromProp = getTriggerFromList(TimerTrigger.class, triggerProp.getTriggers());
+        assertNotNull(timerFromProp);
+        assertEquals(TimerTrigger.class, timerFromProp.getClass());
+
+        Trigger timerFromJob = p.getTriggers().get(timerFromProp.getDescriptor());
+        assertEquals(timerFromProp, timerFromJob);
+
+        Trigger mockFromProp = getTriggerFromList(MockTrigger.class, triggerProp.getTriggers());
+        assertNotNull(mockFromProp);
+        assertEquals(MockTrigger.class, mockFromProp.getClass());
+
+        Trigger mockFromJob = p.getTriggers().get(mockFromProp.getDescriptor());
+        assertEquals(mockFromProp, mockFromJob);
+
+        assertNotNull(((MockTrigger)mockFromProp).currentStatus());
+        assertEquals("[null, false, null, false, null, false]", MockTrigger.startsAndStops.toString());
     }
 
     @Test
@@ -136,42 +161,22 @@ public class PipelineTriggersJobPropertyTest {
         List<Trigger<?>> modTriggers = new ArrayList<>(roundTripWithTrigger.getTriggers().values());
 
         assertEquals(MockTrigger.class, modTriggers.get(0).getClass());
+        assertNotNull(((MockTrigger)modTriggers.get(0)).currentStatus());
+
+        // The  first "null, false" is due to the p.addTrigger(t) call and won't apply in the real world.
+        assertEquals("[null, false, null, true]", MockTrigger.startsAndStops.toString());
     }
 
-    public static class MockTrigger extends Trigger<Item> {
-
-        public transient List<Boolean> calls = new ArrayList<Boolean>();
-        public transient boolean isStarted = false;
-
-        @DataBoundConstructor
-        public MockTrigger() {}
-
-        @Override public void start(Item project, boolean newInstance) {
-            super.start(project, newInstance);
-            calls.add(newInstance);
-            isStarted = true;
-        }
-
-        @Override public void stop() {
-            super.stop();
-            isStarted = false;
-        }
-
-        @Override protected Object readResolve() throws ObjectStreamException {
-            calls = new ArrayList<Boolean>();
-            return super.readResolve();
-        }
-
-        @TestExtension
-        public static class DescriptorImpl extends TriggerDescriptor {
-
-            @Override public boolean isApplicable(Item item) {
-                return true;
+    private <T extends Trigger> T getTriggerFromList(Class<T> clazz, List<Trigger<?>> triggers) {
+        for (Trigger t : triggers) {
+            if (clazz.isInstance(t)) {
+                return clazz.cast(t);
             }
-
         }
-    }
 
+        return null;
+    }
 }
+
 
 

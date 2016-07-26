@@ -142,6 +142,7 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements B
             setConcurrentBuild(concurrentBuild);
         }
 
+        getTriggersJobProperty().stopTriggers();
         getTriggersJobProperty().startTriggers(Items.currentlyUpdatingByXml());
     }
 
@@ -466,7 +467,7 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements B
 
             originalProp.stopTriggers();
 
-            triggerProp.startTriggers(Items.currentlyUpdatingByXml());
+            // No longer need to start triggers here - that's done by when we add the property.
         } finally {
             bc.abort();
         }
@@ -487,10 +488,19 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements B
 
             addProperty(originalProp);
             bc.commit();
-            trigger.start(this, true);
         } finally {
             bc.abort();
         }
+    }
+
+    @Override
+    public void removeProperty(JobProperty jobProperty) throws IOException {
+        // Need to make sure we stop any triggers.
+        if (jobProperty instanceof PipelineTriggersJobProperty) {
+            ((PipelineTriggersJobProperty)jobProperty).stopTriggers();
+        }
+
+        super.removeProperty(jobProperty);
     }
 
     @Override
