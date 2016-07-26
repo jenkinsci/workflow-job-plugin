@@ -185,7 +185,14 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements B
             quietPeriod = null;
         }
     }
-    
+
+
+    @Override public void addProperty(JobProperty jobProp) throws IOException {
+        super.addProperty(jobProp);
+        getTriggersJobProperty().stopTriggers();
+        getTriggersJobProperty().startTriggers(Items.currentlyUpdatingByXml());
+    }
+
     @Override public boolean isBuildable() {
         return true; // why not?
     }
