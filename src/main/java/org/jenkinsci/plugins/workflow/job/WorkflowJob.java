@@ -74,7 +74,6 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -458,9 +457,9 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements B
             addProperty(triggerProp);
             bc.commit();
 
-            originalProp.stopTrigggers();
+            originalProp.stopTriggers();
 
-            triggerProp.startTriggers(true);
+            triggerProp.startTriggers(Items.currentlyUpdatingByXml());
         } finally {
             bc.abort();
         }

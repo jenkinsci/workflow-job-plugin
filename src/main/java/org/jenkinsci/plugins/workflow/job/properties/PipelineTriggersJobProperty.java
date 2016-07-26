@@ -28,7 +28,6 @@ package org.jenkinsci.plugins.workflow.job.properties;
 import hudson.Extension;
 import hudson.model.Action;
 import hudson.model.Descriptor;
-import hudson.model.Items;
 import hudson.model.JobProperty;
 import hudson.model.JobPropertyDescriptor;
 import hudson.model.Saveable;
@@ -86,7 +85,7 @@ public class PipelineTriggersJobProperty extends JobProperty<WorkflowJob> {
         return null;
     }
 
-    public void stopTrigggers() {
+    public void stopTriggers() {
         for (Trigger trigger : triggers) {
             trigger.stop();
         }
@@ -139,7 +138,7 @@ public class PipelineTriggersJobProperty extends JobProperty<WorkflowJob> {
             throw new Descriptor.FormException(e, null);
         }
 
-        this.stopTrigggers();
+        this.stopTriggers();
 
         PipelineTriggersJobProperty thisProp = new PipelineTriggersJobProperty(new ArrayList<>(trigList.toList()));
         thisProp.setOwner(owner);
