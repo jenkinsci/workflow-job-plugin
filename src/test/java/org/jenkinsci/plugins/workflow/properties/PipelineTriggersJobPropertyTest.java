@@ -50,7 +50,6 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 
-// TODO: Actually add the tests. Will do shortly - got distracted.
 public class PipelineTriggersJobPropertyTest {
     @ClassRule
     public static BuildWatcher buildWatcher = new BuildWatcher();
