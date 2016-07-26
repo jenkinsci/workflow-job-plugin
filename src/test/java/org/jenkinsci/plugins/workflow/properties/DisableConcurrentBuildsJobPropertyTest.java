@@ -75,9 +75,10 @@ public class DisableConcurrentBuildsJobPropertyTest {
         assertTrue(roundTripDefault.isConcurrentBuild());
 
         WorkflowJob disabledCase = r.jenkins.createProject(WorkflowJob.class, "disableCase");
-        assertTrue(disabledCase.isConcurrentBuild());
+        disabledCase.setConcurrentBuild(false);
+        assertFalse(disabledCase.isConcurrentBuild());
 
         WorkflowJob roundTripDisabled = r.configRoundtrip(disabledCase);
-        assertTrue(roundTripDisabled.isConcurrentBuild());
+        assertFalse(roundTripDisabled.isConcurrentBuild());
     }
 }
