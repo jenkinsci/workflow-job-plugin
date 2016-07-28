@@ -91,6 +91,7 @@ import org.acegisecurity.Authentication;
 import org.jenkinsci.plugins.workflow.flow.FlowDefinition;
 import org.jenkinsci.plugins.workflow.flow.FlowDefinitionDescriptor;
 import org.jenkinsci.plugins.workflow.job.properties.DisableConcurrentBuildsJobProperty;
+import org.jenkinsci.plugins.workflow.job.properties.PipelineTriggersJobProperty;
 import org.kohsuke.accmod.Restricted;
 import org.kohsuke.accmod.restrictions.DoNotUse;
 import org.kohsuke.stapler.QueryParameter;
@@ -103,6 +104,7 @@ import org.kohsuke.stapler.interceptor.RequirePOST;
 public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements BuildableItem, LazyBuildMixIn.LazyLoadingJob<WorkflowJob,WorkflowRun>, ParameterizedJobMixIn.ParameterizedJob, TopLevelItem, Queue.FlyweightTask, SCMTriggerItem {
 
     private FlowDefinition definition;
+    /** @deprecated - use {@link PipelineTriggersJobProperty} */
     private DescribableList<Trigger<?>,TriggerDescriptor> triggers = new DescribableList<Trigger<?>,TriggerDescriptor>(this);
     private volatile Integer quietPeriod;
     @SuppressWarnings("deprecation")
@@ -128,21 +130,20 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements B
 
     @Override public void onLoad(ItemGroup<? extends Item> parent, String name) throws IOException {
         super.onLoad(parent, name);
+
         if (buildMixIn == null) {
             buildMixIn = createBuildMixIn();
         }
         buildMixIn.onLoad(parent, name);
-        if (triggers == null) {
-            triggers = new DescribableList<Trigger<?>,TriggerDescriptor>(this);
-        } else {
-            triggers.setOwner(this);
-        }
-        for (Trigger t : triggers) {
-            t.start(this, Items.currentlyUpdatingByXml());
+        if (triggers != null && !triggers.isEmpty()) {
+            setTriggers(triggers.toList());
         }
         if (concurrentBuild != null) {
             setConcurrentBuild(concurrentBuild);
         }
+
+        getTriggersJobProperty().stopTriggers();
+        getTriggersJobProperty().startTriggers(Items.currentlyUpdatingByXml());
     }
 
     private LazyBuildMixIn<WorkflowJob,WorkflowRun> createBuildMixIn() {
@@ -178,20 +179,21 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements B
         JSONObject json = req.getSubmittedForm();
         definition = req.bindJSON(FlowDefinition.class, json.getJSONObject("definition"));
         authToken = hudson.model.BuildAuthorizationToken.create(req);
-        for (Trigger t : triggers) {
-            t.stop();
-        }
+
         if (req.getParameter("hasCustomQuietPeriod") != null) {
             quietPeriod = Integer.parseInt(req.getParameter("quiet_period"));
         } else {
             quietPeriod = null;
         }
-        triggers.rebuild(req, json, Trigger.for_(this));
-        for (Trigger t : triggers) {
-            t.start(this, true);
-        }
     }
-    
+
+
+    @Override public void addProperty(JobProperty jobProp) throws IOException {
+        super.addProperty(jobProp);
+        getTriggersJobProperty().stopTriggers();
+        getTriggersJobProperty().startTriggers(Items.currentlyUpdatingByXml());
+    }
+
     @Override public boolean isBuildable() {
         return true; // why not?
     }
@@ -437,26 +439,68 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements B
     }
 
     @Override public Map<TriggerDescriptor, Trigger<?>> getTriggers() {
-        return triggers.toMap();
+        return getTriggersJobProperty().getTriggersMap();
     }
 
-    public void addTrigger(Trigger trigger) {
-        Trigger old = triggers.get(trigger.getDescriptor());
-        if (old != null) {
-            old.stop();
-            triggers.remove(old);
+    public PipelineTriggersJobProperty getTriggersJobProperty() {
+        PipelineTriggersJobProperty triggerProp = getProperty(PipelineTriggersJobProperty.class);
+
+        if (triggerProp == null) {
+            triggerProp = new PipelineTriggersJobProperty(new ArrayList<Trigger<?>>());
         }
-        triggers.add(trigger);
-        trigger.start(this, true);
+
+        return triggerProp;
     }
 
-    @SuppressWarnings("deprecation")
-    @Override public List<Action> getActions() {
-        List<Action> actions = new ArrayList<Action>(super.getActions());
-        for (Trigger<?> trigger : triggers) {
-            actions.addAll(trigger.getProjectActions());
+    public void setTriggers(List<Trigger<?>> inputTriggers) throws IOException {
+        triggers = null;
+        BulkChange bc = new BulkChange(this);
+        try {
+            PipelineTriggersJobProperty originalProp = getTriggersJobProperty();
+
+            removeProperty(PipelineTriggersJobProperty.class);
+
+            PipelineTriggersJobProperty triggerProp = new PipelineTriggersJobProperty(inputTriggers);
+
+            addProperty(triggerProp);
+            bc.commit();
+
+            originalProp.stopTriggers();
+
+            // No longer need to start triggers here - that's done by when we add the property.
+        } finally {
+            bc.abort();
         }
-        return actions;
+    }
+
+    public void addTrigger(Trigger trigger) throws IOException {
+        BulkChange bc = new BulkChange(this);
+        try {
+            PipelineTriggersJobProperty originalProp = getTriggersJobProperty();
+            Trigger old = originalProp.getTriggerForDescriptor(trigger.getDescriptor());
+            if (old != null) {
+                originalProp.removeTrigger(old);
+                old.stop();
+            }
+
+            originalProp.addTrigger(trigger);
+            removeProperty(PipelineTriggersJobProperty.class);
+
+            addProperty(originalProp);
+            bc.commit();
+        } finally {
+            bc.abort();
+        }
+    }
+
+    @Override
+    public void removeProperty(JobProperty jobProperty) throws IOException {
+        // Need to make sure we stop any triggers.
+        if (jobProperty instanceof PipelineTriggersJobProperty) {
+            ((PipelineTriggersJobProperty)jobProperty).stopTriggers();
+        }
+
+        super.removeProperty(jobProperty);
     }
 
     @Override
@@ -483,7 +527,13 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements B
     }
 
     @Override public SCMTrigger getSCMTrigger() {
-        return triggers.get(SCMTrigger.class);
+        for (Trigger t : getTriggersJobProperty().getTriggers()) {
+            if (t instanceof SCMTrigger) {
+                return (SCMTrigger) t;
+            }
+        }
+
+        return null;
     }
 
     @Override public Collection<? extends SCM> getSCMs() {

@@ -24,9 +24,11 @@
   ~ THE SOFTWARE.
   -->
 
-<j:jelly xmlns:j="jelly:core" xmlns:f="/lib/form" xmlns:p="/lib/hudson/project">
+<j:jelly xmlns:j="jelly:core" xmlns:st="jelly:stapler" xmlns:f="/lib/form" xmlns:p="/lib/hudson/project">
     <p:config-quietPeriod/>
-    <p:config-trigger/>
+
+    <!-- pseudo-trigger to configure URL to trigger builds remotely. -->
+    <st:include page="/hudson/model/BuildAuthorizationToken/config.jelly" />
 
     <f:section title="${%Advanced Project Options}">
         <f:advanced>
