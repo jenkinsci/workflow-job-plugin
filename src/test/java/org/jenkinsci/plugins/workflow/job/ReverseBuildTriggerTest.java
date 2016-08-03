@@ -22,7 +22,7 @@
  * THE SOFTWARE.
  */
 
-package org.jenkinsci.plugins.workflow;
+package org.jenkinsci.plugins.workflow.job;
 
 import hudson.model.JobProperty;
 import hudson.model.JobPropertyDescriptor;
@@ -48,7 +48,7 @@ public class ReverseBuildTriggerTest {
     @ClassRule public static BuildWatcher buildWatcher = new BuildWatcher();
     @Rule public RestartableJenkinsRule story = new RestartableJenkinsRule();
 
-    @Ignore("TODO fails without https://github.com/jenkinsci/jenkins/pull/2207")
+    @Ignore("TODO fails prior to 1.656")
     @Issue("JENKINS-33971")
     @Test public void upstreamMapRebuilding() throws Exception {
         story.addStep(new Statement() {

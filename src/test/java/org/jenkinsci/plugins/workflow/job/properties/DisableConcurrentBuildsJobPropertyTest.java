@@ -23,7 +23,7 @@
  *
  *
  */
-package org.jenkinsci.plugins.workflow.properties;
+package org.jenkinsci.plugins.workflow.job.properties;
 
 import org.jenkinsci.plugins.workflow.job.WorkflowJob;
 import org.jenkinsci.plugins.workflow.job.properties.DisableConcurrentBuildsJobProperty;

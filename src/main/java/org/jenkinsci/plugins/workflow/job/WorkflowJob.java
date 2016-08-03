@@ -38,7 +38,6 @@ import hudson.model.Cause;
 import hudson.model.Computer;
 import hudson.model.Descriptor;
 import hudson.model.DescriptorVisibilityFilter;
-import hudson.model.Executor;
 import hudson.model.Item;
 import hudson.model.ItemGroup;
 import hudson.model.Items;
@@ -80,6 +79,7 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import javax.annotation.CheckForNull;
 import javax.servlet.ServletException;
+import jenkins.model.BlockedBecauseOfBuildInProgress;
 
 import jenkins.model.Jenkins;
 import jenkins.model.ParameterizedJobMixIn;
@@ -105,7 +105,7 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements B
 
     private FlowDefinition definition;
     /** @deprecated - use {@link PipelineTriggersJobProperty} */
-    private DescribableList<Trigger<?>,TriggerDescriptor> triggers = new DescribableList<Trigger<?>,TriggerDescriptor>(this);
+    private DescribableList<Trigger<?>,TriggerDescriptor> triggers = new DescribableList<>(this);
     private volatile Integer quietPeriod;
     @SuppressWarnings("deprecation")
     private hudson.model.BuildAuthorizationToken authToken;
@@ -319,28 +319,12 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements B
 
     @Override public CauseOfBlockage getCauseOfBlockage() {
         if (isLogUpdated() && !isConcurrentBuild()) {
-            return new BecauseOfBuildInProgress(getLastBuild());
+            WorkflowRun lastBuild = getLastBuild();
+            if (lastBuild != null) {
+                return new BlockedBecauseOfBuildInProgress(lastBuild);
+            } // else race condition, cf. AbstractProject
         }
         return null;
-    }
-    // TODO use BlockedBecauseOfBuildInProgress in 1.624 (and remove Messages.properties in resources)
-    public static class BecauseOfBuildInProgress extends CauseOfBlockage {
-        private final Run<?,?> build;
-
-        public BecauseOfBuildInProgress(Run<?, ?> build) {
-            this.build = build;
-        }
-
-        @Override
-        public String getShortDescription() {
-            Executor e = build.getExecutor();
-            String eta = "";
-            if (e != null) {
-                eta = Messages.BlockedBecauseOfBuildInProgress_ETA(e.getEstimatedRemainingTime());
-            }
-            int lbn = build.getNumber();
-            return Messages.BlockedBecauseOfBuildInProgress_shortDescription(lbn, eta);
-        }
     }
 
     @Exported
@@ -390,7 +374,7 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements B
 
     @Override public Collection<? extends SubTask> getSubTasks() {
         // TODO mostly copied from AbstractProject, except SubTaskContributor is not available:
-        List<SubTask> subTasks = new ArrayList<SubTask>();
+        List<SubTask> subTasks = new ArrayList<>();
         subTasks.add(this);
         for (JobProperty<? super WorkflowJob> p : properties) {
             subTasks.addAll(p.getSubTasks());
@@ -511,7 +495,7 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements B
     @Override
     public void replaceAction(Action a) {
         // CopyOnWriteArrayList does not support Iterator.remove, so need to do it this way:
-        List<Action> old = new ArrayList<Action>(1);
+        List<Action> old = new ArrayList<>(1);
         List<Action> current = super.getActions();
         for (Action a2 : current) {
             if (a2.getClass() == a.getClass()) {
@@ -541,7 +525,7 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements B
         if (b == null) {
             return Collections.emptySet();
         }
-        Map<String,SCM> scms = new LinkedHashMap<String,SCM>();
+        Map<String,SCM> scms = new LinkedHashMap<>();
         for (WorkflowRun.SCMCheckout co : b.checkouts(null)) {
             scms.put(co.scm.getKey(), co.scm);
         }
@@ -573,7 +557,7 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements B
             perhapsCompleteBuild = lastBuild;
         }
         if (pollingBaselines == null) {
-            pollingBaselines = new ConcurrentHashMap<String,SCMRevisionState>();
+            pollingBaselines = new ConcurrentHashMap<>();
         }
         PollingResult result = PollingResult.NO_CHANGES;
         for (WorkflowRun.SCMCheckout co : perhapsCompleteBuild.checkouts(listener)) {
@@ -640,7 +624,7 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements B
             if (build instanceof WorkflowRun && pollingBaseline != null) {
                 WorkflowJob job = ((WorkflowRun) build).getParent();
                 if (job.pollingBaselines == null) {
-                    job.pollingBaselines = new ConcurrentHashMap<String,SCMRevisionState>();
+                    job.pollingBaselines = new ConcurrentHashMap<>();
                 }
                 job.pollingBaselines.put(scm.getKey(), pollingBaseline);
             }
