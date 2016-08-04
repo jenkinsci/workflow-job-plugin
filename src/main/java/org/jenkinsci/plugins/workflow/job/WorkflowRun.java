@@ -78,7 +78,6 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.annotation.CheckForNull;
 import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import javax.annotation.concurrent.GuardedBy;
 import jenkins.model.Jenkins;
 import jenkins.model.lazy.BuildReference;
@@ -115,8 +114,8 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
 
     private static final Logger LOGGER = Logger.getLogger(WorkflowRun.class.getName());
 
-    /** null until started */
-    private @Nullable FlowExecution execution;
+    /** null until started, or after serious failures or hard kill */
+    private @CheckForNull FlowExecution execution;
 
     /**
      * {@link Future} that yields {@link #execution}, when it is fully configured and ready to be exposed.
@@ -231,6 +230,9 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
                 }
                 Timer.get().submit(new Runnable() {
                     @Override public void run() {
+                        if (execution == null) {
+                            return;
+                        }
                         Executor executor = getExecutor();
                         try {
                             execution.interrupt(executor.abortResult());
@@ -243,7 +245,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
                 });
             }
             @Override public boolean blocksRestart() {
-                return execution.blocksRestart();
+                return execution != null && execution.blocksRestart();
             }
             @Override public boolean displayCell() {
                 return blocksRestart();
@@ -288,7 +290,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
     @RequirePOST
     public void doTerm() {
         checkPermission(Item.CANCEL);
-        if (!isInProgress()) {
+        if (!isInProgress() || /* redundant, but make FindBugs happy */ execution == null) {
             return;
         }
         final Throwable x = new FlowInterruptedException(Result.ABORTED);
@@ -316,7 +318,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
     @RequirePOST
     public void doKill() {
         checkPermission(Item.CANCEL);
-        if (!isBuilding()) {
+        if (!isBuilding() || /* probably redundant, but just to be sure */ execution == null) {
             return;
         }
         if (listener != null) {
@@ -342,6 +344,9 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
             String id = entry.getKey();
             FlowNode node;
             try {
+                if (execution == null) {
+                    return; // broken somehow
+                }
                 node = execution.getNode(id);
             } catch (IOException x) {
                 LOGGER.log(Level.WARNING, null, x);
@@ -808,7 +813,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
 
             logNodeMessage(node);
             if (node instanceof FlowEndNode) {
-                finish(((FlowEndNode) node).getResult(), execution.getCauseOfFailure());
+                finish(((FlowEndNode) node).getResult(), execution != null ? execution.getCauseOfFailure() : null);
             } else {
                 try {
                     save();
