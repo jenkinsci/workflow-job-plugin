@@ -35,11 +35,9 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import hudson.AbortException;
 import hudson.Extension;
 import hudson.FilePath;
-import hudson.Main;
 import hudson.XmlFile;
 import hudson.console.AnnotatedLargeText;
 import hudson.console.LineTransformationOutputStream;
-import hudson.model.Computer;
 import hudson.model.Executor;
 import hudson.model.Item;
 import hudson.model.Queue;
@@ -85,6 +83,7 @@ import jenkins.model.lazy.LazyBuildMixIn;
 import jenkins.model.queue.AsynchronousExecution;
 import jenkins.security.NotReallyRoleSensitiveCallable;
 import jenkins.util.Timer;
+import org.jenkinsci.plugins.workflow.FilePathUtils;
 import org.jenkinsci.plugins.workflow.actions.LogAction;
 import org.jenkinsci.plugins.workflow.actions.ThreadNameAction;
 import org.jenkinsci.plugins.workflow.actions.TimingAction;
@@ -154,7 +153,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
     public WorkflowRun(WorkflowJob job) throws IOException {
         super(job);
         firstTime = true;
-        checkouts = new PersistedList<SCMCheckout>(this);
+        checkouts = new PersistedList<>(this);
         //System.err.printf("created %s @%h%n", this, this);
     }
 
@@ -209,7 +208,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
             FlowExecutionList.get().register(owner);
             newExecution.addListener(new GraphL());
             completed = new AtomicBoolean();
-            logsToCopy = new ConcurrentSkipListMap<String,Long>();
+            logsToCopy = new ConcurrentSkipListMap<>();
             execution = newExecution;
             newExecution.start();
             executionPromise.set(newExecution);
@@ -251,7 +250,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
                 return blocksRestart();
             }
         };
-        final AtomicReference<ScheduledFuture<?>> copyLogsTask = new AtomicReference<ScheduledFuture<?>>();
+        final AtomicReference<ScheduledFuture<?>> copyLogsTask = new AtomicReference<>();
         copyLogsTask.set(Timer.get().scheduleAtFixedRate(new Runnable() {
             @Override public void run() {
                 synchronized (completed) {
@@ -337,7 +336,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
             return;
         }
         if (logsToCopy instanceof LinkedHashMap) { // upgrade while build is running
-            logsToCopy = new ConcurrentSkipListMap<String,Long>(logsToCopy);
+            logsToCopy = new ConcurrentSkipListMap<>(logsToCopy);
         }
         boolean modified = false;
         for (Map.Entry<String,Long> entry : logsToCopy.entrySet()) {
@@ -455,7 +454,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
         }
     }
     
-    private static final Map<String,WorkflowRun> LOADING_RUNS = new HashMap<String,WorkflowRun>();
+    private static final Map<String,WorkflowRun> LOADING_RUNS = new HashMap<>();
 
     private String key() {
         return getParent().getFullName() + '/' + getId();
@@ -475,9 +474,6 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
         super.onLoad();
         if (completed != null) {
             throw new IllegalStateException("double onLoad of " + this);
-        } else if (Main.isUnitTest) {
-            // TODO JENKINS-22767: prior to 1.646, occasionally load the same build twice
-            System.err.printf("loading %s @%h%n", this, this);
         }
         if (execution != null) {
             try {
@@ -613,7 +609,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
             if (listener != null) {
                 listener.error("JENKINS-26761: list of SCM checkouts in " + this + " was lost; polling will be broken");
             }
-            checkouts = new PersistedList<SCMCheckout>(this);
+            checkouts = new PersistedList<>(this);
             // Could this.save(), but might pollute diagnosis, and (worse) might clobber real data if there is >1 WorkflowRun with the same ID.
         }
         return checkouts;
@@ -622,7 +618,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
     @Exported
     public synchronized List<ChangeLogSet<? extends ChangeLogSet.Entry>> getChangeSets() {
         if (changeSets == null) {
-            changeSets = new ArrayList<ChangeLogSet<? extends ChangeLogSet.Entry>>();
+            changeSets = new ArrayList<>();
             for (SCMCheckout co : checkouts(null)) {
                 if (co.changelogFile != null && co.changelogFile.isFile()) {
                     try {
@@ -661,12 +657,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
                 l.onChangeLogParsed(this, scm, listener, cls);
             }
         }
-        // TODO JENKINS-26096 prefer a variant returning only Computer.name even if offline
-        Computer computer = workspace.toComputer();
-        if (computer == null) {
-            throw new IllegalStateException();
-        }
-        checkouts(listener).add(new SCMCheckout(scm, computer.getName(), workspace.getRemote(), changelogFile, pollingBaseline));
+        checkouts(listener).add(new SCMCheckout(scm, FilePathUtils.getNodeName(workspace), workspace.getRemote(), changelogFile, pollingBaseline));
     }
 
     static final class SCMCheckout {

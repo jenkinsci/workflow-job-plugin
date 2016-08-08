@@ -70,7 +70,7 @@ public final class FlowGraphAction implements Action {
         if (exec == null) {
             return Collections.emptySet();
         }
-        List<FlowNode> nodes = new ArrayList<FlowNode>();
+        List<FlowNode> nodes = new ArrayList<>();
         FlowGraphWalker walker = new FlowGraphWalker(exec);
         for (FlowNode n : walker) {
             nodes.add(n);

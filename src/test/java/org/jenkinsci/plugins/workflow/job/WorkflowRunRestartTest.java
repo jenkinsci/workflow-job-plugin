@@ -22,7 +22,7 @@
  * THE SOFTWARE.
  */
 
-package org.jenkinsci.plugins.workflow;
+package org.jenkinsci.plugins.workflow.job;
 
 import com.google.inject.Inject;
 import hudson.model.Executor;

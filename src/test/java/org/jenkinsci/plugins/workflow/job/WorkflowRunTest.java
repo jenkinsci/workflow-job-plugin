@@ -22,7 +22,7 @@
  * THE SOFTWARE.
  */
 
-package org.jenkinsci.plugins.workflow;
+package org.jenkinsci.plugins.workflow.job;
 
 import hudson.model.BallColor;
 import hudson.model.Executor;
@@ -77,7 +77,7 @@ public class WorkflowRunTest {
         p.setDefinition(new CpsFlowDefinition("println('hello')"));
         WorkflowRun b1 = r.assertBuildStatusSuccess(p.scheduleBuild2(0));
         assertFalse(b1.isBuilding());
-        // TODO protected (but !building -> !inProgress): assertFalse(b1.isInProgress());
+        assertFalse(b1.isInProgress());
         assertFalse(b1.isLogUpdated());
         assertTrue(b1.getDuration() > 0);
         WorkflowRun b2 = r.assertBuildStatusSuccess(p.scheduleBuild2(0));
@@ -242,7 +242,7 @@ public class WorkflowRunTest {
             FlowExecution exec = b.getExecution();
             assertNotNull(exec);
             FlowGraphWalker w = new FlowGraphWalker(exec);
-            List<String> steps = new ArrayList<String>();
+            List<String> steps = new ArrayList<>();
             for (FlowNode n : w) {
                 if (n instanceof StepNode) {
                     steps.add(((StepNode) n).getDescriptor().getFunctionName());

@@ -23,7 +23,7 @@
  *
  *
  */
-package org.jenkinsci.plugins.workflow.properties;
+package org.jenkinsci.plugins.workflow.job.properties;
 
 import hudson.Extension;
 import hudson.model.BuildableItem;
@@ -38,7 +38,7 @@ import java.util.List;
 public class MockTrigger extends Trigger<BuildableItem> {
 
     /** elements are true or false for {@code start}, null for {@code stop} */
-    public static List<Boolean> startsAndStops = new ArrayList<Boolean>();
+    public static List<Boolean> startsAndStops = new ArrayList<>();
 
     public transient boolean isStarted;
 
