@@ -215,7 +215,13 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
         } catch (Throwable x) {
             execution = null; // ensures isInProgress returns false
             finish(Result.FAILURE, x);
-            executionPromise.setException(x);
+            try {
+                executionPromise.setException(x);
+            } catch (Error e) {
+                if (e != x) { // cf. CpsThread.runNextChunk
+                    throw e;
+                }
+            }
             return;
         }
         throw sleep();
