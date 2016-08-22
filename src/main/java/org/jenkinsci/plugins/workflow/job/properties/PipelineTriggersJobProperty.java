@@ -50,16 +50,19 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+@SuppressWarnings("rawtypes")
 public class PipelineTriggersJobProperty extends JobProperty<WorkflowJob> {
     private List<Trigger<?>> triggers = new ArrayList<>();
 
     @DataBoundConstructor
-    public PipelineTriggersJobProperty(List<Trigger<?>> triggers) {
+    public PipelineTriggersJobProperty(List<Trigger> triggers) {
         // Defensive handling of when we get called via {@code Descriptor.newInstance} with no form data.
         if (triggers == null) {
             this.triggers = new ArrayList<>();
         } else {
-            this.triggers = triggers;
+            for (Trigger t : triggers) {
+                this.triggers.add((Trigger<?>)t);
+            }
         }
     }
 
@@ -140,7 +143,7 @@ public class PipelineTriggersJobProperty extends JobProperty<WorkflowJob> {
 
         this.stopTriggers();
 
-        PipelineTriggersJobProperty thisProp = new PipelineTriggersJobProperty(new ArrayList<>(trigList.toList()));
+        PipelineTriggersJobProperty thisProp = new PipelineTriggersJobProperty(new ArrayList<Trigger>(trigList.toList()));
         thisProp.setOwner(owner);
 
         thisProp.startTriggers(true);
@@ -151,7 +154,6 @@ public class PipelineTriggersJobProperty extends JobProperty<WorkflowJob> {
     @Extension
     @Symbol("pipelineTriggers")
     public static class DescriptorImpl extends JobPropertyDescriptor {
-
         @Override
         public String getDisplayName() {
             return "Build triggers";
