@@ -135,7 +135,10 @@ public class PipelineTriggersJobProperty extends JobProperty<WorkflowJob> {
     public PipelineTriggersJobProperty reconfigure(@Nonnull StaplerRequest req, @CheckForNull JSONObject form) throws Descriptor.FormException {
         DescribableList<Trigger<?>,TriggerDescriptor> trigList = new DescribableList<>(Saveable.NOOP);
         try {
-            JSONObject triggerSection = form.getJSONObject("triggers");
+            JSONObject triggerSection = new JSONObject();
+            if (form != null) {
+                triggerSection = form.getJSONObject("triggers");
+            }
             trigList.rebuild(req, triggerSection, Trigger.for_(owner));
         } catch (IOException e) {
             // TODO: Not sure what form field would make sense here?
