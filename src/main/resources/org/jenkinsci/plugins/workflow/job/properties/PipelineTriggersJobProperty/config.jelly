@@ -37,9 +37,4 @@ THE SOFTWARE.
                       instances="${it.triggers}">
         <d:invokeBody />
     </f:descriptorList>
-    <f:block>
-        <div class="section-header">
-            ${%Other Properties}
-        </div>
-    </f:block>
 </j:jelly>

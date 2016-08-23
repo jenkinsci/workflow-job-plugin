@@ -155,7 +155,7 @@ public class PipelineTriggersJobProperty extends JobProperty<WorkflowJob> {
         return thisProp;
     }
 
-    @Extension
+    @Extension(ordinal = -100)
     @Symbol("pipelineTriggers")
     public static class DescriptorImpl extends JobPropertyDescriptor {
         @Override
