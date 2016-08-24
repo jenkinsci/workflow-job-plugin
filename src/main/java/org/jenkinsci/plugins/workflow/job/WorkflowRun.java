@@ -380,13 +380,13 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
                     }
 
                     try {
-                        long revised = logText.writeRawLogTo(old, logger);
+                        long revised = writeRawLogTo(logText, old, logger);
                         if (revised != old) {
                             logsToCopy.put(id, revised);
                             modified = true;
                         }
                         if (logText.isComplete()) {
-                            logText.writeRawLogTo(revised, logger); // defend against race condition?
+                            writeRawLogTo(logText, revised, logger); // defend against race condition?
                             assert !node.isRunning() : "LargeText.complete yet " + node + " claims to still be running";
                             logsToCopy.remove(id);
                             modified = true;
@@ -412,6 +412,15 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
             } catch (IOException x) {
                 LOGGER.log(Level.WARNING, null, x);
             }
+        }
+    }
+    private long writeRawLogTo(AnnotatedLargeText<?> text, long start, OutputStream out) throws IOException {
+        long len = text.length();
+        if (start > len) {
+            LOGGER.log(Level.WARNING, "JENKINS-37664: attempt to copy logs in {0} @{1} past end @{2}", new Object[] {this, start, len});
+            return len;
+        } else {
+            return text.writeRawLogTo(start, out);
         }
     }
 
