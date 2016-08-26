@@ -50,16 +50,19 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+@SuppressWarnings("rawtypes")
 public class PipelineTriggersJobProperty extends JobProperty<WorkflowJob> {
     private List<Trigger<?>> triggers = new ArrayList<>();
 
     @DataBoundConstructor
-    public PipelineTriggersJobProperty(List<Trigger<?>> triggers) {
+    public PipelineTriggersJobProperty(List<Trigger> triggers) {
         // Defensive handling of when we get called via {@code Descriptor.newInstance} with no form data.
         if (triggers == null) {
             this.triggers = new ArrayList<>();
         } else {
-            this.triggers = triggers;
+            for (Trigger t : triggers) {
+                this.triggers.add((Trigger<?>)t);
+            }
         }
     }
 
@@ -132,7 +135,11 @@ public class PipelineTriggersJobProperty extends JobProperty<WorkflowJob> {
     public PipelineTriggersJobProperty reconfigure(@Nonnull StaplerRequest req, @CheckForNull JSONObject form) throws Descriptor.FormException {
         DescribableList<Trigger<?>,TriggerDescriptor> trigList = new DescribableList<>(Saveable.NOOP);
         try {
-            trigList.rebuild(req, form, Trigger.for_(owner));
+            JSONObject triggerSection = new JSONObject();
+            if (form != null) {
+                triggerSection = form.getJSONObject("triggers");
+            }
+            trigList.rebuild(req, triggerSection, Trigger.for_(owner));
         } catch (IOException e) {
             // TODO: Not sure what form field would make sense here?
             throw new Descriptor.FormException(e, null);
@@ -140,7 +147,7 @@ public class PipelineTriggersJobProperty extends JobProperty<WorkflowJob> {
 
         this.stopTriggers();
 
-        PipelineTriggersJobProperty thisProp = new PipelineTriggersJobProperty(new ArrayList<>(trigList.toList()));
+        PipelineTriggersJobProperty thisProp = new PipelineTriggersJobProperty(new ArrayList<Trigger>(trigList.toList()));
         thisProp.setOwner(owner);
 
         thisProp.startTriggers(true);
@@ -148,10 +155,9 @@ public class PipelineTriggersJobProperty extends JobProperty<WorkflowJob> {
         return thisProp;
     }
 
-    @Extension
+    @Extension(ordinal = -100)
     @Symbol("pipelineTriggers")
     public static class DescriptorImpl extends JobPropertyDescriptor {
-
         @Override
         public String getDisplayName() {
             return "Build triggers";
