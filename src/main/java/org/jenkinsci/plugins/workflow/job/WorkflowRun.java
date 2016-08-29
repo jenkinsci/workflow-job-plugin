@@ -679,7 +679,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
         final SCM scm;
         final String node;
         final String workspace;
-        // TODO make this a String and relativize to Run.rootDir if possible
+        // TODO JENKINS-27704 make this a String and relativize to Run.rootDir if possible
         final @CheckForNull File changelogFile;
         final @CheckForNull SCMRevisionState pollingBaseline;
         SCMCheckout(SCM scm, String node, String workspace, File changelogFile, SCMRevisionState pollingBaseline) {
