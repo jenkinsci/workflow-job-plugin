@@ -285,7 +285,7 @@ public class WorkflowRunTest {
         for (User u : b.getCulprits()) {
             actual.add(u.getId());
         }
-        assertEquals(TreeSet<>(Arrays.asList(expectedIds), actual));
+        assertEquals(new TreeSet<>(Arrays.asList(expectedIds)), actual);
     }
 
     private void updateJenkinsfileWithCommitter(String committerName, String committerEmail, String jenkinsfileText)
