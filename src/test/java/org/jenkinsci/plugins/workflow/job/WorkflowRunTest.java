@@ -290,11 +290,10 @@ public class WorkflowRunTest {
 
     private void updateJenkinsfileWithCommitter(String committerName, String committerEmail, String jenkinsfileText)
             throws Exception {
-        sampleRepo.git("config", "user.name", committerName);
-        sampleRepo.git("config", "user.email", committerEmail);
         sampleRepo.write("Jenkinsfile", jenkinsfileText);
         sampleRepo.git("add", "Jenkinsfile");
-        sampleRepo.git("commit", "--all", "--message=testing");
+        sampleRepo.git("-c", "user.name='" + committerName + "'", "-c", "user.email='" + committerEmail + "'",
+                "commit", "--all", "--message=testing");
     }
 
     @Issue("JENKINS-37872")
