@@ -28,6 +28,7 @@ import com.google.common.base.Optional;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
+import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
@@ -45,12 +46,14 @@ import hudson.model.Result;
 import hudson.model.Run;
 import hudson.model.StreamBuildListener;
 import hudson.model.TaskListener;
+import hudson.model.User;
 import hudson.model.listeners.RunListener;
 import hudson.model.listeners.SCMListener;
 import hudson.scm.ChangeLogSet;
 import hudson.scm.SCM;
 import hudson.scm.SCMRevisionState;
 import hudson.security.ACL;
+import hudson.util.AdaptedIterator;
 import hudson.util.Iterators;
 import hudson.util.NullStream;
 import hudson.util.PersistedList;
@@ -60,12 +63,16 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.io.PrintStream;
 import java.nio.charset.Charset;
+import java.util.AbstractSet;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledFuture;
@@ -149,6 +156,19 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
 
     /** True when first started, false when running after a restart. */
     private transient boolean firstTime;
+
+    /**
+     * Cumulative list of people who contributed to the build problem.
+     *
+     * <p>
+     * This is a list of {@link User#getId() user ids} who made a change
+     * since the last non-broken build. Can be null (which should be
+     * treated like empty set), because of the compatibility.
+     *
+     * <p>
+     * This field is semi-final --- once set the value will never be modified.
+     */
+    private volatile Set<String> culprits;
 
     public WorkflowRun(WorkflowJob job) throws IOException {
         super(job);
@@ -536,6 +556,12 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
 
     /** Handles normal build completion (including errors) but also handles the case that the flow did not even start correctly, for example due to an error in {@link FlowExecution#start}. */
     private void finish(@Nonnull Result r, @CheckForNull Throwable t) {
+        // update the culprit list
+        HashSet<String> culpritUsers = new HashSet<>();
+        for (User u : getCulprits())
+            culpritUsers.add(u.getId());
+        culprits = ImmutableSortedSet.copyOf(culpritUsers);
+
         setResult(r);
         LOGGER.log(Level.INFO, "{0} completed: {1}", new Object[] {this, getResult()});
         // TODO set duration
@@ -648,6 +674,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
                 }
             }
         }
+
         return changeSets;
     }
 
@@ -662,7 +689,57 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
         }
     }
 
+    /**
+     * List of users who committed a change since the last non-broken build till now.
+     *
+     * <p>
+     * This list at least always include people who made changes in this build, but
+     * if the previous build was a failure it also includes the culprit list from there.
+     *
+     * @return
+     *      can be empty but never null.
+     */
+    @Exported
+    public Set<User> getCulprits() {
+        if (culprits==null) {
+            Set<User> r = new HashSet<User>();
+            WorkflowRun p = getPreviousCompletedBuild();
+            if (p !=null && (completed == null || !completed.get())) {
+                Result pr = p.getResult();
+                if (pr!=null && pr.isWorseThan(Result.SUCCESS)) {
+                    // we are still building, so this is just the current latest information,
+                    // but we seems to be failing so far, so inherit culprits from the previous build.
+                    // isBuilding() check is to avoid recursion when loading data from old Hudson, which doesn't record
+                    // this information
+                    r.addAll(p.getCulprits());
+                }
+            }
+            for (ChangeLogSet<? extends ChangeLogSet.Entry> changeLogSet : getChangeSets()) {
+                for (ChangeLogSet.Entry e : changeLogSet) {
+                    r.add(e.getAuthor());
+                }
+            }
+
+            return r;
+        }
+
+        return new AbstractSet<User>() {
+            public Iterator<User> iterator() {
+                return new AdaptedIterator<String,User>(culprits.iterator()) {
+                    protected User adapt(String id) {
+                        return User.get(id);
+                    }
+                };
+            }
+
+            public int size() {
+                return culprits.size();
+            }
+        };
+    }
+
     private void onCheckout(SCM scm, FilePath workspace, TaskListener listener, @CheckForNull File changelogFile, @CheckForNull SCMRevisionState pollingBaseline) throws Exception {
+
         if (changelogFile != null && changelogFile.isFile()) {
             ChangeLogSet<?> cls = scm.createChangeLogParser().parse(this, scm.getEffectiveBrowser(), changelogFile);
             if (!cls.isEmptySet()) {
