@@ -61,6 +61,8 @@ import org.jenkinsci.plugins.workflow.graph.FlowGraphWalker;
 import org.jenkinsci.plugins.workflow.graph.FlowNode;
 import org.jenkinsci.plugins.workflow.test.steps.SemaphoreStep;
 import static org.junit.Assert.*;
+
+import org.junit.Assume;
 import org.junit.ClassRule;
 import org.junit.Rule;
 import org.junit.Test;
@@ -299,6 +301,8 @@ public class WorkflowRunTest {
     @Issue("JENKINS-37872")
     @Test
     public void culprits() throws Exception {
+        // TODO: Eventually change this to override GIT_COMMITTER_NAME etc. For now, skip if that's set.
+        Assume.assumeTrue("GIT_COMMITTER_NAME env var not set", System.getenv("GIT_COMMITTER_NAME") == null);
         WorkflowJob p = r.jenkins.createProject(WorkflowJob.class, "p");
 
         sampleRepo.init();
