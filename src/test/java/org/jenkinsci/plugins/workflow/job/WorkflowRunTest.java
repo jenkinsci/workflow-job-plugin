@@ -39,25 +39,30 @@ import hudson.security.Permission;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Set;
+import java.util.TreeSet;
 import java.util.concurrent.TimeUnit;
 import jenkins.model.CauseOfInterruption;
 import jenkins.model.InterruptedBuildAction;
 import jenkins.model.Jenkins;
+import jenkins.plugins.git.GitSampleRepoRule;
+import jenkins.plugins.git.GitStep;
 import org.apache.commons.io.FileUtils;
 import org.jenkinsci.plugins.scriptsecurity.scripts.ScriptApproval;
 import org.jenkinsci.plugins.workflow.cps.CpsFlowDefinition;
 import org.jenkinsci.plugins.workflow.cps.CpsFlowExecution;
+import org.jenkinsci.plugins.workflow.cps.CpsScmFlowDefinition;
 import org.jenkinsci.plugins.workflow.cps.nodes.StepNode;
 import org.jenkinsci.plugins.workflow.flow.FlowExecution;
 import org.jenkinsci.plugins.workflow.graph.FlowGraphWalker;
 import org.jenkinsci.plugins.workflow.graph.FlowNode;
-import org.jenkinsci.plugins.workflow.job.WorkflowJob;
-import org.jenkinsci.plugins.workflow.job.WorkflowRun;
 import org.jenkinsci.plugins.workflow.test.steps.SemaphoreStep;
 import static org.junit.Assert.*;
+
+import org.junit.Assume;
 import org.junit.ClassRule;
 import org.junit.Rule;
 import org.junit.Test;
@@ -71,6 +76,7 @@ public class WorkflowRunTest {
 
     @ClassRule public static BuildWatcher buildWatcher = new BuildWatcher();
     @Rule public JenkinsRule r = new JenkinsRule();
+    @Rule public GitSampleRepoRule sampleRepo = new GitSampleRepoRule();
 
     @Test public void basics() throws Exception {
         WorkflowJob p = r.jenkins.createProject(WorkflowJob.class, "p");
@@ -274,6 +280,77 @@ public class WorkflowRunTest {
         iba = b2.getAction(InterruptedBuildAction.class);
         assertNotNull(iba);
         assertEquals(Collections.emptyList(), iba.getCauses());
+    }
+
+    private void assertCulprits(WorkflowRun b, String... expectedIds) {
+        Set<String> actual = new TreeSet<>();
+        for (User u : b.getCulprits()) {
+            actual.add(u.getId());
+        }
+        assertEquals(new TreeSet<>(Arrays.asList(expectedIds)), actual);
+    }
+
+    private void updateJenkinsfileWithCommitter(String committerName, String committerEmail, String jenkinsfileText)
+            throws Exception {
+        sampleRepo.write("Jenkinsfile", jenkinsfileText);
+        sampleRepo.git("add", "Jenkinsfile");
+        sampleRepo.git("-c", "user.name='" + committerName + "'", "-c", "user.email='" + committerEmail + "'",
+                "commit", "--all", "--message=testing");
+    }
+
+    @Issue("JENKINS-37872")
+    @Test
+    public void culprits() throws Exception {
+        // TODO: Eventually change this to override GIT_COMMITTER_NAME etc. For now, skip if that's set.
+        Assume.assumeTrue("GIT_COMMITTER_NAME env var not set", System.getenv("GIT_COMMITTER_NAME") == null);
+        WorkflowJob p = r.jenkins.createProject(WorkflowJob.class, "p");
+
+        sampleRepo.init();
+
+        p.setDefinition(new CpsScmFlowDefinition(new GitStep(sampleRepo.toString()).createSCM(), "Jenkinsfile"));
+
+        // 1st build, successful, no culprits. No changesets at all, actually, since it's the first build!
+        updateJenkinsfileWithCommitter("alice", "alice@example.com", "echo 'commit by alice'; echo 'Build successful'");
+        r.assertBuildStatusSuccess(p.scheduleBuild2(0));
+
+        // 2nd build
+        updateJenkinsfileWithCommitter("bob", "bob@example.com", "echo 'commit by bob'; currentBuild.result = 'FAILURE'");
+        WorkflowRun b2 = p.scheduleBuild2(0).waitForStart();
+        r.assertBuildStatus(Result.FAILURE, r.waitForCompletion(b2));
+        assertCulprits(b2, "bob");
+
+        // 3rd build. bob continues to be in culprit
+        updateJenkinsfileWithCommitter("charlie", "charlie@example.com", "echo 'commit by charlie'; currentBuild.result = 'FAILURE'");
+        WorkflowRun b3 = p.scheduleBuild2(0).waitForStart();
+        r.assertBuildStatus(Result.FAILURE, r.waitForCompletion(b3));
+        assertCulprits(b3, "bob", "charlie");
+
+        // 4th build, unstable. culprit list should continue
+        updateJenkinsfileWithCommitter("dave", "dave@example.com", "echo 'commit by dave'; currentBuild.result = 'UNSTABLE'");
+        WorkflowRun b4 = p.scheduleBuild2(0).waitForStart();
+        r.assertBuildStatus(Result.UNSTABLE, r.waitForCompletion(b4));
+        assertCulprits(b4, "bob", "charlie", "dave");
+
+        // 5th build, unstable, just a re-run of the previous one.
+        WorkflowRun b5 = p.scheduleBuild2(0).waitForStart();
+        r.assertBuildStatus(Result.UNSTABLE, r.waitForCompletion(b5));
+        assertCulprits(b5, "bob", "charlie", "dave");
+
+        // 6th build, unstable. culprit list should continue
+        updateJenkinsfileWithCommitter("eve", "eve@example.com", "echo 'commit by eve'; currentBuild.result = 'UNSTABLE'");
+        WorkflowRun b6 = p.scheduleBuild2(0).waitForStart();
+        r.assertBuildStatus(Result.UNSTABLE, r.waitForCompletion(b6));
+        assertCulprits(b6, "bob", "charlie", "dave", "eve");
+
+        // 7th build, success, accumulation continues up to this point
+        updateJenkinsfileWithCommitter("fred", "fred@example.com", "echo 'commit by fred'; echo 'Build successful'");
+        WorkflowRun b7 = r.assertBuildStatusSuccess(p.scheduleBuild2(0));
+        assertCulprits(b7, "bob", "charlie", "dave", "eve", "fred");
+
+        // 8th build, back to culprits just containing who ever committed to this one specific build.
+        updateJenkinsfileWithCommitter("george", "george@example.com", "echo 'commit by george'; echo 'Build successful'");
+        WorkflowRun b8 = r.assertBuildStatusSuccess(p.scheduleBuild2(0));
+        assertCulprits(b8, "george");
     }
 
 }
