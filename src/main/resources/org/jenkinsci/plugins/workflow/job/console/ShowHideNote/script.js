@@ -22,10 +22,18 @@
  * THE SOFTWARE.
  */
 
-// TODO better to have a single link that toggles (requires looking up current state, as below)
-function showHidePipelineSection(id, show) {
+// TODO infer section from the event source perhaps?
+function showHidePipelineSection(id) {
+    var link = document.getElementById('show-hide-' + id)
+    var display
+    if (link.textContent === 'hide') {
+        display = 'none'
+        link.textContent = 'show'
+    } else {
+        display = 'inline'
+        link.textContent = 'hide'
+    }
     var sect = '.pipeline-sect-' + id
-    var display = show ? 'inline' : 'none'
     var ss = document.styleSheets[0]
     for (var i = 0; i < ss.rules.length; i++) {
         if (ss.rules[i].selectorText === sect) {

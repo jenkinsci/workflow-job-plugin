@@ -39,9 +39,10 @@ public class ShowHideNote extends HyperlinkNote {
     private static final Logger LOGGER = Logger.getLogger(ShowHideNote.class.getName());
     private static final long serialVersionUID = 1L;
 
-    public static String encodeTo(String id, boolean show, String text) {
+    public static String create(String id) {
+        String text = "hide";
         try {
-            return new ShowHideNote(id, show, text.length()).encode() + text;
+            return new ShowHideNote(id, text.length()).encode() + text;
         } catch (IOException e) {
             // impossible, but don't make this a fatal problem
             LOGGER.log(Level.WARNING, "Failed to serialize " + ShowHideNote.class, e);
@@ -50,16 +51,14 @@ public class ShowHideNote extends HyperlinkNote {
     }
 
     private final String id;
-    private final boolean show;
 
-    private ShowHideNote(String id, boolean show, int length) {
+    private ShowHideNote(String id, int length) {
         super("#", length);
         this.id = id;
-        this.show = show;
     }
 
     @Override protected String extraAttributes() {
-        return " onclick=\"showHidePipelineSection('" + id + "', " + show + "); return false\"";
+        return " id=\"show-hide-" + id + "\" onclick=\"showHidePipelineSection('" + id + "'); return false\"";
     }
 
     @Extension public static class DescriptorImpl extends ConsoleAnnotationDescriptor {}

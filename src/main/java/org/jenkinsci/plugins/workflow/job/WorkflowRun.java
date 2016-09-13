@@ -885,7 +885,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
         String prefix = getLogPrefix(node);
         String text = node.getDisplayFunctionName();
         if (node instanceof BlockStartNode) {
-            text += " (" + ShowHideNote.encodeTo(node.getId(), true, "show") + "/" + ShowHideNote.encodeTo(node.getId(), false, "hide") + ")";
+            text += " (" + ShowHideNote.create(node.getId()) + ")";
         }
         if (prefix != null) {
             wfLogger.log(String.format("[%s] %s", prefix, text));
