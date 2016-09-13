@@ -24,8 +24,15 @@
 
 // TODO better to have a single link that toggles (requires looking up current state, as below)
 function showHidePipelineSection(id, show) {
+    var sect = '.pipeline-sect-' + id
+    var display = show ? 'inline' : 'none'
     var ss = document.styleSheets[0]
-    // TODO look up any existing rule via .selectorText and change its .style.display
+    for (var i = 0; i < ss.rules.length; i++) {
+        if (ss.rules[i].selectorText === sect) {
+            ss.rules[i].style.display = display
+            return
+        }
+    }
     // TODO order rules, so that hiding and reshowing a high-level section will restore expansion of a lower-level section
-    ss.insertRule('.pipeline-sect-' + id + ' {display: ' + (show ? 'inline' : 'none') + '}', ss.rules.length)
+    ss.insertRule(sect + ' {display: ' + display + '}', ss.rules.length)
 }
