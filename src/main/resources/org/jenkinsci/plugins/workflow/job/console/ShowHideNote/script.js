@@ -22,7 +22,6 @@
  * THE SOFTWARE.
  */
 
-// TODO infer section from the event source perhaps?
 function showHidePipelineSection(link) {
     var id = link.getAttribute('show-hide-id')
     var display
