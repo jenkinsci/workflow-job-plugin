@@ -54,8 +54,6 @@ import org.jenkinsci.plugins.workflow.cps.nodes.StepNode;
 import org.jenkinsci.plugins.workflow.flow.FlowExecution;
 import org.jenkinsci.plugins.workflow.graph.FlowGraphWalker;
 import org.jenkinsci.plugins.workflow.graph.FlowNode;
-import org.jenkinsci.plugins.workflow.job.WorkflowJob;
-import org.jenkinsci.plugins.workflow.job.WorkflowRun;
 import org.jenkinsci.plugins.workflow.test.steps.SemaphoreStep;
 import static org.junit.Assert.*;
 import org.junit.ClassRule;
@@ -274,6 +272,33 @@ public class WorkflowRunTest {
         iba = b2.getAction(InterruptedBuildAction.class);
         assertNotNull(iba);
         assertEquals(Collections.emptyList(), iba.getCauses());
+    }
+
+    @Test
+    @Issue({"JENKINS-26122", "JENKINS-28222"})
+    public void parallelBranchLabels() throws Exception {
+        WorkflowJob p = r.jenkins.createProject(WorkflowJob.class, "p");
+        p.setDefinition(new CpsFlowDefinition(
+            "parallel a: {\n" +
+            "  echo 'a-outside-1'\n" +
+            "  withEnv(['A=1']) {echo 'a-inside-1'}\n" +
+            "  echo 'a-outside-2'\n" +
+            "  withEnv(['A=1']) {echo 'a-inside-2'}\n" +
+            "}, b: {\n" +
+            "  echo 'b-outside-1'\n" +
+            "  withEnv(['B=1']) {echo 'b-inside-1'}\n" +
+            "  echo 'b-outside-2'\n" +
+            "  withEnv(['B=1']) {echo 'b-inside-2'}\n" +
+            "}", true));
+        WorkflowRun b = r.assertBuildStatusSuccess(p.scheduleBuild2(0));
+        r.assertLogContains("[a] a-outside-1", b);
+        r.assertLogContains("[b] b-outside-1", b);
+        r.assertLogContains("[a] a-inside-1", b);
+        r.assertLogContains("[b] b-inside-1", b);
+        r.assertLogContains("[a] a-outside-2", b);
+        r.assertLogContains("[b] b-outside-2", b);
+        r.assertLogContains("[a] a-inside-2", b);
+        r.assertLogContains("[b] b-inside-2", b);
     }
 
 }
