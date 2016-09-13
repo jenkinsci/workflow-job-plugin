@@ -24,6 +24,8 @@
 
 package org.jenkinsci.plugins.workflow.job.console;
 
+import hudson.Extension;
+import hudson.console.ConsoleAnnotationDescriptor;
 import hudson.console.HyperlinkNote;
 import java.io.IOException;
 import java.util.logging.Level;
@@ -48,7 +50,6 @@ public class ShowHideNote extends HyperlinkNote {
     }
 
     private final String id;
-    // TODO better to have a single link that toggles (requires looking up current state, as below)
     private final boolean show;
 
     private ShowHideNote(String id, boolean show, int length) {
@@ -58,8 +59,9 @@ public class ShowHideNote extends HyperlinkNote {
     }
 
     @Override protected String extraAttributes() {
-        // TODO look up any existing rule via .selectorText and change its .style.display (but how can be package this JS into an adjunct?)
-        return " onclick=\"var ss = document.styleSheets[0]; ss.insertRule('.pipeline-sect-" + id + " {display: " + (show ? "inline" : "none") + "}', ss.rules.length); return false\"";
+        return " onclick=\"showHidePipelineSection('" + id + "', " + show + "); return false\"";
     }
+
+    @Extension public static class DescriptorImpl extends ConsoleAnnotationDescriptor {}
 
 }
