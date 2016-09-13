@@ -661,11 +661,16 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements B
     }
 
     private void makeDisabled(boolean b) throws IOException {
-        if (disabled == b)
+        if (disabled == b) {
             return;
+	}
         this.disabled = b;
-        if (b)
-            Jenkins.getInstance().getQueue().cancel(this);
+        if (b) {
+	    Jenkins instance = Jenkins.getInstance();
+	    if (instance != null) {
+		instance.getQueue().cancel(this);
+	    }
+	}
         save();
     }
 
