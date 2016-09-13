@@ -23,8 +23,8 @@
  */
 
 // TODO infer section from the event source perhaps?
-function showHidePipelineSection(id) {
-    var link = document.getElementById('show-hide-' + id)
+function showHidePipelineSection(link) {
+    var id = link.getAttribute('show-hide-id')
     var display
     if (link.textContent === 'hide') {
         display = 'none'

@@ -58,7 +58,7 @@ public class ShowHideNote extends HyperlinkNote {
     }
 
     @Override protected String extraAttributes() {
-        return " id=\"show-hide-" + id + "\" onclick=\"showHidePipelineSection('" + id + "'); return false\"";
+        return " show-hide-id=\"" + id + "\" onclick=\"showHidePipelineSection(this); return false\"";
     }
 
     @Extension public static class DescriptorImpl extends ConsoleAnnotationDescriptor {}
