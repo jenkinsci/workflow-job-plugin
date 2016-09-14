@@ -35,6 +35,7 @@ import hudson.init.InitMilestone;
 import hudson.init.Initializer;
 import hudson.model.Action;
 import hudson.model.BuildableItem;
+import hudson.model.BallColor;
 import hudson.model.Cause;
 import hudson.model.Computer;
 import hudson.model.Descriptor;
@@ -140,6 +141,19 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements B
      */
     public boolean isDisabled() {
         return disabled;
+    }
+
+    /*
+     * Overrides Job.getIconColor() to add logic for disabled Jobs.
+     * Starting in Jenkins core version TODO Job.getIconColor() supports
+     * disabled jobs in core and this override can be removed.
+     */
+    @Override public BallColor getIconColor() {
+        if(isDisabled()) {
+            return isBuilding() ? BallColor.DISABLED_ANIME : BallColor.DISABLED;
+        } else {
+            return super.getIconColor();
+        }
     }
 
     @Override public void onCreatedFromScratch() {
@@ -260,8 +274,8 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements B
     }
 
     @Override public Queue.Executable createExecutable() throws IOException {
-	if (isDisabled())
-	    return null;
+        if (isDisabled())
+            return null;
         return buildMixIn.newBuild();
     }
 
