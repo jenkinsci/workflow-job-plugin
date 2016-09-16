@@ -427,12 +427,14 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
     @GuardedBy("completed")
     private transient LoadingCache<FlowNode,Optional<String>> logPrefixCache;
     private @CheckForNull String getLogPrefix(FlowNode node) {
+        // TODO could also use FlowScanningUtils.fetchEnclosingBlocks(node).filter(FlowScanningUtils.hasActionPredicate(ThreadNameAction.class)),
+        // but this would not let us cache intermediate results
         synchronized (completed) {
             if (logPrefixCache == null) {
                 logPrefixCache = CacheBuilder.newBuilder().weakKeys().build(new CacheLoader<FlowNode,Optional<String>>() {
                     @Override public @Nonnull Optional<String> load(FlowNode node) {
                         if (node instanceof BlockEndNode) {
-                            return Optional.absent();
+                            return Optional.fromNullable(getLogPrefix(((BlockEndNode) node).getStartNode()));
                         }
                         ThreadNameAction threadNameAction = node.getAction(ThreadNameAction.class);
                         if (threadNameAction != null) {
