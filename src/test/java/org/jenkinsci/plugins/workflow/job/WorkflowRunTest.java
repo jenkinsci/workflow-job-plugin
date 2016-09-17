@@ -84,17 +84,19 @@ public class WorkflowRunTest {
         r.assertLogContains("hello\n", b1);
     }
 
+    @Issue("JENKINS-30910")
     @Test public void parameters() throws Exception {
         WorkflowJob p = r.jenkins.createProject(WorkflowJob.class, "p");
         p.setDefinition(new CpsFlowDefinition("echo \"param=${PARAM}\"",true));
         p.addProperty(new ParametersDefinitionProperty(new StringParameterDefinition("PARAM", null)));
-        WorkflowRun b = r.assertBuildStatusSuccess(p.scheduleBuild2(0, new ParametersAction(new StringParameterValue("PARAM", "value"))));
-        r.assertLogContains("param=value", b);
+        r.assertLogContains("param=value", r.assertBuildStatusSuccess(p.scheduleBuild2(0, new ParametersAction(new StringParameterValue("PARAM", "value")))));
+        p.setDefinition(new CpsFlowDefinition("echo \"param=${env.PARAM}\"",true));
+        r.assertLogContains("param=value", r.assertBuildStatusSuccess(p.scheduleBuild2(0, new ParametersAction(new StringParameterValue("PARAM", "value")))));
     }
 
     @Test public void funnyParameters() throws Exception {
         WorkflowJob p = r.jenkins.createProject(WorkflowJob.class, "p");
-        p.setDefinition(new CpsFlowDefinition("echo \"a.b=${binding['a.b']}\"", /* TODO Script.binding does not work in sandbox */false));
+        p.setDefinition(new CpsFlowDefinition("echo \"a.b=${binding['a.b']}\"", true));
         p.addProperty(new ParametersDefinitionProperty(new StringParameterDefinition("a.b", null)));
         WorkflowRun b = r.assertBuildStatusSuccess(p.scheduleBuild2(0, new ParametersAction(new StringParameterValue("a.b", "v"))));
         r.assertLogContains("a.b=v", b);
