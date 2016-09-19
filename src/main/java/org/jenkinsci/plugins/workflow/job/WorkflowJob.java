@@ -77,6 +77,8 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import javax.annotation.CheckForNull;
 import javax.servlet.ServletException;
 import jenkins.model.BlockedBecauseOfBuildInProgress;
@@ -102,6 +104,8 @@ import org.kohsuke.stapler.interceptor.RequirePOST;
 
 @SuppressWarnings({"unchecked", "rawtypes"})
 public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements BuildableItem, LazyBuildMixIn.LazyLoadingJob<WorkflowJob,WorkflowRun>, ParameterizedJobMixIn.ParameterizedJob, TopLevelItem, Queue.FlyweightTask, SCMTriggerItem {
+
+    private static final Logger LOGGER = Logger.getLogger(WorkflowJob.class.getName());
 
     private FlowDefinition definition;
     /** @deprecated - use {@link PipelineTriggersJobProperty} */
@@ -171,6 +175,11 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements B
 
     public void setDefinition(FlowDefinition definition) {
         this.definition = definition;
+        try {
+            save();
+        } catch (IOException x) {
+            LOGGER.log(Level.WARNING, "could not save " + this, x);
+        }
     }
 
     @SuppressWarnings("deprecation")
