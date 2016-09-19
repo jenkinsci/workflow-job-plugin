@@ -33,6 +33,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import hudson.AbortException;
+import hudson.EnvVars;
 import hudson.Extension;
 import hudson.FilePath;
 import hudson.XmlFile;
@@ -40,6 +41,8 @@ import hudson.console.AnnotatedLargeText;
 import hudson.console.LineTransformationOutputStream;
 import hudson.model.Executor;
 import hudson.model.Item;
+import hudson.model.ParameterValue;
+import hudson.model.ParametersAction;
 import hudson.model.Queue;
 import hudson.model.Result;
 import hudson.model.Run;
@@ -334,6 +337,19 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
         finish(Result.ABORTED, suddenDeath);
         executionPromise.setException(suddenDeath);
         // TODO CpsFlowExecution.onProgramEnd does some cleanup which we cannot access here; perhaps need a FlowExecution.halt(Throwable) API?
+    }
+
+    @Override public EnvVars getEnvironment(TaskListener listener) throws IOException, InterruptedException {
+        EnvVars env = super.getEnvironment(listener);
+        // TODO EnvironmentContributingAction does not support Job yet:
+        ParametersAction a = getAction(ParametersAction.class);
+        if (a != null) {
+            for (ParameterValue v : a) {
+                v.buildEnvironment(this, env);
+            }
+        }
+        EnvVars.resolve(env);
+        return env;
     }
 
     @GuardedBy("completed")
