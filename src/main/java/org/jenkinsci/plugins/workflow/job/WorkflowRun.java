@@ -54,7 +54,9 @@ import hudson.scm.ChangeLogSet;
 import hudson.scm.SCM;
 import hudson.scm.SCMRevisionState;
 import hudson.security.ACL;
+import hudson.util.DaemonThreadFactory;
 import hudson.util.Iterators;
+import hudson.util.NamingThreadFactory;
 import hudson.util.NullStream;
 import hudson.util.PersistedList;
 import java.io.File;
@@ -71,7 +73,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.Future;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
@@ -230,6 +234,13 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
         throw sleep();
     }
 
+    private static ScheduledExecutorService copyLogsExecutorService;
+    private static synchronized ScheduledExecutorService copyLogsExecutorService() {
+        if (copyLogsExecutorService == null) {
+            copyLogsExecutorService = new /*ErrorLogging*/ScheduledThreadPoolExecutor(5, new NamingThreadFactory(new DaemonThreadFactory(), "WorkflowRun.copyLogs"));
+        }
+        return copyLogsExecutorService;
+    }
     private AsynchronousExecution sleep() {
         final AsynchronousExecution asynchronousExecution = new AsynchronousExecution() {
             @Override public void interrupt(boolean forShutdown) {
@@ -260,7 +271,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
             }
         };
         final AtomicReference<ScheduledFuture<?>> copyLogsTask = new AtomicReference<>();
-        copyLogsTask.set(Timer.get().scheduleAtFixedRate(new Runnable() {
+        copyLogsTask.set(copyLogsExecutorService().scheduleAtFixedRate(new Runnable() {
             @Override public void run() {
                 synchronized (completed) {
                     if (completed.get()) {
@@ -276,7 +287,14 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
                         listener = new StreamBuildListener(new NullStream());
                         return;
                     }
-                    copyLogs();
+                    Thread t = Thread.currentThread();
+                    String old = t.getName();
+                    t.setName(old + " (" + WorkflowRun.this + ")");
+                    try {
+                        copyLogs();
+                    } finally {
+                        t.setName(old);
+                    }
                 }
             }
         }, 1, 1, TimeUnit.SECONDS));
