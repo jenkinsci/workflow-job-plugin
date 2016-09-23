@@ -57,6 +57,7 @@ import org.jenkinsci.plugins.workflow.graph.FlowNode;
 import org.jenkinsci.plugins.workflow.test.steps.SemaphoreStep;
 import static org.junit.Assert.*;
 import org.junit.ClassRule;
+import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
 import org.jvnet.hudson.test.BuildWatcher;
@@ -96,7 +97,7 @@ public class WorkflowRunTest {
 
     @Test public void funnyParameters() throws Exception {
         WorkflowJob p = r.jenkins.createProject(WorkflowJob.class, "p");
-        p.setDefinition(new CpsFlowDefinition("echo \"a.b=${binding['a.b']}\"", true));
+        p.setDefinition(new CpsFlowDefinition("echo \"a.b=${env['a.b']}\"", true));
         p.addProperty(new ParametersDefinitionProperty(new StringParameterDefinition("a.b", null)));
         WorkflowRun b = r.assertBuildStatusSuccess(p.scheduleBuild2(0, new ParametersAction(new StringParameterValue("a.b", "v"))));
         r.assertLogContains("a.b=v", b);
@@ -276,6 +277,7 @@ public class WorkflowRunTest {
         assertEquals(Collections.emptyList(), iba.getCauses());
     }
 
+    @Ignore("TODO currently not implemented")
     @Test
     @Issue({"JENKINS-26122", "JENKINS-28222"})
     public void parallelBranchLabels() throws Exception {
