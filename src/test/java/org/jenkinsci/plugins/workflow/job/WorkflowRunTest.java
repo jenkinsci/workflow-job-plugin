@@ -142,6 +142,11 @@ public class WorkflowRunTest {
         assertFalse(b1.hasntStartedYet());
         assertColor(b1, BallColor.BLUE);
 
+        // after disabling the project icon should change
+        p.disable();
+        assertSame(BallColor.DISABLED, p.getIconColor());
+        p.enable();
+
         // get another one going
         q = p.scheduleBuild2(0);
         WorkflowRun b2 = q.getStartCondition().get();
@@ -150,6 +155,11 @@ public class WorkflowRunTest {
         // initial state should be blinking blue because the last one was blue
         assertFalse(b2.hasntStartedYet());
         assertColor(b2, BallColor.BLUE_ANIME);
+
+        // disabling while a job is running should show animated disable icon
+        p.disable();
+        assertSame(BallColor.DISABLED_ANIME, p.getIconColor());
+        p.enable();
 
         SemaphoreStep.waitForStart("wait/2", b2);
 
@@ -165,6 +175,7 @@ public class WorkflowRunTest {
         assertFalse(b2.hasntStartedYet());
         assertColor(b2, BallColor.BLUE);
     }
+
     private void assertColor(WorkflowRun b, BallColor color) throws IOException {
         assertSame(color, b.getIconColor());
         assertSame(color, b.getParent().getIconColor());

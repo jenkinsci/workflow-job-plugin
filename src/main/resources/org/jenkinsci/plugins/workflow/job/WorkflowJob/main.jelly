@@ -25,6 +25,7 @@
   -->
 
 <j:jelly xmlns:j="jelly:core" xmlns:st="jelly:stapler" xmlns:p="/lib/hudson/project" xmlns:t="/lib/hudson">
+    <st:include page="makeDisabled.jelly"/>
     <p:projectActionFloatingBox/>
     <table style="margin-top: 1em; margin-left:1em;">
         <!-- TODO display prominentActions -->

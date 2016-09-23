@@ -25,6 +25,7 @@
   -->
 
 <j:jelly xmlns:j="jelly:core" xmlns:st="jelly:stapler" xmlns:f="/lib/form" xmlns:p="/lib/hudson/project">
+    <p:config-disableBuild/>
     <p:config-quietPeriod/>
 
     <!-- pseudo-trigger to configure URL to trigger builds remotely. -->
