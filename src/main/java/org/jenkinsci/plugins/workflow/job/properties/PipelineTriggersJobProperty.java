@@ -145,14 +145,17 @@ public class PipelineTriggersJobProperty extends JobProperty<WorkflowJob> {
             throw new Descriptor.FormException(e, null);
         }
 
-        this.stopTriggers();
+        try {
+            owner.removeProperty(this);
+            PipelineTriggersJobProperty thisProp = new PipelineTriggersJobProperty(new ArrayList<Trigger>(trigList.toList()));
 
-        PipelineTriggersJobProperty thisProp = new PipelineTriggersJobProperty(new ArrayList<Trigger>(trigList.toList()));
-        thisProp.setOwner(owner);
+            owner.addTriggersJobPropertyWithoutStart(thisProp);
 
-        thisProp.startTriggers(true);
-
-        return thisProp;
+            thisProp.startTriggers(true);
+            return thisProp;
+        } catch (IOException e) {
+            return null;
+        }
     }
 
     @Extension(ordinal = -100)

@@ -445,6 +445,10 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements B
         return triggerProp;
     }
 
+    public void addTriggersJobPropertyWithoutStart(PipelineTriggersJobProperty prop) throws IOException {
+        super.addProperty(prop);
+    }
+
     public void setTriggers(List<Trigger<?>> inputTriggers) throws IOException {
         triggers = null;
         BulkChange bc = new BulkChange(this);
