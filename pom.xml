@@ -63,6 +63,7 @@
     </pluginRepositories>
     <properties>
         <jenkins.version>1.642.3</jenkins.version>
+        <hpi-plugin.version>1.120</hpi-plugin.version>
     </properties>
     <dependencies>
         <dependency>
