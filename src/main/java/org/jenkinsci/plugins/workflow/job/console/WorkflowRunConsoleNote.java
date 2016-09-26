@@ -33,7 +33,6 @@ import java.io.IOException;
 
 /**
  * Console note for Workflow metadata specific messages.
- * See {@link WorkflowConsoleLogger} for more information.
  */
 public class WorkflowRunConsoleNote extends ConsoleNote<Run<?, ?>> {
 
