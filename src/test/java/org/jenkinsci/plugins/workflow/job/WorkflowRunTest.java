@@ -56,6 +56,7 @@ import jenkins.model.Jenkins;
 import jenkins.security.NotReallyRoleSensitiveCallable;
 import org.apache.commons.io.FileUtils;
 import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.not;
 import org.jenkinsci.plugins.scriptsecurity.scripts.ScriptApproval;
 import org.jenkinsci.plugins.workflow.actions.LogAction;
 import org.jenkinsci.plugins.workflow.cps.CpsFlowDefinition;
@@ -70,6 +71,7 @@ import org.jenkinsci.plugins.workflow.steps.AbstractStepDescriptorImpl;
 import org.jenkinsci.plugins.workflow.steps.AbstractStepImpl;
 import org.jenkinsci.plugins.workflow.steps.AbstractSynchronousStepExecution;
 import org.jenkinsci.plugins.workflow.steps.StepContextParameter;
+import org.jenkinsci.plugins.workflow.support.actions.AnnotatedLogAction;
 import org.jenkinsci.plugins.workflow.test.steps.SemaphoreStep;
 import static org.junit.Assert.*;
 import org.junit.ClassRule;
@@ -309,18 +311,21 @@ public class WorkflowRunTest {
         HtmlPage page = r.createWebClient().goTo(b.getUrl() + "console");
         assertLogContains(page, hudson.model.Messages.Cause_UserIdCause_ShortDescription(alice.getDisplayName()), alice.getUrl());
         assertLogContains(page, "Running inside " + b.getDisplayName(), b.getUrl());
+        assertThat(page.getWebResponse().getContentAsString(), containsString("</span>Running inside"));
         DepthFirstScanner scanner = new DepthFirstScanner();
         scanner.setup(b.getExecution().getCurrentHeads());
         List<FlowNode> nodes = Lists.newArrayList(scanner.filter(FlowScanningUtils.hasActionPredicate(LogAction.class)));
         assertEquals(1, nodes.size());
         page = r.createWebClient().goTo(nodes.get(0).getUrl() + nodes.get(0).getAction(LogAction.class).getUrlName());
         assertLogContains(page, "Running inside " + b.getDisplayName(), b.getUrl());
+        r.assertLogContains("\nRunning inside " + b.getDisplayName(), b);
     }
     private void assertLogContains(HtmlPage page, String plainText, String url) throws Exception {
         String html = page.getWebResponse().getContentAsString();
         assertThat(page.getUrl() + " looks OK as text:\n" + html, page.getDocumentElement().getTextContent(), containsString(plainText));
         String absUrl = r.contextPath + "/" + url;
         assertNotNull("found " + absUrl + " in:\n" + html, page.getAnchorByHref(absUrl));
+        assertThat(html, not(containsString(AnnotatedLogAction.NODE_ID_SEP)));
     }
     public static class HyperlinkingStep extends AbstractStepImpl {
         @DataBoundConstructor public HyperlinkingStep() {}

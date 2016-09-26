@@ -24,10 +24,6 @@
 
 package org.jenkinsci.plugins.workflow.job;
 
-import com.google.common.base.Optional;
-import com.google.common.cache.CacheBuilder;
-import com.google.common.cache.CacheLoader;
-import com.google.common.cache.LoadingCache;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
@@ -37,6 +33,7 @@ import hudson.EnvVars;
 import hudson.Extension;
 import hudson.FilePath;
 import hudson.XmlFile;
+import hudson.console.AnnotatedLargeText;
 import hudson.model.Executor;
 import hudson.model.Item;
 import hudson.model.ParameterValue;
@@ -60,7 +57,6 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.nio.charset.Charset;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashMap;
@@ -73,15 +69,14 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.annotation.CheckForNull;
 import javax.annotation.Nonnull;
-import javax.annotation.concurrent.GuardedBy;
 import jenkins.model.Jenkins;
 import jenkins.model.lazy.BuildReference;
 import jenkins.model.lazy.LazyBuildMixIn;
 import jenkins.model.queue.AsynchronousExecution;
 import jenkins.security.NotReallyRoleSensitiveCallable;
 import jenkins.util.Timer;
+import org.apache.commons.codec.Charsets;
 import org.jenkinsci.plugins.workflow.FilePathUtils;
-import org.jenkinsci.plugins.workflow.actions.ThreadNameAction;
 import org.jenkinsci.plugins.workflow.actions.TimingAction;
 import org.jenkinsci.plugins.workflow.flow.FlowDefinition;
 import org.jenkinsci.plugins.workflow.flow.FlowExecution;
@@ -89,9 +84,9 @@ import org.jenkinsci.plugins.workflow.flow.FlowExecutionList;
 import org.jenkinsci.plugins.workflow.flow.FlowExecutionOwner;
 import org.jenkinsci.plugins.workflow.flow.GraphListener;
 import org.jenkinsci.plugins.workflow.flow.StashManager;
-import org.jenkinsci.plugins.workflow.graph.BlockEndNode;
 import org.jenkinsci.plugins.workflow.graph.FlowEndNode;
 import org.jenkinsci.plugins.workflow.graph.FlowNode;
+import org.jenkinsci.plugins.workflow.job.console.PipelineLargeText;
 import org.jenkinsci.plugins.workflow.job.console.WorkflowRunConsoleNote;
 import org.jenkinsci.plugins.workflow.steps.FlowInterruptedException;
 import org.jenkinsci.plugins.workflow.steps.StepContext;
@@ -189,7 +184,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
             // TODO introduce API to wrap out log location
             OutputStream logger = new FileOutputStream(getLogFile());
             // TODO decorate with ConsoleLogFilter.all()
-            listener = new StreamBuildListener(logger, Charset.defaultCharset());
+            listener = new StreamBuildListener(logger, Charsets.UTF_8);
             listener.started(getCauses());
             RunListener.fireStarted(this, listener);
             updateSymlinks(listener);
@@ -322,36 +317,6 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
         return env;
     }
 
-    @GuardedBy("completed")
-    private transient LoadingCache<FlowNode,Optional<String>> logPrefixCache;
-    private @CheckForNull String getLogPrefix(FlowNode node) {
-        // TODO could also use FlowScanningUtils.fetchEnclosingBlocks(node).filter(FlowScanningUtils.hasActionPredicate(ThreadNameAction.class)),
-        // but this would not let us cache intermediate results
-        synchronized (completed) {
-            if (logPrefixCache == null) {
-                logPrefixCache = CacheBuilder.newBuilder().weakKeys().build(new CacheLoader<FlowNode,Optional<String>>() {
-                    @Override public @Nonnull Optional<String> load(FlowNode node) {
-                        if (node instanceof BlockEndNode) {
-                            return Optional.fromNullable(getLogPrefix(((BlockEndNode) node).getStartNode()));
-                        }
-                        ThreadNameAction threadNameAction = node.getAction(ThreadNameAction.class);
-                        if (threadNameAction != null) {
-                            return Optional.of(threadNameAction.getThreadName());
-                        }
-                        for (FlowNode parent : node.getParents()) {
-                            String prefix = getLogPrefix(parent);
-                            if (prefix != null) {
-                                return Optional.of(prefix);
-                            }
-                        }
-                        return Optional.absent();
-                    }
-                });
-            }
-            return logPrefixCache.getUnchecked(node).orNull();
-        }
-    }
-
     private static final Map<String,WorkflowRun> LOADING_RUNS = new HashMap<>();
 
     private String key() {
@@ -391,7 +356,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
                     // TODO add a @Terminator to close the old listener in case a new set of objects gets loaded after in-VM restart and starts writing to the same file
                     OutputStream logger = new FileOutputStream(getLogFile(), true);
                     // TODO as above
-                    listener = new StreamBuildListener(logger, Charset.defaultCharset());
+                    listener = new StreamBuildListener(logger, Charsets.UTF_8);
                     listener.getLogger().println("Resuming build at " + new Date() + " after Jenkins restart");
                 } catch (IOException x) {
                     LOGGER.log(Level.WARNING, null, x);
@@ -722,19 +687,18 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
 
     /**
      * Prints nodes as they appear (including block start and end nodes).
-     * TODO probably better done as a {@link ConsoleAnnotatorFactory} paying attention to {@code AssociatedNodeNote},
-     * which could also allow resurrection of the thread name prefix.
      */
     private final class NodePrintListener implements GraphListener.Synchronous {
         @Override public void onNewHead(FlowNode node) {
-            String prefix = getLogPrefix(node); // TODO not safe to block on completed here; use a different lock or none at all
-            if (prefix != null) {
-                WorkflowRunConsoleNote.print(String.format("[%s] %s", prefix, node.getDisplayFunctionName()), listener);
-            } else {
-                WorkflowRunConsoleNote.print(node.getDisplayFunctionName(), listener);
-            }
+            WorkflowRunConsoleNote.print(node.getDisplayFunctionName(), listener);
         }
     }
+
+    @Override public AnnotatedLargeText getLogText() {
+        return new PipelineLargeText(this);
+    }
+
+    // TODO also override getLogInputStream, getLogReader, getLogFile
 
     static void alias() {
         Run.XSTREAM2.alias("flow-build", WorkflowRun.class);
