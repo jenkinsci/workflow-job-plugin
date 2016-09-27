@@ -698,7 +698,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
         return new PipelineLargeText(this);
     }
 
-    // TODO also override getLogInputStream, getLogReader, getLogFile
+    // TODO also override getLogInputStream, getLogReader, getLogFile, getLog(), getLog(int); and maybe set Run.charset for the benefit of callers of getCharset, namely ConsoleCommand
 
     static void alias() {
         Run.XSTREAM2.alias("flow-build", WorkflowRun.class);
