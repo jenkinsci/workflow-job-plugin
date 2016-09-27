@@ -30,6 +30,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import org.jenkinsci.plugins.workflow.flow.FlowExecutionOwner;
 import org.jenkinsci.plugins.workflow.job.WorkflowRun;
 import org.jenkinsci.plugins.workflow.support.actions.AnnotatedLogAction;
 import org.kohsuke.stapler.framework.io.ByteBuffer;
@@ -50,10 +51,13 @@ public class PipelineLargeText extends AnnotatedLargeText<WorkflowRun> {
         // AbstractMarkupText.wrapBy and similar routinely put the close tag on the next line,
         // since the marked-up text includes the newline.
         // Thus we would be trying to strip, e.g. "<span class='red'>Some headline\n</span>¦123Regular line\n".
-        try (InputStream log = build.asFlowExecutionOwner().getLog()) {
-            AnnotatedLogAction.strip(log, buf);
-        } catch (IOException ex) {
-            Logger.getLogger(PipelineLargeText.class.getName()).log(Level.SEVERE, null, ex);
+        FlowExecutionOwner owner = build.asFlowExecutionOwner();
+        if (owner != null) {
+            try (InputStream log = owner.getLog()) {
+                AnnotatedLogAction.strip(log, buf);
+            } catch (IOException ex) {
+                Logger.getLogger(PipelineLargeText.class.getName()).log(Level.SEVERE, null, ex);
+            }
         }
     }
 
