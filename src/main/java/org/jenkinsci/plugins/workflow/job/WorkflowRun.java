@@ -172,6 +172,13 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
         return getRunMixIn().getNextBuild();
     }
 
+    private StreamBuildListener createBuildListener() throws IOException, InterruptedException {
+        // TODO introduce API to wrap out log location (cf. Owner.getLog)
+        OutputStream logger = new FileOutputStream(getLogFile(), true);
+        // TODO JENKINS-30777 decorate with ConsoleLogFilter.all()
+        return new StreamBuildListener(logger, Charsets.UTF_8);
+    }
+
     /**
      * Actually executes the workflow.
      */
@@ -181,10 +188,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
         }
         try {
             onStartBuilding();
-            // TODO introduce API to wrap out log location
-            OutputStream logger = new FileOutputStream(getLogFile());
-            // TODO decorate with ConsoleLogFilter.all()
-            listener = new StreamBuildListener(logger, Charsets.UTF_8);
+            listener = createBuildListener();
             listener.started(getCauses());
             RunListener.fireStarted(this, listener);
             updateSymlinks(listener);
@@ -354,11 +358,9 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
                 // we've been restarted while we were running. let's get the execution going again.
                 try {
                     // TODO add a @Terminator to close the old listener in case a new set of objects gets loaded after in-VM restart and starts writing to the same file
-                    OutputStream logger = new FileOutputStream(getLogFile(), true);
-                    // TODO as above
-                    listener = new StreamBuildListener(logger, Charsets.UTF_8);
+                    listener = createBuildListener();
                     listener.getLogger().println("Resuming build at " + new Date() + " after Jenkins restart");
-                } catch (IOException x) {
+                } catch (IOException | InterruptedException x) {
                     LOGGER.log(Level.WARNING, null, x);
                     listener = new StreamBuildListener(new NullStream());
                 }
