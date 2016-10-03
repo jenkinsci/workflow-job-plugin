@@ -30,6 +30,7 @@ import hudson.Extension;
 import hudson.ExtensionList;
 import hudson.FilePath;
 import hudson.Launcher;
+import hudson.cli.declarative.CLIMethod;
 import hudson.init.InitMilestone;
 import hudson.init.Initializer;
 import hudson.model.Action;
@@ -52,6 +53,7 @@ import hudson.model.RunMap;
 import hudson.model.TaskListener;
 import hudson.model.TopLevelItem;
 import hudson.model.TopLevelItemDescriptor;
+import hudson.model.listeners.ItemListener;
 import hudson.model.listeners.SCMListener;
 import hudson.model.queue.CauseOfBlockage;
 import hudson.model.queue.QueueTaskFuture;
@@ -85,6 +87,7 @@ import jenkins.model.BlockedBecauseOfBuildInProgress;
 
 import jenkins.model.Jenkins;
 import jenkins.model.ParameterizedJobMixIn;
+import jenkins.model.DisableableJobMixIn;
 import jenkins.model.lazy.LazyBuildMixIn;
 import jenkins.triggers.SCMTriggerItem;
 import jenkins.util.TimeDuration;
@@ -96,14 +99,12 @@ import org.jenkinsci.plugins.workflow.job.properties.DisableConcurrentBuildsJobP
 import org.jenkinsci.plugins.workflow.job.properties.PipelineTriggersJobProperty;
 import org.kohsuke.accmod.Restricted;
 import org.kohsuke.accmod.restrictions.DoNotUse;
-import org.kohsuke.stapler.QueryParameter;
-import org.kohsuke.stapler.StaplerRequest;
-import org.kohsuke.stapler.StaplerResponse;
+import org.kohsuke.stapler.*;
 import org.kohsuke.stapler.export.Exported;
 import org.kohsuke.stapler.interceptor.RequirePOST;
 
 @SuppressWarnings({"unchecked", "rawtypes"})
-public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements BuildableItem, LazyBuildMixIn.LazyLoadingJob<WorkflowJob,WorkflowRun>, ParameterizedJobMixIn.ParameterizedJob, TopLevelItem, Queue.FlyweightTask, SCMTriggerItem {
+public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements BuildableItem, LazyBuildMixIn.LazyLoadingJob<WorkflowJob,WorkflowRun>, ParameterizedJobMixIn.ParameterizedJob, TopLevelItem, Queue.FlyweightTask, SCMTriggerItem, DisableableJobMixIn.DisableableJob {
 
     private static final Logger LOGGER = Logger.getLogger(WorkflowJob.class.getName());
 
@@ -122,9 +123,18 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements B
      */
     private transient volatile Map<String,SCMRevisionState> pollingBaselines;
 
+    /**
+     * True to suspend new builds.
+     */
+    private boolean disabled;
+
     public WorkflowJob(ItemGroup parent, String name) {
         super(parent, name);
         buildMixIn = createBuildMixIn();
+    }
+
+    @Override public boolean isDisabled() {
+        return disabled;
     }
 
     @Override public void onCreatedFromScratch() {
@@ -189,6 +199,8 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements B
         definition = req.bindJSON(FlowDefinition.class, json.getJSONObject("definition"));
         authToken = hudson.model.BuildAuthorizationToken.create(req);
 
+        makeDisabled(json.optBoolean("disable"));
+
         if (req.getParameter("hasCustomQuietPeriod") != null) {
             quietPeriod = Integer.parseInt(req.getParameter("quiet_period"));
         } else {
@@ -204,7 +216,7 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements B
     }
 
     @Override public boolean isBuildable() {
-        return true; // why not?
+        return !isDisabled();
     }
 
     @Override protected RunMap<WorkflowRun> _getRuns() {
@@ -248,6 +260,8 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements B
     }
 
     @Override public Queue.Executable createExecutable() throws IOException {
+	if (isDisabled())
+	    return null;
         return buildMixIn.newBuild();
     }
 
@@ -556,7 +570,12 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements B
 
     @Override public PollingResult poll(TaskListener listener) {
         // TODO call SCMPollListener
-        WorkflowRun lastBuild = getLastBuild();
+        if (!isBuildable()) {
+            listener.getLogger().println("project is disabled, skipping polling");
+	    return PollingResult.NO_CHANGES;
+        }
+
+	WorkflowRun lastBuild = getLastBuild();
         if (lastBuild == null) {
             listener.getLogger().println("no previous build to compare to");
             // Note that we have no equivalent of AbstractProject.NoSCM because without an initial build we do not know if this project has any SCM at all.
@@ -641,7 +660,43 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements B
         }
     }
 
+    private void makeDisabled(boolean b) throws IOException {
+        if (disabled == b)
+            return;
+        this.disabled = b;
+        if (b)
+            Jenkins.getInstance().getQueue().cancel(this);
+        save();
+    }
+
+    @Override
+    public void disable() throws IOException {
+        makeDisabled(true);
+    }
+
+    @Override
+    public void enable() throws IOException {
+        makeDisabled(false);
+    }
+
+    @CLIMethod(name="disable-job")
+    @RequirePOST
+    public HttpResponse doDisable() throws IOException, ServletException {
+        checkPermission(CONFIGURE);
+        makeDisabled(true);
+	    return new HttpRedirect(".");
+    }
+
+    @CLIMethod(name="enable-job")
+    @RequirePOST
+    public HttpResponse doEnable() throws IOException, ServletException {
+	    checkPermission(CONFIGURE);
+	    makeDisabled(false);
+	    return new HttpRedirect(".");
+    }
+
     @Override protected void performDelete() throws IOException, InterruptedException {
+	makeDisabled(true);
         super.performDelete();
         // TODO call SCM.processWorkspaceBeforeDeletion
     }
