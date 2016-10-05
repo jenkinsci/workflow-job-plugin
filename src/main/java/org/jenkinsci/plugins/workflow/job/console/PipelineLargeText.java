@@ -33,11 +33,14 @@ import java.util.logging.Logger;
 import org.jenkinsci.plugins.workflow.flow.FlowExecutionOwner;
 import org.jenkinsci.plugins.workflow.job.WorkflowRun;
 import org.jenkinsci.plugins.workflow.support.actions.AnnotatedLogAction;
+import org.kohsuke.accmod.Restricted;
+import org.kohsuke.accmod.restrictions.NoExternalUse;
 import org.kohsuke.stapler.framework.io.ByteBuffer;
 
 /**
  * Provides customized log behavior.
  */
+@Restricted(NoExternalUse.class)
 public class PipelineLargeText extends AnnotatedLargeText<WorkflowRun> {
 
     public PipelineLargeText(WorkflowRun build) {

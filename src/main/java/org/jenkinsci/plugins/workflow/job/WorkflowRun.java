@@ -34,6 +34,8 @@ import hudson.Extension;
 import hudson.FilePath;
 import hudson.XmlFile;
 import hudson.console.AnnotatedLargeText;
+import hudson.console.ConsoleNote;
+import hudson.model.BuildListener;
 import hudson.model.Executor;
 import hudson.model.Item;
 import hudson.model.ParameterValue;
@@ -52,14 +54,19 @@ import hudson.security.ACL;
 import hudson.util.Iterators;
 import hudson.util.NullStream;
 import hudson.util.PersistedList;
+import java.io.BufferedReader;
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.io.Reader;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Future;
@@ -75,7 +82,6 @@ import jenkins.model.lazy.LazyBuildMixIn;
 import jenkins.model.queue.AsynchronousExecution;
 import jenkins.security.NotReallyRoleSensitiveCallable;
 import jenkins.util.Timer;
-import org.apache.commons.codec.Charsets;
 import org.jenkinsci.plugins.workflow.FilePathUtils;
 import org.jenkinsci.plugins.workflow.actions.TimingAction;
 import org.jenkinsci.plugins.workflow.flow.FlowDefinition;
@@ -87,12 +93,15 @@ import org.jenkinsci.plugins.workflow.flow.StashManager;
 import org.jenkinsci.plugins.workflow.graph.FlowEndNode;
 import org.jenkinsci.plugins.workflow.graph.FlowNode;
 import org.jenkinsci.plugins.workflow.job.console.PipelineLargeText;
+import org.jenkinsci.plugins.workflow.job.console.PipelineLogFile;
 import org.jenkinsci.plugins.workflow.job.console.WorkflowRunConsoleNote;
 import org.jenkinsci.plugins.workflow.steps.FlowInterruptedException;
 import org.jenkinsci.plugins.workflow.steps.StepContext;
 import org.jenkinsci.plugins.workflow.steps.StepExecution;
 import org.jenkinsci.plugins.workflow.support.concurrent.Futures;
 import org.jenkinsci.plugins.workflow.support.steps.input.POSTHyperlinkNote;
+import org.kohsuke.accmod.Restricted;
+import org.kohsuke.accmod.restrictions.NoExternalUse;
 import org.kohsuke.stapler.HttpResponse;
 import org.kohsuke.stapler.HttpResponses;
 import org.kohsuke.stapler.export.Exported;
@@ -117,7 +126,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
             return WorkflowRun.this;
         }
     };
-    private transient StreamBuildListener listener;
+    private transient BuildListener listener;
 
     /**
      * Flag for whether or not the build has completed somehow.
@@ -172,13 +181,6 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
         return getRunMixIn().getNextBuild();
     }
 
-    private StreamBuildListener createBuildListener() throws IOException, InterruptedException {
-        // TODO introduce API to wrap out log location (cf. Owner.getLog)
-        OutputStream logger = new FileOutputStream(getLogFile(), true);
-        // TODO JENKINS-30777 decorate with ConsoleLogFilter.all()
-        return new StreamBuildListener(logger, Charsets.UTF_8);
-    }
-
     /**
      * Actually executes the workflow.
      */
@@ -188,7 +190,8 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
         }
         try {
             onStartBuilding();
-            listener = createBuildListener();
+            charset = "UTF-8"; // since we cannot override getCharset, and e.g. ConsoleCommand calls it
+            listener = PipelineLogFile.listener(this);
             listener.started(getCauses());
             RunListener.fireStarted(this, listener);
             updateSymlinks(listener);
@@ -358,7 +361,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
                 // we've been restarted while we were running. let's get the execution going again.
                 try {
                     // TODO add a @Terminator to close the old listener in case a new set of objects gets loaded after in-VM restart and starts writing to the same file
-                    listener = createBuildListener();
+                    listener = PipelineLogFile.listener(this);
                     listener.getLogger().println("Resuming build at " + new Date() + " after Jenkins restart");
                 } catch (IOException | InterruptedException x) {
                     LOGGER.log(Level.WARNING, null, x);
@@ -404,7 +407,13 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
                 t.printStackTrace(listener.getLogger());
             }
             listener.finished(getResult());
-            listener.closeQuietly();
+            if (listener instanceof AutoCloseable) {
+                try {
+                    ((AutoCloseable) listener).close();
+                } catch (Exception x) {
+                    LOGGER.log(Level.WARNING, "could not close build log for " + this, x);
+                }
+            }
         }
         duration = Math.max(0, System.currentTimeMillis() - getStartTimeInMillis());
         try {
@@ -639,7 +648,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
             return run().getUrl();
         }
         @Override public TaskListener getListener() throws IOException {
-            StreamBuildListener l = run().listener;
+            TaskListener l = run().listener;
             if (l != null) {
                 return l;
             } else {
@@ -649,8 +658,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
             }
         }
         @Override public InputStream getLog() throws IOException {
-            // TODO introduce API to swap out log location
-            return run().getLogInputStream();
+            return PipelineLogFile.log(run());
         }
         @Override public String toString() {
             return "Owner[" + key() + ":" + run + "]";
@@ -696,11 +704,78 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
         }
     }
 
+    @SuppressWarnings("rawtypes")
     @Override public AnnotatedLargeText getLogText() {
         return new PipelineLargeText(this);
     }
 
-    // TODO also override getLogInputStream, getLogReader, getLogFile, getLog(), getLog(int); and maybe set Run.charset for the benefit of callers of getCharset, namely ConsoleCommand
+    @Override public InputStream getLogInputStream() throws IOException {
+        // TODO inefficient but currently AnnotatedLargeText.strip does not support transforming input streams
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        getLogText().writeRawLogTo(0, baos);
+        return new ByteArrayInputStream(baos.toByteArray());
+    }
+
+    // TODO these methods should be better defined in Run itself to delegate to getLogInputStream:
+
+    @Override public Reader getLogReader() throws IOException {
+        // TODO as above
+        return getLogText().readAll();
+    }
+
+    @SuppressWarnings("deprecation")
+    @Override public String getLog() throws IOException {
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        getLogText().writeRawLogTo(0, baos);
+        return baos.toString("UTF-8");
+    }
+
+    @Override public List<String> getLog(int maxLines) throws IOException {
+        int lineCount = 0;
+        List<String> logLines = new LinkedList<>();
+        if (maxLines == 0) {
+            return logLines;
+        }
+        try (BufferedReader reader = new BufferedReader(getLogReader())) {
+            for (String line = reader.readLine(); line != null; line = reader.readLine()) {
+                logLines.add(line);
+                ++lineCount;
+                if (lineCount > maxLines) {
+                    logLines.remove(0);
+                }
+            }
+        }
+        if (lineCount > maxLines) {
+            logLines.set(0, "[...truncated " + (lineCount - (maxLines - 1)) + " lines...]");
+        }
+        return ConsoleNote.removeNotes(logLines);
+    }
+
+    @Override public File getLogFile() {
+        // TODO JenkinsRule.getLog calls this just to avoid a FileNotFoundException if the log does not yet exist;
+        // perhaps it should instead just catch FileNotFoundException and return "" in that case?
+        LOGGER.log(Level.WARNING, "Avoid calling getLogFile on " + this, new UnsupportedOperationException());
+        try {
+            File f = File.createTempFile("deprecated", ".log", getRootDir());
+            f.deleteOnExit();
+            try (OutputStream os = new FileOutputStream(f)) {
+                getLogText().writeRawLogTo(0, os);
+            }
+            return f;
+        } catch (IOException x) {
+            throw new RuntimeException(x);
+        }
+    }
+
+    @Restricted(NoExternalUse.class) // for use from PipelineLogFile
+    public File _getLogFile() {
+        return super.getLogFile();
+    }
+
+    @Restricted(NoExternalUse.class) // for use from PipelineLogFile
+    public InputStream _getLogInputStream() throws IOException {
+        return super.getLogInputStream();
+    }
 
     static void alias() {
         Run.XSTREAM2.alias("flow-build", WorkflowRun.class);
