@@ -752,8 +752,6 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
     }
 
     @Override public File getLogFile() {
-        // TODO JenkinsRule.getLog calls this just to avoid a FileNotFoundException if the log does not yet exist;
-        // perhaps it should instead just catch FileNotFoundException and return "" in that case?
         LOGGER.log(Level.WARNING, "Avoid calling getLogFile on " + this, new UnsupportedOperationException());
         try {
             File f = File.createTempFile("deprecated", ".log", getRootDir());
