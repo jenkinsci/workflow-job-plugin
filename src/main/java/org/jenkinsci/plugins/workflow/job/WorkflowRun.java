@@ -27,6 +27,7 @@ package org.jenkinsci.plugins.workflow.job;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
+import com.jcraft.jzlib.GZIPInputStream;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import hudson.AbortException;
 import hudson.EnvVars;
@@ -58,11 +59,13 @@ import java.io.BufferedReader;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.Reader;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashMap;
@@ -772,7 +775,17 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
 
     @Restricted(NoExternalUse.class) // for use from PipelineLogFile
     public InputStream _getLogInputStream() throws IOException {
-        return super.getLogInputStream();
+        File logFile = _getLogFile();
+        if (logFile.exists()) {
+            FileInputStream fis = new FileInputStream(logFile);
+            if (logFile.getName().endsWith(".gz")) {
+                return new GZIPInputStream(fis);
+            } else {
+                return fis;
+            }
+        }
+        String message = "No such file: " + logFile;
+        return new ByteArrayInputStream(message.getBytes(StandardCharsets.UTF_8));
     }
 
     static void alias() {
