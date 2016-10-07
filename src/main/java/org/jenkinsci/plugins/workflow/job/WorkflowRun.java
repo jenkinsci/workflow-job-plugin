@@ -33,6 +33,7 @@ import hudson.AbortException;
 import hudson.EnvVars;
 import hudson.Extension;
 import hudson.FilePath;
+import hudson.Main;
 import hudson.XmlFile;
 import hudson.console.AnnotatedLargeText;
 import hudson.console.ConsoleNote;
@@ -755,7 +756,9 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
     }
 
     @Override public File getLogFile() {
-        LOGGER.log(Level.WARNING, "Avoid calling getLogFile on " + this, new UnsupportedOperationException());
+        if (!Main.isUnitTest) { // TODO at least until https://github.com/jenkinsci/jenkins-test-harness/pull/38
+            LOGGER.log(Level.WARNING, "Avoid calling getLogFile on " + this, new UnsupportedOperationException());
+        }
         try {
             File f = File.createTempFile("deprecated", ".log", getRootDir());
             f.deleteOnExit();
