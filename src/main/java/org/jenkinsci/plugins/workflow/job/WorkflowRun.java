@@ -33,7 +33,6 @@ import hudson.AbortException;
 import hudson.EnvVars;
 import hudson.Extension;
 import hudson.FilePath;
-import hudson.Main;
 import hudson.XmlFile;
 import hudson.console.AnnotatedLargeText;
 import hudson.console.ConsoleNote;
@@ -96,9 +95,9 @@ import org.jenkinsci.plugins.workflow.flow.GraphListener;
 import org.jenkinsci.plugins.workflow.flow.StashManager;
 import org.jenkinsci.plugins.workflow.graph.FlowEndNode;
 import org.jenkinsci.plugins.workflow.graph.FlowNode;
+import org.jenkinsci.plugins.workflow.job.console.NewNodeConsoleNote;
 import org.jenkinsci.plugins.workflow.job.console.PipelineLargeText;
 import org.jenkinsci.plugins.workflow.job.console.PipelineLogFile;
-import org.jenkinsci.plugins.workflow.job.console.WorkflowRunConsoleNote;
 import org.jenkinsci.plugins.workflow.steps.FlowInterruptedException;
 import org.jenkinsci.plugins.workflow.steps.StepContext;
 import org.jenkinsci.plugins.workflow.steps.StepExecution;
@@ -704,7 +703,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
      */
     private final class NodePrintListener implements GraphListener.Synchronous {
         @Override public void onNewHead(FlowNode node) {
-            WorkflowRunConsoleNote.print(node.getDisplayFunctionName(), listener);
+            NewNodeConsoleNote.print(node, listener);
         }
     }
 
@@ -756,9 +755,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
     }
 
     @Override public File getLogFile() {
-        if (!Main.isUnitTest) { // TODO at least until https://github.com/jenkinsci/jenkins-test-harness/pull/38
-            LOGGER.log(Level.WARNING, "Avoid calling getLogFile on " + this, new UnsupportedOperationException());
-        }
+        LOGGER.log(Level.WARNING, "Avoid calling getLogFile on " + this, new UnsupportedOperationException());
         try {
             File f = File.createTempFile("deprecated", ".log", getRootDir());
             f.deleteOnExit();

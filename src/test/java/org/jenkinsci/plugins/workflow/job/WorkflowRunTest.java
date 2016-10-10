@@ -24,21 +24,14 @@
 
 package org.jenkinsci.plugins.workflow.job;
 
-import com.gargoylesoftware.htmlunit.html.HtmlPage;
-import com.google.common.collect.Lists;
-import hudson.console.ModelHyperlinkNote;
 import hudson.model.BallColor;
-import hudson.model.Cause;
-import hudson.model.CauseAction;
 import hudson.model.Executor;
 import hudson.model.Item;
 import hudson.model.ParametersAction;
 import hudson.model.ParametersDefinitionProperty;
 import hudson.model.Result;
-import hudson.model.Run;
 import hudson.model.StringParameterDefinition;
 import hudson.model.StringParameterValue;
-import hudson.model.TaskListener;
 import hudson.model.User;
 import hudson.model.queue.QueueTaskFuture;
 import hudson.security.ACL;
@@ -53,38 +46,24 @@ import java.util.concurrent.TimeUnit;
 import jenkins.model.CauseOfInterruption;
 import jenkins.model.InterruptedBuildAction;
 import jenkins.model.Jenkins;
-import jenkins.security.NotReallyRoleSensitiveCallable;
 import org.apache.commons.io.FileUtils;
-import static org.hamcrest.Matchers.containsString;
-import static org.hamcrest.Matchers.not;
 import org.jenkinsci.plugins.scriptsecurity.scripts.ScriptApproval;
-import org.jenkinsci.plugins.workflow.actions.LogAction;
 import org.jenkinsci.plugins.workflow.cps.CpsFlowDefinition;
 import org.jenkinsci.plugins.workflow.cps.CpsFlowExecution;
 import org.jenkinsci.plugins.workflow.cps.nodes.StepNode;
 import org.jenkinsci.plugins.workflow.flow.FlowExecution;
 import org.jenkinsci.plugins.workflow.graph.FlowGraphWalker;
 import org.jenkinsci.plugins.workflow.graph.FlowNode;
-import org.jenkinsci.plugins.workflow.graphanalysis.DepthFirstScanner;
-import org.jenkinsci.plugins.workflow.graphanalysis.FlowScanningUtils;
-import org.jenkinsci.plugins.workflow.steps.AbstractStepDescriptorImpl;
-import org.jenkinsci.plugins.workflow.steps.AbstractStepImpl;
-import org.jenkinsci.plugins.workflow.steps.AbstractSynchronousStepExecution;
-import org.jenkinsci.plugins.workflow.steps.StepContextParameter;
-import org.jenkinsci.plugins.workflow.support.actions.AnnotatedLogAction;
 import org.jenkinsci.plugins.workflow.test.steps.SemaphoreStep;
 import static org.junit.Assert.*;
 import org.junit.ClassRule;
-import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
 import org.jvnet.hudson.test.BuildWatcher;
 import org.jvnet.hudson.test.Issue;
 import org.jvnet.hudson.test.JenkinsRule;
 import org.jvnet.hudson.test.MockAuthorizationStrategy;
-import org.jvnet.hudson.test.TestExtension;
 import org.jvnet.hudson.test.recipes.LocalData;
-import org.kohsuke.stapler.DataBoundConstructor;
 
 public class WorkflowRunTest {
 
@@ -295,84 +274,6 @@ public class WorkflowRunTest {
         iba = b2.getAction(InterruptedBuildAction.class);
         assertNotNull(iba);
         assertEquals(Collections.emptyList(), iba.getCauses());
-    }
-
-    @Issue("JENKINS-38381")
-    @Test public void consoleNotes() throws Exception {
-        r.jenkins.setSecurityRealm(r.createDummySecurityRealm());
-        WorkflowJob p = r.createProject(WorkflowJob.class, "p");
-        p.setDefinition(new CpsFlowDefinition("hyperlink()", true));
-        User alice = User.get("alice");
-        WorkflowRun b = r.assertBuildStatusSuccess(p.scheduleBuild2(0, new CauseAction(ACL.impersonate(alice.impersonate(), new NotReallyRoleSensitiveCallable<Cause,RuntimeException>() {
-            @Override public Cause call() throws RuntimeException {
-                return new Cause.UserIdCause();
-            }
-        }))));
-        HtmlPage page = r.createWebClient().goTo(b.getUrl() + "console");
-        assertLogContains(page, hudson.model.Messages.Cause_UserIdCause_ShortDescription(alice.getDisplayName()), alice.getUrl());
-        assertLogContains(page, "Running inside " + b.getDisplayName(), b.getUrl());
-        assertThat(page.getWebResponse().getContentAsString(), containsString("</span>Running inside"));
-        DepthFirstScanner scanner = new DepthFirstScanner();
-        scanner.setup(b.getExecution().getCurrentHeads());
-        List<FlowNode> nodes = Lists.newArrayList(scanner.filter(FlowScanningUtils.hasActionPredicate(LogAction.class)));
-        assertEquals(1, nodes.size());
-        page = r.createWebClient().goTo(nodes.get(0).getUrl() + nodes.get(0).getAction(LogAction.class).getUrlName());
-        assertLogContains(page, "Running inside " + b.getDisplayName(), b.getUrl());
-        r.assertLogContains("\nRunning inside " + b.getDisplayName(), b);
-    }
-    private void assertLogContains(HtmlPage page, String plainText, String url) throws Exception {
-        String html = page.getWebResponse().getContentAsString();
-        assertThat(page.getUrl() + " looks OK as text:\n" + html, page.getDocumentElement().getTextContent(), containsString(plainText));
-        String absUrl = r.contextPath + "/" + url;
-        assertNotNull("found " + absUrl + " in:\n" + html, page.getAnchorByHref(absUrl));
-        assertThat(html, not(containsString(AnnotatedLogAction.NODE_ID_SEP)));
-    }
-    public static class HyperlinkingStep extends AbstractStepImpl {
-        @DataBoundConstructor public HyperlinkingStep() {}
-        public static class Execution extends AbstractSynchronousStepExecution<Void> {
-            @StepContextParameter Run<?,?> run;
-            @StepContextParameter TaskListener listener;
-            @Override protected Void run() throws Exception {
-                listener.getLogger().println("Running inside " + ModelHyperlinkNote.encodeTo(run));
-                return null;
-            }
-        }
-        @TestExtension("consoleNotes") public static class DescriptorImpl extends AbstractStepDescriptorImpl {
-            public DescriptorImpl() {
-                super(Execution.class);
-            }
-            @Override public String getFunctionName() {
-                return "hyperlink";
-            }
-        }
-    }
-
-    @Ignore("TODO currently not implemented")
-    @Test
-    @Issue({"JENKINS-26122", "JENKINS-28222"})
-    public void parallelBranchLabels() throws Exception {
-        WorkflowJob p = r.jenkins.createProject(WorkflowJob.class, "p");
-        p.setDefinition(new CpsFlowDefinition(
-            "parallel a: {\n" +
-            "  echo 'a-outside-1'\n" +
-            "  withEnv(['A=1']) {echo 'a-inside-1'}\n" +
-            "  echo 'a-outside-2'\n" +
-            "  withEnv(['A=1']) {echo 'a-inside-2'}\n" +
-            "}, b: {\n" +
-            "  echo 'b-outside-1'\n" +
-            "  withEnv(['B=1']) {echo 'b-inside-1'}\n" +
-            "  echo 'b-outside-2'\n" +
-            "  withEnv(['B=1']) {echo 'b-inside-2'}\n" +
-            "}", true));
-        WorkflowRun b = r.assertBuildStatusSuccess(p.scheduleBuild2(0));
-        r.assertLogContains("[a] a-outside-1", b);
-        r.assertLogContains("[b] b-outside-1", b);
-        r.assertLogContains("[a] a-inside-1", b);
-        r.assertLogContains("[b] b-inside-1", b);
-        r.assertLogContains("[a] a-outside-2", b);
-        r.assertLogContains("[b] b-outside-2", b);
-        r.assertLogContains("[a] a-inside-2", b);
-        r.assertLogContains("[b] b-inside-2", b);
     }
 
 }

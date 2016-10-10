@@ -24,22 +24,24 @@
 
 package org.jenkinsci.plugins.workflow.job.console;
 
+import org.jenkinsci.plugins.workflow.job.WorkflowRun;
+
 import hudson.MarkupText;
 import hudson.console.ConsoleAnnotator;
 import hudson.console.ConsoleNote;
 import hudson.model.Run;
-import hudson.model.TaskListener;
-import java.io.IOException;
 
 /**
- * Console note for Workflow metadata specific messages.
+ * @deprecated No longer used, but retained for serial-form compatibility of old build logs.
+ * @see NewNodeConsoleNote
  */
+@Deprecated
 public class WorkflowRunConsoleNote extends ConsoleNote<Run<?, ?>> {
 
     /**
      * Prefix used in metadata lines.
      */
-    private static final String CONSOLE_NOTE_PREFIX = "[Pipeline] ";
+    public static final String CONSOLE_NOTE_PREFIX = "[Pipeline] ";
 
     /**
      * CSS color selector.
@@ -49,20 +51,13 @@ public class WorkflowRunConsoleNote extends ConsoleNote<Run<?, ?>> {
     private static final String START_NOTE = "<span style=\"color:#"+ TEXT_COLOR +"\">";
     private static final String END_NOTE = "</span>";
 
-    public static void print(String message, TaskListener listener) {
-        try {
-            listener.annotate(new WorkflowRunConsoleNote());
-        } catch (IOException x) {
-            // never mind
-        }
-        listener.getLogger().println(CONSOLE_NOTE_PREFIX + message);
-    }
-
-    private WorkflowRunConsoleNote() {}
-
     @Override
-    public ConsoleAnnotator<?> annotate(Run<?, ?> context, MarkupText text, int charPos) {
-        text.addMarkup(0, text.length(), START_NOTE, END_NOTE);
+    public ConsoleAnnotator<Run<?,?>> annotate(Run<?, ?> context, MarkupText text, int charPos) {
+        if (context instanceof WorkflowRun) {
+            if (text.getText().startsWith(CONSOLE_NOTE_PREFIX)) {
+                text.addMarkup(0, text.length(), START_NOTE, END_NOTE);
+            }
+        }
         return null;
     }
 

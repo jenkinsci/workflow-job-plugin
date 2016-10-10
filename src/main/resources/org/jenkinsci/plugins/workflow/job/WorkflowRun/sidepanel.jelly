@@ -31,7 +31,17 @@
             <l:task icon="images/24x24/up.png" href="${rootURL}/${it.parent.url}" title="${%Back to Project}" contextMenu="false"/>
             <l:task icon="images/24x24/search.png" href="${buildUrl.baseUrl}/" title="${%Status}" contextMenu="false"/>
             <l:task icon="images/24x24/notepad.png" href="${buildUrl.baseUrl}/changes" title="${%Changes}"/>
-            <p:console-link/>
+            <j:choose> <!-- TODO <p:console-link/> may not currently be used as it calls getLogFile -->
+                <j:when test="${it.logText.length() > 200000}">
+                    <l:task href="${buildUrl.baseUrl}/console" icon="icon-terminal icon-md" title="${%Console Output}"/>
+                    <l:task href="${buildUrl.baseUrl}/consoleText" icon="icon-document icon-md" title="${%View as plain text}"/>
+                </j:when>
+                <j:otherwise>
+                    <l:task icon="images/24x24/terminal.png" href="${buildUrl.baseUrl}/console" title="${%Console Output}">
+                        <l:task href="${buildUrl.baseUrl}/consoleText" icon="icon-document icon-md" title="${%View as plain text}"/>
+                    </l:task>
+                </j:otherwise>
+            </j:choose>
             <l:task icon="images/24x24/notepad.png" href="${buildUrl.baseUrl}/configure" title="${h.hasPermission(it,it.UPDATE)?'%Edit Build Information':'%View Build Information'}"/>
             <st:include page="delete.jelly"/>
             <st:include page="actions.jelly"/>
