@@ -111,7 +111,7 @@ public class PipelineLargeText extends AnnotatedLargeText<WorkflowRun> {
         assert owner != null;
         long r;
         try (InputStream log = owner.getLog()) {
-            log.skip(start); // TODO probably want to let the implementation of PipelineLogFile implement this more efficiently
+            IOUtils.skipFully(log, start); // TODO probably want to let the implementation of PipelineLogFile implement this more efficiently
             CountingInputStream cis = new CountingInputStream(log);
             IOUtils.copy(cis, caw);
             r = start + cis.getByteCount();
@@ -136,7 +136,7 @@ public class PipelineLargeText extends AnnotatedLargeText<WorkflowRun> {
                 Cipher sym = PASSING_ANNOTATOR.decrypt();
                 try (ObjectInputStream ois = new ObjectInputStreamEx(new GZIPInputStream(
                         new CipherInputStream(new ByteArrayInputStream(Base64.decode(base64.toCharArray())), sym)),
-                        Jenkins.getInstance().pluginManager.uberClassLoader,
+                        Jenkins.getActiveInstance().pluginManager.uberClassLoader,
                         ClassFilter.DEFAULT)) {
                     long timestamp = ois.readLong();
                     if (TimeUnit2.HOURS.toMillis(1) > abs(System.currentTimeMillis() - timestamp)) {
