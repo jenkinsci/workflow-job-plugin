@@ -52,9 +52,6 @@ function showHidePipelineSection(link) {
         var encloses = function(enclosing, enclosed, parents, starts) {
             var id = enclosed
             while (true) {
-                if (id == enclosing) {
-                    return true // found it
-                }
                 var start = starts.get(id)
                 if (start != null && start != id) {
                     id = start
@@ -66,13 +63,14 @@ function showHidePipelineSection(link) {
                 }
                 id = ps[0] // length > 1 only for parallel block end node, which we already handled
                 // continue looking for earlier siblings and/or enclosing nodes
+                if (id == enclosing) {
+                    return true // found it
+                }
             }
         }
         for (var i = 0; i < ids.length; i++) {
             var oid = ids[i]
-            if (oid == id) {
-                continue
-            } else if (encloses(id, oid, parents, starts)) {
+            if (encloses(id, oid, parents, starts)) {
                 showHide(oid, display)
                 var header = $$('.pipeline-new-node[nodeId=' + oid + ']')
                 if (header.length > 0) {
