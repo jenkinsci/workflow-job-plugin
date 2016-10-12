@@ -24,12 +24,13 @@
 
 package org.jenkinsci.plugins.workflow.job.console;
 
+import static org.hamcrest.Matchers.containsString;
 import org.jenkinsci.plugins.workflow.cps.CpsFlowDefinition;
 import org.jenkinsci.plugins.workflow.job.WorkflowJob;
 import org.jenkinsci.plugins.workflow.job.WorkflowRun;
+import static org.junit.Assert.assertThat;
 import org.junit.Test;
 import org.junit.ClassRule;
-import org.junit.Ignore;
 import org.junit.Rule;
 import org.jvnet.hudson.test.BuildWatcher;
 import org.jvnet.hudson.test.JenkinsRule;
@@ -39,15 +40,15 @@ public class NewNodeConsoleNoteTest {
     @Rule public JenkinsRule r = new JenkinsRule();
     @ClassRule public static BuildWatcher buildWatcher = new BuildWatcher();
 
-    @Ignore("TODO NodePrintListener must be synchronous, else we might print that a step started after output is being produced. Yet NewNodeConsoleNote.print then calls getDisplayFunctionName before LabelAction has been attached. Can we print generic text, like node ID, and have annotate make it pretty?")
     @Test public void labels() throws Exception {
         WorkflowJob p = r.createProject(WorkflowJob.class, "p");
-        p.setDefinition(new CpsFlowDefinition("parallel first: {}, second: {stage('details') {}}; stage 'nonblock'", true));
+        p.setDefinition(new CpsFlowDefinition("parallel first: {}, second: {stage('details') {}}; stage 'not \"blocky\"'", true));
         WorkflowRun b = r.buildAndAssertSuccess(p);
-        r.assertLogContains("[Pipeline] { (Branch: first)", b);
-        r.assertLogContains("[Pipeline] { (Branch: second)", b);
-        r.assertLogContains("[Pipeline] { (details)", b);
-        r.assertLogContains("[Pipeline] stage (nonblock)", b);
+        String html = r.createWebClient().goTo(b.getUrl() + "console").getWebResponse().getContentAsString();
+        assertThat(html, containsString("\" label=\"Branch: first\">[Pipeline] {"));
+        assertThat(html, containsString("\" label=\"Branch: second\">[Pipeline] {"));
+        assertThat(html, containsString("\" label=\"details\">[Pipeline] {"));
+        assertThat(html, containsString("\" label=\"not &quot;blocky&quot;\">[Pipeline] stage"));
     }
 
 }

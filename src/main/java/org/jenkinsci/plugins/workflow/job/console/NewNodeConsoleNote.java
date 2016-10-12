@@ -26,19 +26,23 @@ package org.jenkinsci.plugins.workflow.job.console;
 
 import hudson.Extension;
 import hudson.MarkupText;
+import hudson.Util;
 import hudson.console.ConsoleAnnotationDescriptor;
 import hudson.console.ConsoleAnnotator;
 import hudson.console.ConsoleNote;
-import hudson.model.Run;
 import hudson.model.TaskListener;
 import java.io.IOException;
 import java.util.List;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import javax.annotation.CheckForNull;
 import javax.annotation.Nonnull;
 import org.jenkinsci.plugins.workflow.actions.LabelAction;
+import org.jenkinsci.plugins.workflow.flow.FlowExecution;
 import org.jenkinsci.plugins.workflow.graph.BlockEndNode;
 import org.jenkinsci.plugins.workflow.graph.BlockStartNode;
 import org.jenkinsci.plugins.workflow.graph.FlowNode;
+import org.jenkinsci.plugins.workflow.job.WorkflowRun;
 import org.jenkinsci.plugins.workflow.support.actions.AnnotatedLogAction;
 import org.kohsuke.accmod.Restricted;
 import org.kohsuke.accmod.restrictions.NoExternalUse;
@@ -50,11 +54,12 @@ import org.kohsuke.accmod.restrictions.NoExternalUse;
  * <li>{@code nodeId} for {@link FlowNode#getId}
  * <li>{@code parentIds} for {@link FlowNode#getParents}
  * <li>{@code startId} {@link FlowNode#getId} for {@link BlockStartNode}, else {@link BlockEndNode#getStartNode}, else absent
+ * <li>{@code label} for {@link LabelAction} if present
  * </ul>
  * @see AnnotatedLogAction#annotateHtml
  */
 @Restricted(NoExternalUse.class)
-public class NewNodeConsoleNote extends ConsoleNote<Run<?, ?>> {
+public class NewNodeConsoleNote extends ConsoleNote<WorkflowRun> {
 
     /**
      * Prefix used in metadata lines.
@@ -85,13 +90,27 @@ public class NewNodeConsoleNote extends ConsoleNote<Run<?, ?>> {
     }
 
     @Override
-    public ConsoleAnnotator<?> annotate(Run<?, ?> context, MarkupText text, int charPos) {
+    public ConsoleAnnotator<?> annotate(WorkflowRun context, MarkupText text, int charPos) {
         StringBuilder startTag = new StringBuilder("<span class=\"pipeline-new-node\" nodeId=\"").append(id);
         for (int i = 0; i < parents.length; i++) {
             startTag.append(i == 0 ? "\" parentIds=\"" : " ").append(parents[i]);
         }
         if (start != null) {
             startTag.append("\" startId=\"").append(start);
+        }
+        FlowExecution execution = context.getExecution();
+        if (execution != null) {
+            try {
+                FlowNode node = execution.getNode(id);
+                if (node != null) {
+                    LabelAction a = node.getAction(LabelAction.class);
+                    if (a != null) {
+                        startTag.append("\" label=\"").append(Util.escape(a.getDisplayName())); // TODO is there some better way to escape for attribute values?
+                    }
+                }
+            } catch (IOException x) {
+                Logger.getLogger(NewNodeConsoleNote.class.getName()).log(Level.WARNING, null, x);
+            }
         }
         startTag.append("\">");
         text.addMarkup(0, text.length(), startTag.toString(), "</span>");

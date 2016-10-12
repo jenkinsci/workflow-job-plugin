@@ -1,4 +1,8 @@
 Behaviour.specify("span.pipeline-new-node", 'NewNodeConsoleNote', 0, function(e) {
+    var label = e.getAttribute('label')
+    if (label != null) {
+        e.innerHTML = e.innerHTML.replace(/.+/, '$& (' + label.escapeHTML() + ')')
+    }
     var startId = e.getAttribute('startId')
     if (startId == null || startId == e.getAttribute('nodeId')) {
         e.innerHTML = e.innerHTML.replace(/.+/, '$&<span class="pipeline-show-hide"> (<a href="#" onclick="showHidePipelineSection(this); return false">hide</a>)</span>')
