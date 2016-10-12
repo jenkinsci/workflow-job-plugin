@@ -96,6 +96,7 @@ import org.jenkinsci.plugins.workflow.job.properties.DisableConcurrentBuildsJobP
 import org.jenkinsci.plugins.workflow.job.properties.PipelineTriggersJobProperty;
 import org.kohsuke.accmod.Restricted;
 import org.kohsuke.accmod.restrictions.DoNotUse;
+import org.kohsuke.accmod.restrictions.NoExternalUse;
 import org.kohsuke.stapler.QueryParameter;
 import org.kohsuke.stapler.StaplerRequest;
 import org.kohsuke.stapler.StaplerResponse;
@@ -445,6 +446,7 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements B
         return triggerProp;
     }
 
+    @Restricted(NoExternalUse.class)
     public void addTriggersJobPropertyWithoutStart(PipelineTriggersJobProperty prop) throws IOException {
         super.addProperty(prop);
     }
