@@ -11,10 +11,11 @@ function showHidePipelineSection(link) {
     if (link.textContent === 'hide') {
         display = 'none'
         link.textContent = 'show'
-        /* TODO also set this temporarily to visibility: visible */
+        link.parentNode.className = ''
     } else {
         display = 'inline'
         link.textContent = 'hide'
+        link.parentNode.className = 'pipeline-show-hide'
     }
     // TODO for a block node, look up other pipeline-new-node elements with parentIds including this (transitively) and mask them and their text too
     var sect = '.pipeline-node-' + id
