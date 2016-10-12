@@ -1,16 +1,17 @@
 Behaviour.specify("span.pipeline-new-node", 'NewNodeConsoleNote', 0, function(e) {
     if (e.getAttribute('startId') == null) {
-        e.innerHTML = e.innerHTML.replace(/.+/, '$& (<a href="#" onclick="showHidePipelineSection(this); return false">hide</a>)')
+        e.innerHTML = e.innerHTML.replace(/.+/, '$&<span class="pipeline-show-hide"> (<a href="#" onclick="showHidePipelineSection(this); return false">hide</a>)</span>')
     }
 });
 
 function showHidePipelineSection(link) {
-    var span = link.parentNode
+    var span = link.parentNode.parentNode
     var id = span.getAttribute('nodeId')
     var display
     if (link.textContent === 'hide') {
         display = 'none'
         link.textContent = 'show'
+        /* TODO also set this temporarily to visibility: visible */
     } else {
         display = 'inline'
         link.textContent = 'hide'
