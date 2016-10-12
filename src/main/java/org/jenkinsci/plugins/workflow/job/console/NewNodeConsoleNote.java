@@ -35,7 +35,9 @@ import java.io.IOException;
 import java.util.List;
 import javax.annotation.CheckForNull;
 import javax.annotation.Nonnull;
+import org.jenkinsci.plugins.workflow.actions.LabelAction;
 import org.jenkinsci.plugins.workflow.graph.BlockEndNode;
+import org.jenkinsci.plugins.workflow.graph.BlockStartNode;
 import org.jenkinsci.plugins.workflow.graph.FlowNode;
 import org.jenkinsci.plugins.workflow.support.actions.AnnotatedLogAction;
 import org.kohsuke.accmod.Restricted;
@@ -47,7 +49,7 @@ import org.kohsuke.accmod.restrictions.NoExternalUse;
  * <ul>
  * <li>{@code nodeId} for {@link FlowNode#getId}
  * <li>{@code parentIds} for {@link FlowNode#getParents}
- * <li>{@code startId} for {@link BlockEndNode#getStartNode} (otherwise absent)
+ * <li>{@code startId} {@link FlowNode#getId} for {@link BlockStartNode}, else {@link BlockEndNode#getStartNode}, else absent
  * </ul>
  * @see AnnotatedLogAction#annotateHtml
  */
@@ -79,7 +81,7 @@ public class NewNodeConsoleNote extends ConsoleNote<Run<?, ?>> {
         for (int i = 0; i < parentNodes.size(); i++) {
             parents[i] = parentNodes.get(i).getId();
         }
-        start = node instanceof BlockEndNode ? ((BlockEndNode) node).getStartNode().getId() : null;
+        start = node instanceof BlockEndNode ? ((BlockEndNode) node).getStartNode().getId() : node instanceof BlockStartNode ? node.getId() : null;
     }
 
     @Override
