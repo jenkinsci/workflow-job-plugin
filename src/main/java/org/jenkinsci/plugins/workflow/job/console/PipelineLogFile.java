@@ -39,6 +39,7 @@ import javax.annotation.CheckForNull;
 import javax.annotation.Nonnull;
 import org.jenkinsci.plugins.workflow.flow.FlowExecutionOwner;
 import org.jenkinsci.plugins.workflow.job.WorkflowRun;
+import org.jenkinsci.plugins.workflow.support.actions.LessAbstractTaskListener;
 import org.kohsuke.accmod.Restricted;
 import org.kohsuke.accmod.restrictions.NoExternalUse;
 
@@ -52,7 +53,7 @@ public abstract class PipelineLogFile implements ExtensionPoint {
      * Provides an alternate way of emitting output from a build.
      * May implement {@link AutoCloseable} to clean up at the end of a build.
      * @param b a build about to start
-     * @return a (remotable) build listener, or null to fall back to the next implementation or the default using {@link Run#getLogFile} and {@link StreamBuildListener}
+     * @return a (remotable) build listener (typically {@link LessAbstractTaskListener}), or null to fall back to the next implementation or the default using {@link Run#getLogFile} and {@link StreamBuildListener}
      */
     protected abstract @CheckForNull BuildListener listenerFor(@Nonnull WorkflowRun b) throws IOException, InterruptedException;
 
