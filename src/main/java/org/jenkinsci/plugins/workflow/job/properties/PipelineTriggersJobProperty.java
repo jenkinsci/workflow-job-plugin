@@ -145,8 +145,7 @@ public class PipelineTriggersJobProperty extends JobProperty<WorkflowJob> {
             }
             trigList.rebuild(req, triggerSection, Trigger.for_(owner));
         } catch (IOException e) {
-            // TODO: Not sure what form field would make sense here?
-            throw new Descriptor.FormException(e, null);
+            throw new Descriptor.FormException(e, "triggers");
         }
 
         PipelineTriggersJobProperty oldProp = owner.getTriggersJobProperty();
@@ -169,6 +168,7 @@ public class PipelineTriggersJobProperty extends JobProperty<WorkflowJob> {
                 oldProp.startTriggers(true);
             } catch (IOException e) {
                 LOGGER.log(Level.WARNING, "could not revert to original configured triggers", e);
+                throw new Descriptor.FormException("Could not revert to original configured triggers", e, "triggers");
             }
         }
 
