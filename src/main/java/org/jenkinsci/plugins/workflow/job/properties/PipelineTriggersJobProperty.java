@@ -49,9 +49,13 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 @SuppressWarnings("rawtypes")
 public class PipelineTriggersJobProperty extends JobProperty<WorkflowJob> {
+    private static final Logger LOGGER = Logger.getLogger(PipelineTriggersJobProperty.class.getName());
+
     private List<Trigger<?>> triggers = new ArrayList<>();
 
     @DataBoundConstructor
@@ -133,7 +137,7 @@ public class PipelineTriggersJobProperty extends JobProperty<WorkflowJob> {
     @CheckForNull
     @Override
     public PipelineTriggersJobProperty reconfigure(@Nonnull StaplerRequest req, @CheckForNull JSONObject form) throws Descriptor.FormException {
-        DescribableList<Trigger<?>,TriggerDescriptor> trigList = new DescribableList<>(Saveable.NOOP);
+        DescribableList<Trigger<?>, TriggerDescriptor> trigList = new DescribableList<>(Saveable.NOOP);
         try {
             JSONObject triggerSection = new JSONObject();
             if (form != null) {
@@ -141,18 +145,34 @@ public class PipelineTriggersJobProperty extends JobProperty<WorkflowJob> {
             }
             trigList.rebuild(req, triggerSection, Trigger.for_(owner));
         } catch (IOException e) {
-            // TODO: Not sure what form field would make sense here?
-            throw new Descriptor.FormException(e, null);
+            throw new Descriptor.FormException(e, "triggers");
         }
 
-        this.stopTriggers();
+        PipelineTriggersJobProperty oldProp = owner.getTriggersJobProperty();
 
-        PipelineTriggersJobProperty thisProp = new PipelineTriggersJobProperty(new ArrayList<Trigger>(trigList.toList()));
-        thisProp.setOwner(owner);
+        try {
+            owner.removeProperty(this);
+            PipelineTriggersJobProperty thisProp = new PipelineTriggersJobProperty(new ArrayList<Trigger>(trigList.toList()));
 
-        thisProp.startTriggers(true);
+            owner.addTriggersJobPropertyWithoutStart(thisProp);
 
-        return thisProp;
+            thisProp.startTriggers(true);
+            return thisProp;
+        } catch (IOException e) {
+            LOGGER.log(Level.WARNING, "could not configure triggers", e);
+        }
+
+        if (owner.getTriggersJobProperty() == null && oldProp != null) {
+            try {
+                owner.addTriggersJobPropertyWithoutStart(oldProp);
+                oldProp.startTriggers(true);
+            } catch (IOException e) {
+                LOGGER.log(Level.WARNING, "could not revert to original configured triggers", e);
+                throw new Descriptor.FormException("Could not revert to original configured triggers", e, "triggers");
+            }
+        }
+
+        return oldProp;
     }
 
     @Extension(ordinal = -100)
