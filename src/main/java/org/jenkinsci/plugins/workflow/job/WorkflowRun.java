@@ -595,7 +595,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
             save();
             getParent().logRotate();
         } catch (Exception x) {
-            LOGGER.log(Level.WARNING, null, x);
+            LOGGER.log(Level.WARNING, "failed to save " + this + " or perform log rotation", x);
         }
         onEndBuilding();
         if (completed != null) {
