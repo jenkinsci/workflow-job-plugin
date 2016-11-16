@@ -29,8 +29,6 @@ import hudson.model.Executor;
 import hudson.model.Result;
 import hudson.model.TaskListener;
 import org.jenkinsci.plugins.workflow.cps.CpsFlowDefinition;
-import org.jenkinsci.plugins.workflow.job.WorkflowJob;
-import org.jenkinsci.plugins.workflow.job.WorkflowRun;
 import org.jenkinsci.plugins.workflow.steps.AbstractStepDescriptorImpl;
 import org.jenkinsci.plugins.workflow.steps.AbstractStepExecutionImpl;
 import org.jenkinsci.plugins.workflow.steps.AbstractStepImpl;
@@ -84,6 +82,51 @@ public class WorkflowRunRestartTest {
             }
         });
     }
+
+    @Issue("JENKINS-33721")
+    @Test public void termAndKillInSidePanel() throws Exception {
+        story.addStep(new Statement() {
+            @Override public void evaluate() throws Throwable {
+                WorkflowJob p = story.j.jenkins.createProject(WorkflowJob.class, "p");
+                p.setDefinition(new CpsFlowDefinition("def seq = 0; retry (99) {zombie id: ++seq}"));
+                WorkflowRun b = p.scheduleBuild2(0).waitForStart();
+                story.j.waitForMessage("[1] undead", b);
+                Executor ex = b.getExecutor();
+                assertNotNull(ex);
+                ex.interrupt();
+                story.j.waitForMessage("[1] bwahaha FlowInterruptedException #1", b);
+                ex.interrupt();
+                story.j.waitForMessage("[1] bwahaha FlowInterruptedException #2", b);
+                assertFalse(hasTermOrKillLink(b, "term"));
+                assertFalse(hasTermOrKillLink(b, "kill"));
+                story.j.waitForMessage("Click here to forcibly terminate running steps", b);
+                assertTrue(hasTermOrKillLink(b, "term"));
+                assertFalse(hasTermOrKillLink(b, "kill"));
+                b.doTerm();
+                story.j.waitForMessage("[2] undead", b);
+                story.j.waitForMessage("Click here to forcibly kill entire build", b);
+                assertFalse(hasTermOrKillLink(b, "term"));
+                assertTrue(hasTermOrKillLink(b, "kill"));
+                b.doKill();
+                story.j.waitForMessage("Hard kill!", b);
+                story.j.waitForCompletion(b);
+                story.j.assertBuildStatus(Result.ABORTED, b);
+            }
+        });
+        story.addStep(new Statement() {
+            @Override public void evaluate() throws Throwable {
+                WorkflowJob p = story.j.jenkins.getItemByFullName("p", WorkflowJob.class);
+                WorkflowRun b = p.getBuildByNumber(1);
+                assertFalse(b.isBuilding());
+            }
+        });
+    }
+
+    private boolean hasTermOrKillLink(WorkflowRun b, String termOrKill) throws Exception {
+        return !story.j.createWebClient().getPage(b)
+                .getByXPath("//a[@href = '#' and contains(@onclick, '/" + b.getUrl() + termOrKill + "')]").isEmpty();
+    }
+
     public static class Zombie extends AbstractStepImpl {
         @DataBoundSetter public int id;
         @DataBoundConstructor public Zombie() {}
@@ -102,7 +145,7 @@ public class WorkflowRunRestartTest {
             }
 
         }
-        @TestExtension("hardKill") public static class DescriptorImpl extends AbstractStepDescriptorImpl {
+        @TestExtension public static class DescriptorImpl extends AbstractStepDescriptorImpl {
             public DescriptorImpl() {
                 super(Execution.class);
             }

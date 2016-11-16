@@ -121,6 +121,14 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
 
     private static final Logger LOGGER = Logger.getLogger(WorkflowRun.class.getName());
 
+    private enum StopState {
+        TERM, KILL;
+
+        public String url() {
+            return this.name().toLowerCase();
+        }
+    }
+
     /** null until started, or after serious failures or hard kill */
     private @CheckForNull FlowExecution execution;
 
@@ -135,6 +143,10 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
         }
     };
     private transient StreamBuildListener listener;
+
+    private transient boolean allowTerm;
+
+    private transient boolean allowKill;
 
     /**
      * Flag for whether or not the build has completed somehow.
@@ -260,7 +272,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
                             LOGGER.log(Level.WARNING, null, x);
                         }
                         executor.recordCauseOfInterruption(WorkflowRun.this, listener);
-                        printLater("term", "Click here to forcibly terminate running steps");
+                        printLater(StopState.TERM, "Click here to forcibly terminate running steps");
                     }
                 });
             }
@@ -302,13 +314,21 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
         return asynchronousExecution;
     }
 
-    private void printLater(final String url, final String message) {
+    private void printLater(final StopState state, final String message) {
         Timer.get().schedule(new Runnable() {
             @Override public void run() {
                 if (!isInProgress()) {
                     return;
                 }
-                listener.getLogger().println(POSTHyperlinkNote.encodeTo("/" + getUrl() + url, message));
+                switch (state) {
+                    case TERM:
+                        setAllowTerm(true);
+                        break;
+                    case KILL:
+                        setAllowKill(true);
+                        break;
+                }
+                listener.getLogger().println(POSTHyperlinkNote.encodeTo("/" + getUrl() + state.url(), message));
             }
         }, 15, TimeUnit.SECONDS);
     }
@@ -338,7 +358,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
             }
             @Override public void onFailure(Throwable t) {}
         });
-        printLater("kill", "Click here to forcibly kill entire build");
+        printLater(StopState.KILL, "Click here to forcibly kill entire build");
     }
 
     /** Immediately kills the build. */
@@ -369,6 +389,22 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
         }
         EnvVars.resolve(env);
         return env;
+    }
+
+    public void setAllowTerm(boolean b) {
+        this.allowTerm = b;
+    }
+
+    public boolean hasAllowTerm() {
+        return allowTerm && !allowKill;
+    }
+
+    public void setAllowKill(boolean b) {
+        this.allowKill = b;
+    }
+
+    public boolean hasAllowKill() {
+        return allowKill;
     }
 
     @GuardedBy("completed")
