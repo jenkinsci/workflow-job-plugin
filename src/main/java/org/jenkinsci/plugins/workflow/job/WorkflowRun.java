@@ -71,6 +71,7 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.Future;
@@ -110,6 +111,8 @@ import org.jenkinsci.plugins.workflow.steps.StepContext;
 import org.jenkinsci.plugins.workflow.steps.StepExecution;
 import org.jenkinsci.plugins.workflow.support.concurrent.Futures;
 import org.jenkinsci.plugins.workflow.support.steps.input.POSTHyperlinkNote;
+import org.kohsuke.accmod.Restricted;
+import org.kohsuke.accmod.restrictions.DoNotUse;
 import org.kohsuke.stapler.HttpResponse;
 import org.kohsuke.stapler.HttpResponses;
 import org.kohsuke.stapler.export.Exported;
@@ -125,7 +128,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
         TERM, KILL;
 
         public String url() {
-            return this.name().toLowerCase();
+            return this.name().toLowerCase(Locale.ENGLISH);
         }
     }
 
@@ -322,10 +325,10 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
                 }
                 switch (state) {
                     case TERM:
-                        setAllowTerm(true);
+                        allowTerm = true;
                         break;
                     case KILL:
-                        setAllowKill(true);
+                        allowKill = true;
                         break;
                 }
                 listener.getLogger().println(POSTHyperlinkNote.encodeTo("/" + getUrl() + state.url(), message));
@@ -391,18 +394,12 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
         return env;
     }
 
-    public void setAllowTerm(boolean b) {
-        this.allowTerm = b;
-    }
-
+    @Restricted(DoNotUse.class) // Jelly
     public boolean hasAllowTerm() {
-        return allowTerm && !allowKill;
+        return allowTerm;
     }
 
-    public void setAllowKill(boolean b) {
-        this.allowKill = b;
-    }
-
+    @Restricted(DoNotUse.class) // Jelly
     public boolean hasAllowKill() {
         return allowKill;
     }

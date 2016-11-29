@@ -105,19 +105,12 @@ public class WorkflowRunRestartTest {
                 b.doTerm();
                 story.j.waitForMessage("[2] undead", b);
                 story.j.waitForMessage("Click here to forcibly kill entire build", b);
-                assertFalse(hasTermOrKillLink(b, "term"));
+                assertTrue(hasTermOrKillLink(b, "term"));
                 assertTrue(hasTermOrKillLink(b, "kill"));
                 b.doKill();
                 story.j.waitForMessage("Hard kill!", b);
                 story.j.waitForCompletion(b);
                 story.j.assertBuildStatus(Result.ABORTED, b);
-            }
-        });
-        story.addStep(new Statement() {
-            @Override public void evaluate() throws Throwable {
-                WorkflowJob p = story.j.jenkins.getItemByFullName("p", WorkflowJob.class);
-                WorkflowRun b = p.getBuildByNumber(1);
-                assertFalse(b.isBuilding());
             }
         });
     }

@@ -34,29 +34,25 @@
             <p:console-link/>
             <l:task icon="images/24x24/notepad.png" href="${buildUrl.baseUrl}/configure" title="${h.hasPermission(it,it.UPDATE)?'%Edit Build Information':'%View Build Information'}"/>
             <st:include page="delete.jelly"/>
-            <j:if test="${it.building}">
-                <j:choose>
-                    <j:when test="${it.hasAllowTerm()}">
-                        <l:task icon="images/24x24/edit-delete.png"
-                                href="${buildUrl.baseUrl}/term"
-                                title="${%Abort Running Steps}"
-                                contextMenu="false"
-                                post="true"
-                                permission="${it.CANCEL}"
-                                requiresConfirmation="true"
-                                confirmationMessage="Really forcibly abort running steps?"/>
-                    </j:when>
-                    <j:when test="${it.hasAllowKill()}">
-                        <l:task icon="images/24x24/edit-delete.png"
-                                href="${buildUrl.baseUrl}/kill"
-                                title="${%Force Abort of Entire Build}"
-                                contextMenu="false"
-                                post="true"
-                                permission="${it.CANCEL}"
-                                requiresConfirmation="true"
-                                confirmationMessage="Really forcibly abort entire build?"/>
-                    </j:when>
-                </j:choose>
+            <j:if test="${it.building && it.hasAllowTerm()}">
+                <l:task icon="images/24x24/edit-delete.png"
+                        href="${buildUrl.baseUrl}/term"
+                        title="${%Abort Running Steps}"
+                        contextMenu="false"
+                        post="true"
+                        permission="${it.CANCEL}"
+                        requiresConfirmation="true"
+                        confirmationMessage="${%Really forcibly abort running steps?}"/>
+            </j:if>
+            <j:if test="${it.building && it.hasAllowKill()}">
+                <l:task icon="images/24x24/edit-delete.png"
+                        href="${buildUrl.baseUrl}/kill"
+                        title="${%Force Abort of Entire Build}"
+                        contextMenu="false"
+                        post="true"
+                        permission="${it.CANCEL}"
+                        requiresConfirmation="true"
+                        confirmationMessage="${%Really forcibly abort entire build?}"/>
             </j:if>
             <st:include page="actions.jelly"/>
             <t:actions actions="${it.transientActions}"/>
