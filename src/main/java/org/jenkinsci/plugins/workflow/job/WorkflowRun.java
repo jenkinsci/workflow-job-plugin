@@ -396,12 +396,12 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
 
     @Restricted(DoNotUse.class) // Jelly
     public boolean hasAllowTerm() {
-        return allowTerm;
+        return isBuilding() && allowTerm;
     }
 
     @Restricted(DoNotUse.class) // Jelly
     public boolean hasAllowKill() {
-        return allowKill;
+        return isBuilding() && allowKill;
     }
 
     @GuardedBy("completed")

@@ -34,7 +34,7 @@
             <p:console-link/>
             <l:task icon="images/24x24/notepad.png" href="${buildUrl.baseUrl}/configure" title="${h.hasPermission(it,it.UPDATE)?'%Edit Build Information':'%View Build Information'}"/>
             <st:include page="delete.jelly"/>
-            <j:if test="${it.building and it.hasAllowTerm()}">
+            <j:if test="${it.hasAllowTerm()}">
                 <l:task icon="images/24x24/edit-delete.png"
                         href="${buildUrl.baseUrl}/term"
                         title="${%Abort Running Steps}"
@@ -44,7 +44,7 @@
                         requiresConfirmation="true"
                         confirmationMessage="${%Really forcibly abort running steps?}"/>
             </j:if>
-            <j:if test="${it.building and it.hasAllowKill()}">
+            <j:if test="${it.hasAllowKill()}">
                 <l:task icon="images/24x24/edit-delete.png"
                         href="${buildUrl.baseUrl}/kill"
                         title="${%Force Abort of Entire Build}"
