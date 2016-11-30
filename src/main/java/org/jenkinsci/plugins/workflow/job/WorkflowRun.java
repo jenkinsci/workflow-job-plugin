@@ -71,6 +71,7 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.Future;
@@ -110,6 +111,8 @@ import org.jenkinsci.plugins.workflow.steps.StepContext;
 import org.jenkinsci.plugins.workflow.steps.StepExecution;
 import org.jenkinsci.plugins.workflow.support.concurrent.Futures;
 import org.jenkinsci.plugins.workflow.support.steps.input.POSTHyperlinkNote;
+import org.kohsuke.accmod.Restricted;
+import org.kohsuke.accmod.restrictions.DoNotUse;
 import org.kohsuke.stapler.HttpResponse;
 import org.kohsuke.stapler.HttpResponses;
 import org.kohsuke.stapler.export.Exported;
@@ -120,6 +123,14 @@ import org.kohsuke.stapler.interceptor.RequirePOST;
 public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements FlowExecutionOwner.Executable, LazyBuildMixIn.LazyLoadingRun<WorkflowJob,WorkflowRun> {
 
     private static final Logger LOGGER = Logger.getLogger(WorkflowRun.class.getName());
+
+    private enum StopState {
+        TERM, KILL;
+
+        public String url() {
+            return this.name().toLowerCase(Locale.ENGLISH);
+        }
+    }
 
     /** null until started, or after serious failures or hard kill */
     private @CheckForNull FlowExecution execution;
@@ -135,6 +146,10 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
         }
     };
     private transient StreamBuildListener listener;
+
+    private transient boolean allowTerm;
+
+    private transient boolean allowKill;
 
     /**
      * Flag for whether or not the build has completed somehow.
@@ -260,7 +275,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
                             LOGGER.log(Level.WARNING, null, x);
                         }
                         executor.recordCauseOfInterruption(WorkflowRun.this, listener);
-                        printLater("term", "Click here to forcibly terminate running steps");
+                        printLater(StopState.TERM, "Click here to forcibly terminate running steps");
                     }
                 });
             }
@@ -302,13 +317,21 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
         return asynchronousExecution;
     }
 
-    private void printLater(final String url, final String message) {
+    private void printLater(final StopState state, final String message) {
         Timer.get().schedule(new Runnable() {
             @Override public void run() {
                 if (!isInProgress()) {
                     return;
                 }
-                listener.getLogger().println(POSTHyperlinkNote.encodeTo("/" + getUrl() + url, message));
+                switch (state) {
+                    case TERM:
+                        allowTerm = true;
+                        break;
+                    case KILL:
+                        allowKill = true;
+                        break;
+                }
+                listener.getLogger().println(POSTHyperlinkNote.encodeTo("/" + getUrl() + state.url(), message));
             }
         }, 15, TimeUnit.SECONDS);
     }
@@ -338,7 +361,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
             }
             @Override public void onFailure(Throwable t) {}
         });
-        printLater("kill", "Click here to forcibly kill entire build");
+        printLater(StopState.KILL, "Click here to forcibly kill entire build");
     }
 
     /** Immediately kills the build. */
@@ -369,6 +392,16 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
         }
         EnvVars.resolve(env);
         return env;
+    }
+
+    @Restricted(DoNotUse.class) // Jelly
+    public boolean hasAllowTerm() {
+        return isBuilding() && allowTerm;
+    }
+
+    @Restricted(DoNotUse.class) // Jelly
+    public boolean hasAllowKill() {
+        return isBuilding() && allowKill;
     }
 
     @GuardedBy("completed")
