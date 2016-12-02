@@ -67,6 +67,7 @@ import java.io.OutputStream;
 import java.io.PrintStream;
 import java.nio.charset.Charset;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -103,8 +104,11 @@ import org.jenkinsci.plugins.workflow.flow.FlowExecutionOwner;
 import org.jenkinsci.plugins.workflow.flow.GraphListener;
 import org.jenkinsci.plugins.workflow.flow.StashManager;
 import org.jenkinsci.plugins.workflow.graph.BlockEndNode;
+import org.jenkinsci.plugins.workflow.graph.BlockStartNode;
 import org.jenkinsci.plugins.workflow.graph.FlowEndNode;
 import org.jenkinsci.plugins.workflow.graph.FlowNode;
+import org.jenkinsci.plugins.workflow.job.console.NestingNote;
+import org.jenkinsci.plugins.workflow.job.console.ShowHideNote;
 import org.jenkinsci.plugins.workflow.job.console.WorkflowConsoleLogger;
 import org.jenkinsci.plugins.workflow.steps.FlowInterruptedException;
 import org.jenkinsci.plugins.workflow.steps.StepContext;
@@ -438,14 +442,17 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
                 AnnotatedLargeText<? extends FlowNode> logText = la.getLogText();
                 try {
                     long old = entry.getValue();
-                    OutputStream logger;
 
                     String prefix = getLogPrefix(node);
+                    List<String> nesting = getNesting(node);
+                    String encodedNesting = new NestingNote(nesting).encode();
+                    String linePrefix;
                     if (prefix != null) {
-                        logger = new LogLinePrefixOutputFilter(listener.getLogger(), "[" + prefix + "] ");
+                        linePrefix = encodedNesting + "[" + prefix + "] ";
                     } else {
-                        logger = listener.getLogger();
+                        linePrefix = encodedNesting;
                     }
+                    OutputStream logger = new LogLinePrefixOutputFilter(listener.getLogger(), linePrefix);
 
                     try {
                         long revised = writeRawLogTo(logText, old, logger);
@@ -519,6 +526,37 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
                 });
             }
             return logPrefixCache.getUnchecked(node).orNull();
+        }
+    }
+
+    @GuardedBy("completed")
+    private transient LoadingCache<FlowNode,List<String>> nestingCache;
+    private @Nonnull List<String> getNesting(FlowNode node) {
+        // TODO could also use FlowScanningUtils.fetchEnclosingBlocks(node) but this would not let us cache intermediate results
+        synchronized (completed) {
+            if (nestingCache == null) {
+                nestingCache = CacheBuilder.newBuilder().weakKeys().build(new CacheLoader<FlowNode,List<String>>() {
+                    @Override public @Nonnull List<String> load(FlowNode node) {
+                        if (node instanceof BlockEndNode) {
+                            return getNesting(((BlockEndNode) node).getStartNode());
+                        } else {
+                            List<FlowNode> parents = node.getParents();
+                            if (parents.isEmpty()) { // FlowStartNode
+                                return Collections.emptyList();
+                            }
+                            List<String> parent = getNesting(parents.get(0)); // multiple parents is only for BlockEndNode after parallel
+                            if (node instanceof BlockStartNode) {
+                                List<String> appended = new ArrayList<>(parent);
+                                appended.add(node.getId());
+                                return appended;
+                            } else { // AtomNode
+                                return parent;
+                            }
+                        }
+                    }
+                });
+            }
+            return nestingCache.getUnchecked(node);
         }
     }
 
@@ -907,12 +945,26 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
     }
 
     private void logNodeMessage(FlowNode node) {
+        List<String> nesting = getNesting(node);
+        if (!nesting.isEmpty() && nesting.get(nesting.size() - 1).equals(node.getId())) {
+            // For a BlockStartNode, we do not want to hide itself.
+            nesting = new ArrayList<>(nesting.subList(0, nesting.size() - 1));
+        }
+        try {
+            listener.annotate(new NestingNote(nesting));
+        } catch (IOException x) {
+            LOGGER.log(Level.WARNING, null, x);
+        }
         WorkflowConsoleLogger wfLogger = new WorkflowConsoleLogger(listener);
         String prefix = getLogPrefix(node);
+        String text = node.getDisplayFunctionName();
+        if (node instanceof BlockStartNode) {
+            text += " (" + ShowHideNote.create(node.getId()) + ")";
+        }
         if (prefix != null) {
-            wfLogger.log(String.format("[%s] %s", prefix, node.getDisplayFunctionName()));
+            wfLogger.log(String.format("[%s] %s", prefix, text));
         } else {
-            wfLogger.log(node.getDisplayFunctionName());
+            wfLogger.log(text);
         }
         // Flushing to keep logs printed in order as much as possible. The copyLogs method uses
         // LargeText and possibly LogLinePrefixOutputFilter. Both of these buffer and flush, causing strange
