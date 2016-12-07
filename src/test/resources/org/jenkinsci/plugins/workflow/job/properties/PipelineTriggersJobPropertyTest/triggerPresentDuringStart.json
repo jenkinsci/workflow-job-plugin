@@ -1,0 +1,48 @@
+{
+  "name": "triggerPresent",
+  "description": "",
+  "_empty_": [
+    "",
+    "0"
+  ],
+  "properties": {
+    "stapler-class-bag": "true",
+    "jenkins-model-BuildDiscarderProperty": {
+      "specified": false,
+      "_empty_": "0",
+      "strategy": {
+        "daysToKeepStr": "",
+        "numToKeepStr": "",
+        "artifactDaysToKeepStr": "",
+        "artifactNumToKeepStr": "",
+        "stapler-class": "hudson.tasks.LogRotator",
+        "$class": "hudson.tasks.LogRotator"
+      }
+    },
+    "hudson-model-ParametersDefinitionProperty": {
+      "specified": false
+    },
+    "org-jenkinsci-plugins-workflow-job-properties-PipelineTriggersJobProperty": {
+      "triggers": {
+        "stapler-class-bag": "true",
+        "org-jenkinsci-plugins-workflow-job-properties-QueryingMockTrigger": {
+          
+        }
+      }
+    }
+  },
+  "hasCustomQuietPeriod": false,
+  "quiet_period": "0",
+  "displayNameOrNull": "",
+  "definition": {
+    "script": "",
+    "_empty_": [
+      "try sample Pipeline...",
+      "\u0001\u0001"
+    ],
+    "sandbox": true,
+    "stapler-class": "org.jenkinsci.plugins.workflow.cps.CpsFlowDefinition",
+    "$class": "org.jenkinsci.plugins.workflow.cps.CpsFlowDefinition"
+  },
+  "core:apply": ""
+}

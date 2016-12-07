@@ -25,14 +25,14 @@
  */
 package org.jenkinsci.plugins.workflow.job.properties;
 
-import hudson.diagnosis.OldDataMonitor;
+import com.gargoylesoftware.htmlunit.HttpMethod;
+import com.gargoylesoftware.htmlunit.WebRequest;
+import com.gargoylesoftware.htmlunit.util.NameValuePair;
 import hudson.model.Item;
 import hudson.model.Items;
-import hudson.model.Saveable;
 import hudson.triggers.TimerTrigger;
 import hudson.triggers.Trigger;
 import org.jenkinsci.plugins.workflow.job.WorkflowJob;
-import org.jenkinsci.plugins.workflow.job.properties.PipelineTriggersJobProperty;
 import org.junit.After;
 import org.junit.ClassRule;
 import org.junit.Rule;
@@ -41,12 +41,14 @@ import org.jvnet.hudson.test.BuildWatcher;
 import org.jvnet.hudson.test.JenkinsRule;
 import org.jvnet.hudson.test.recipes.LocalData;
 
+import java.net.URL;
 import java.util.ArrayList;
 import java.util.List;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
 public class PipelineTriggersJobPropertyTest {
@@ -62,6 +64,7 @@ public class PipelineTriggersJobPropertyTest {
     @After
     public void resetStartsAndStops() {
         MockTrigger.startsAndStops = new ArrayList<>();
+        QueryingMockTrigger.startsAndStops = new ArrayList<>();
     }
 
     @Test
@@ -165,6 +168,30 @@ public class PipelineTriggersJobPropertyTest {
 
         // The  first "null, false" is due to the p.addTrigger(t) call and won't apply in the real world.
         assertEquals("[null, false, null, true]", MockTrigger.startsAndStops.toString());
+    }
+
+    @Test
+    public void triggerPresentDuringStart() throws Exception {
+        WorkflowJob p = r.jenkins.createProject(WorkflowJob.class, "triggerPresent");
+        r.configRoundtrip(p);
+        assertNull(getTriggerFromList(QueryingMockTrigger.class,
+                p.getTriggersJobProperty().getTriggers()));
+        JenkinsRule.WebClient wc = r.createWebClient();
+        String newConfig = org.apache.commons.io.IOUtils.toString(
+                PipelineTriggersJobPropertyTest.class.getResourceAsStream(
+                        "/org/jenkinsci/plugins/workflow/job/properties/PipelineTriggersJobPropertyTest/triggerPresentDuringStart.json"), "UTF-8");
+        WebRequest request = new WebRequest(new URL(p.getAbsoluteUrl() + "configSubmit"), HttpMethod.POST);
+        wc.addCrumb(request);
+        List<NameValuePair> params = new ArrayList<>();
+        params.addAll(request.getRequestParameters());
+        params.add(new NameValuePair("json", newConfig));
+        request.setRequestParameters(params);
+        wc.getPage(request);
+        QueryingMockTrigger t = getTriggerFromList(QueryingMockTrigger.class,
+                p.getTriggersJobProperty().getTriggers());
+        assertNotNull(t);
+        assertTrue(t.isStarted);
+        assertTrue(t.foundSelf);
     }
 
     private <T extends Trigger> T getTriggerFromList(Class<T> clazz, List<Trigger<?>> triggers) {

@@ -49,6 +49,7 @@ import hudson.model.TaskListener;
 import hudson.model.listeners.RunListener;
 import hudson.model.listeners.SCMListener;
 import hudson.scm.ChangeLogSet;
+import hudson.scm.RepositoryBrowser;
 import hudson.scm.SCM;
 import hudson.scm.SCMRevisionState;
 import hudson.security.ACL;
@@ -71,6 +72,7 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
@@ -104,6 +106,7 @@ import org.jenkinsci.plugins.workflow.steps.StepExecution;
 import org.jenkinsci.plugins.workflow.support.concurrent.Futures;
 import org.jenkinsci.plugins.workflow.support.steps.input.POSTHyperlinkNote;
 import org.kohsuke.accmod.Restricted;
+import org.kohsuke.accmod.restrictions.DoNotUse;
 import org.kohsuke.accmod.restrictions.NoExternalUse;
 import org.kohsuke.stapler.HttpResponse;
 import org.kohsuke.stapler.HttpResponses;
@@ -115,6 +118,14 @@ import org.kohsuke.stapler.interceptor.RequirePOST;
 public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements FlowExecutionOwner.Executable, LazyBuildMixIn.LazyLoadingRun<WorkflowJob,WorkflowRun> {
 
     private static final Logger LOGGER = Logger.getLogger(WorkflowRun.class.getName());
+
+    private enum StopState {
+        TERM, KILL;
+
+        public String url() {
+            return this.name().toLowerCase(Locale.ENGLISH);
+        }
+    }
 
     /** null until started, or after serious failures or hard kill */
     private @CheckForNull FlowExecution execution;
@@ -130,6 +141,10 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
         }
     };
     private transient BuildListener listener;
+
+    private transient boolean allowTerm;
+
+    private transient boolean allowKill;
 
     /**
      * Flag for whether or not the build has completed somehow.
@@ -245,7 +260,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
                             LOGGER.log(Level.WARNING, null, x);
                         }
                         executor.recordCauseOfInterruption(WorkflowRun.this, listener);
-                        printLater("term", "Click here to forcibly terminate running steps");
+                        printLater(StopState.TERM, "Click here to forcibly terminate running steps");
                     }
                 });
             }
@@ -258,13 +273,21 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
         };
     }
 
-    private void printLater(final String url, final String message) {
+    private void printLater(final StopState state, final String message) {
         Timer.get().schedule(new Runnable() {
             @Override public void run() {
                 if (!isInProgress()) {
                     return;
                 }
-                listener.getLogger().println(POSTHyperlinkNote.encodeTo("/" + getUrl() + url, message));
+                switch (state) {
+                    case TERM:
+                        allowTerm = true;
+                        break;
+                    case KILL:
+                        allowKill = true;
+                        break;
+                }
+                listener.getLogger().println(POSTHyperlinkNote.encodeTo("/" + getUrl() + state.url(), message));
             }
         }, 15, TimeUnit.SECONDS);
     }
@@ -294,7 +317,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
             }
             @Override public void onFailure(Throwable t) {}
         });
-        printLater("kill", "Click here to forcibly kill entire build");
+        printLater(StopState.KILL, "Click here to forcibly kill entire build");
     }
 
     /** Immediately kills the build. */
@@ -325,6 +348,16 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
         }
         EnvVars.resolve(env);
         return env;
+    }
+
+    @Restricted(DoNotUse.class) // Jelly
+    public boolean hasAllowTerm() {
+        return isBuilding() && allowTerm;
+    }
+
+    @Restricted(DoNotUse.class) // Jelly
+    public boolean hasAllowKill() {
+        return isBuilding() && allowKill;
     }
 
     private static final Map<String,WorkflowRun> LOADING_RUNS = new HashMap<>();
@@ -423,7 +456,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
             save();
             getParent().logRotate();
         } catch (Exception x) {
-            LOGGER.log(Level.WARNING, null, x);
+            LOGGER.log(Level.WARNING, "failed to save " + this + " or perform log rotation", x);
         }
         onEndBuilding();
         if (completed != null) {
@@ -509,7 +542,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
                 if (co.changelogFile != null && co.changelogFile.isFile()) {
                     try {
                         ChangeLogSet<? extends ChangeLogSet.Entry> changeLogSet =
-                                co.scm.createChangeLogParser().parse(this, co.scm.getEffectiveBrowser(), co.changelogFile);
+                                co.scm.createChangeLogParser().parse(this, getEffectiveBrowser(co.scm), co.changelogFile);
                         if (!changeLogSet.isEmptySet()) {
                             changeSets.add(changeLogSet);
                         }
@@ -520,6 +553,12 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
             }
         }
         return changeSets;
+    }
+
+    /** Replacement for {@link SCM#getEffectiveBrowser} to work around JENKINS-35098. TODO 2.7.3+ delete */
+    private static RepositoryBrowser<?> getEffectiveBrowser(SCM scm) {
+        RepositoryBrowser<?> b = scm.getBrowser();
+        return b != null ? b : scm.guessBrowser();
     }
 
     @RequirePOST
