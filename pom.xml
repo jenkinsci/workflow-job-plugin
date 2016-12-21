@@ -69,7 +69,8 @@
         <jenkins.version>1.642.3</jenkins.version>
         <jenkins-test-harness.version>2.17</jenkins-test-harness.version>
         <no-test-jar>false</no-test-jar>
-        <hpi-plugin.version>1.121</hpi-plugin.version>
+        <hpi-plugin.version>1.122-SNAPSHOT</hpi-plugin.version> <!-- TODO https://github.com/jenkinsci/maven-hpi-plugin/pull/48 -->
+        <enforcer.fail>false</enforcer.fail> <!-- TODO ditto -->
     </properties>
     <dependencies>
         <dependency>
@@ -97,17 +98,33 @@
             <artifactId>workflow-cps</artifactId>
             <version>2.18</version>
             <scope>test</scope>
+            <exclusions> <!-- TODO as above -->
+                <exclusion>
+                    <groupId>org.jenkins-ci.plugins.workflow</groupId>
+                    <artifactId>workflow-api</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.jenkins-ci.plugins.workflow</groupId>
+                    <artifactId>workflow-support</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
         <dependency>
             <groupId>org.jenkins-ci.plugins.workflow</groupId>
             <artifactId>workflow-basic-steps</artifactId>
             <version>2.2</version>
             <scope>test</scope>
+            <exclusions> <!-- TODO as above -->
+                <exclusion>
+                    <groupId>org.jenkins-ci.plugins.workflow</groupId>
+                    <artifactId>workflow-api</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
         <dependency>
             <groupId>com.github.jglick</groupId> <!-- TODO pending https://github.com/jenkinsci/workflow-support-plugin/pull/15 -->
             <artifactId>workflow-support-plugin</artifactId>
-            <version>cf6f11f</version>
+            <version>284f0dc</version>
             <classifier>tests</classifier>
             <scope>test</scope>
         </dependency>
@@ -116,6 +133,12 @@
             <artifactId>pipeline-stage-step</artifactId>
             <version>2.2</version>
             <scope>test</scope>
+            <exclusions> <!-- TODO as above -->
+                <exclusion>
+                    <groupId>org.jenkins-ci.plugins.workflow</groupId>
+                    <artifactId>workflow-api</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
     </dependencies>
 </project>
