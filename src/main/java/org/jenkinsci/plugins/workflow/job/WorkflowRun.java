@@ -66,7 +66,10 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.Reader;
+import java.nio.channels.Channels;
+import java.nio.channels.FileChannel;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashMap;
@@ -87,6 +90,7 @@ import jenkins.model.lazy.LazyBuildMixIn;
 import jenkins.model.queue.AsynchronousExecution;
 import jenkins.security.NotReallyRoleSensitiveCallable;
 import jenkins.util.Timer;
+import org.apache.commons.io.IOUtils;
 import org.jenkinsci.plugins.workflow.FilePathUtils;
 import org.jenkinsci.plugins.workflow.actions.TimingAction;
 import org.jenkinsci.plugins.workflow.flow.FlowDefinition;
@@ -699,8 +703,8 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
                 return TaskListener.NULL;
             }
         }
-        @Override public InputStream getLog() throws IOException {
-            return PipelineLogFile.log(run());
+        @Override public InputStream getLog(long start) throws IOException {
+            return PipelineLogFile.log(run(), start);
         }
         @Override public String toString() {
             return "Owner[" + key() + ":" + run + "]";
@@ -813,14 +817,15 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
     }
 
     @Restricted(NoExternalUse.class) // for use from PipelineLogFile
-    public InputStream _getLogInputStream() throws IOException {
+    public InputStream _getLogInputStream(long start) throws IOException {
         File logFile = _getLogFile();
         if (logFile.exists()) {
-            FileInputStream fis = new FileInputStream(logFile);
             if (logFile.getName().endsWith(".gz")) {
-                return new GZIPInputStream(fis);
+                InputStream is = new GZIPInputStream(new FileInputStream(logFile));
+                IOUtils.skipFully(is, start);
+                return is;
             } else {
-                return fis;
+                return Channels.newInputStream(FileChannel.open(logFile.toPath(), StandardOpenOption.READ).position(start));
             }
         }
         String message = "No such file: " + logFile;

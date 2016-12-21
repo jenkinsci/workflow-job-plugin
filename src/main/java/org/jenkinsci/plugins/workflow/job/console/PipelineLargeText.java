@@ -89,7 +89,7 @@ public class PipelineLargeText extends AnnotatedLargeText<WorkflowRun> {
         // (We could also override ByteBuffer to stream output after stripping, but the length would be wrong, if anyone cares.)
         FlowExecutionOwner owner = build.asFlowExecutionOwner();
         assert owner != null;
-        try (InputStream log = owner.getLog(); CountingInputStream cis = new CountingInputStream(log)) {
+        try (InputStream log = owner.getLog(0); CountingInputStream cis = new CountingInputStream(log)) {
             AnnotatedLogAction.strip(cis, buf);
             buf.length = cis.getByteCount();
         } catch (IOException ex) {
@@ -110,8 +110,7 @@ public class PipelineLargeText extends AnnotatedLargeText<WorkflowRun> {
         FlowExecutionOwner owner = context.asFlowExecutionOwner();
         assert owner != null;
         long r;
-        try (InputStream log = owner.getLog()) {
-            IOUtils.skipFully(log, start); // TODO probably want to let the implementation of PipelineLogFile implement this more efficiently
+        try (InputStream log = owner.getLog(start)) {
             CountingInputStream cis = new CountingInputStream(log);
             IOUtils.copy(cis, caw);
             r = start + cis.getByteCount();

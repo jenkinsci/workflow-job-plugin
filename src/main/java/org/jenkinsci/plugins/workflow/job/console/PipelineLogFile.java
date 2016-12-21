@@ -37,6 +37,7 @@ import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
 import javax.annotation.CheckForNull;
 import javax.annotation.Nonnull;
+import org.apache.commons.io.IOUtils;
 import org.jenkinsci.plugins.workflow.flow.FlowExecutionOwner;
 import org.jenkinsci.plugins.workflow.job.WorkflowRun;
 import org.jenkinsci.plugins.workflow.support.actions.LessAbstractTaskListener;
@@ -59,10 +60,12 @@ public abstract class PipelineLogFile implements ExtensionPoint {
 
     /**
      * Provides an alternate way of retrieving output from a build.
-     * @param b a build about to start
+     * @param b a build which may or may not be completed
+     * @param start the start position to begin reading from (normally 0); if past the end, the stream should just return EOF immediately; if you can do no better, try {@link IOUtils#skipFully(InputStream, long)}
      * @return a log input stream, or null to fall back to the next implementation or the default using {@link Run#getLogInputStream}
+     * @throws EOFException if the start position is larger than the log size (or you may simply return EOF immediately when read)
      */
-    protected abstract @CheckForNull InputStream logFor(@Nonnull WorkflowRun b) throws IOException;
+    protected abstract @CheckForNull InputStream logFor(@Nonnull WorkflowRun b, long start) throws IOException;
 
     @Restricted(NoExternalUse.class) // API for call from WorkflowRun
     public static @Nonnull BuildListener listener(@Nonnull WorkflowRun b) throws IOException, InterruptedException {
@@ -78,14 +81,14 @@ public abstract class PipelineLogFile implements ExtensionPoint {
     }
 
     @Restricted(NoExternalUse.class) // API for call from WorkflowRun
-    public static @Nonnull InputStream log(@Nonnull WorkflowRun b) throws IOException {
+    public static @Nonnull InputStream log(@Nonnull WorkflowRun b, long start) throws IOException {
         for (PipelineLogFile impl : ExtensionList.lookup(PipelineLogFile.class)) {
-            InputStream is = impl.logFor(b);
+            InputStream is = impl.logFor(b, start);
             if (is != null) {
                 return is;
             }
         }
-        return b._getLogInputStream();
+        return b._getLogInputStream(start);
     }
 
 }
