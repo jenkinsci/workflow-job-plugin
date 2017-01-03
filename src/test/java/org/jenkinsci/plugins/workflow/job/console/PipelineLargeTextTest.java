@@ -34,10 +34,12 @@ import hudson.model.Run;
 import hudson.model.TaskListener;
 import hudson.model.User;
 import hudson.security.ACL;
+import java.io.ByteArrayOutputStream;
+import java.io.StringWriter;
 import java.util.List;
 import jenkins.security.NotReallyRoleSensitiveCallable;
-import static org.hamcrest.Matchers.containsString;
-import static org.hamcrest.Matchers.not;
+import org.apache.commons.io.IOUtils;
+import static org.hamcrest.Matchers.*;
 import org.jenkinsci.plugins.workflow.actions.LogAction;
 import org.jenkinsci.plugins.workflow.cps.CpsFlowDefinition;
 import org.jenkinsci.plugins.workflow.graph.FlowNode;
@@ -49,10 +51,8 @@ import org.jenkinsci.plugins.workflow.steps.AbstractSynchronousStepExecution;
 import org.jenkinsci.plugins.workflow.steps.StepContextParameter;
 import org.jenkinsci.plugins.workflow.support.actions.AnnotatedLogAction;
 import static org.junit.Assert.*;
-import org.junit.ClassRule;
 import org.junit.Rule;
 import org.junit.Test;
-import org.jvnet.hudson.test.BuildWatcher;
 import org.jvnet.hudson.test.Issue;
 import org.jvnet.hudson.test.JenkinsRule;
 import org.jvnet.hudson.test.TestExtension;
@@ -61,7 +61,6 @@ import org.kohsuke.stapler.DataBoundConstructor;
 @Issue("JENKINS-38381")
 public class PipelineLargeTextTest {
 
-    @ClassRule public static BuildWatcher buildWatcher = new BuildWatcher();
     @Rule public JenkinsRule r = new JenkinsRule();
 
     @Test public void consoleNotes() throws Exception {
@@ -115,5 +114,68 @@ public class PipelineLargeTextTest {
     }
 
     // TODO figure out how to test doProgressText/Html on a running build
+
+    @Test public void performance() throws Exception {
+        WorkflowJob p = r.createProject(WorkflowJob.class, "p");
+        p.setDefinition(new CpsFlowDefinition("@NonCPS def giant() {(0..999999).join('\\n')}; echo giant()", true));
+        long start = System.nanoTime();
+        WorkflowRun b = r.buildAndAssertSuccess(p);
+        System.out.printf("Took %dms to run the build%n", (System.nanoTime() - start) / 1000 / 1000);
+        // Whole-build HTML output:
+        StringWriter sw = new StringWriter();
+        start = System.nanoTime();
+        b.getLogText().writeHtmlTo(0, sw);
+        System.out.printf("Took %dms to write HTML of whole build%n", (System.nanoTime() - start) / 1000 / 1000);
+        assertThat(sw.toString(), containsString("\">456789\n</span><span class=\"pipeline-node-"));
+        // Length check (cf. Run/console.jelly, WorkflowRun/sidepanel.jelly):
+        start = System.nanoTime();
+        long length = b.getLogText().length();
+        System.out.printf("Took %dms to compute length of whole build%n", (System.nanoTime() - start) / 1000 / 1000);
+        assertThat(length, greaterThan(200000L));
+        // Truncated (cf. Run/console.jelly):
+        long offset = length - 150 * 1024;
+        sw = new StringWriter();
+        start = System.nanoTime();
+        b.getLogText().writeHtmlTo(offset, sw);
+        System.out.printf("Took %dms to write truncated HTML of whole build%n", (System.nanoTime() - start) / 1000 / 1000);
+        assertThat(sw.toString(), not(containsString("\">456789\n</span><span class=\"pipeline-node-")));
+        assertThat(sw.toString(), containsString("\">999923\n</span><span class=\"pipeline-node-"));
+        // Raw:
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        start = System.nanoTime();
+        IOUtils.copy(b.getLogInputStream(), baos);
+        System.out.printf("Took %dms to write plain text of whole build%n", (System.nanoTime() - start) / 1000 / 1000);
+        assertThat(baos.toString(), containsString("\n456789\n"));
+        // Per node:
+        FlowNode echo = b.getExecution().getCurrentHeads().get(0).getParents().get(0);
+        assertEquals("echo", echo.getDisplayFunctionName());
+        LogAction la = echo.getAction(LogAction.class);
+        assertNotNull(la);
+        // Whole-build:
+        sw = new StringWriter();
+        start = System.nanoTime();
+        la.getLogText().writeHtmlTo(0, sw);
+        System.out.printf("Took %dms to write HTML of one node%n", (System.nanoTime() - start) / 1000 / 1000);
+        assertThat(sw.toString(), containsString("\n456789\n"));
+        // Length check (cf. AnnotatedLogAction/index.jelly):
+        start = System.nanoTime();
+        length = la.getLogText().length();
+        System.out.printf("Took %dms to compute length of one node%n", (System.nanoTime() - start) / 1000 / 1000);
+        assertThat(length, greaterThan(200000L));
+        // Truncated (cf. AnnotatedLogAction/index.jelly):
+        sw = new StringWriter();
+        offset = length - 150 * 1024;
+        start = System.nanoTime();
+        la.getLogText().writeHtmlTo(offset, sw);
+        System.out.printf("Took %dms to write truncated HTML of one node%n", (System.nanoTime() - start) / 1000 / 1000);
+        assertThat(sw.toString(), not(containsString("\n456789\n")));
+        assertThat(sw.toString(), containsString("\n999923\n"));
+        // Raw (currently not exposed in UI but could be):
+        baos = new ByteArrayOutputStream();
+        start = System.nanoTime();
+        la.getLogText().writeRawLogTo(0, baos);
+        System.out.printf("Took %dms to write plain text of one node%n", (System.nanoTime() - start) / 1000 / 1000);
+        assertThat(baos.toString(), containsString("\n456789\n"));
+    }
 
 }
