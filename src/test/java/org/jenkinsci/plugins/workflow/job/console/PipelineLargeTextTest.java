@@ -35,9 +35,11 @@ import hudson.model.TaskListener;
 import hudson.model.User;
 import hudson.security.ACL;
 import java.io.ByteArrayOutputStream;
+import java.io.File;
 import java.io.StringWriter;
 import java.util.List;
 import jenkins.security.NotReallyRoleSensitiveCallable;
+import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.IOUtils;
 import static org.hamcrest.Matchers.*;
 import org.jenkinsci.plugins.workflow.actions.LogAction;
@@ -149,8 +151,15 @@ public class PipelineLargeTextTest {
         // Per node:
         FlowNode echo = b.getExecution().getCurrentHeads().get(0).getParents().get(0);
         assertEquals("echo", echo.getDisplayFunctionName());
+        String prefix = echo.getId() + AnnotatedLogAction.NODE_ID_SEP;
+        String rawLog = FileUtils.readFileToString(new File(b.getRootDir(), "log"));
+        assertThat(rawLog, containsString(prefix + "0\n"));
+        assertThat(rawLog, containsString(prefix + "999999\n"));
         LogAction la = echo.getAction(LogAction.class);
         assertNotNull(la);
+        baos = new ByteArrayOutputStream();
+        la.getLogText().writeRawLogTo(0, baos);
+        assertThat(baos.toString(), not(containsString("Pipeline")));
         // Whole-build:
         sw = new StringWriter();
         start = System.nanoTime();
