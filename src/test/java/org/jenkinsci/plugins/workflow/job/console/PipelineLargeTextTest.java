@@ -128,7 +128,8 @@ public class PipelineLargeTextTest {
         start = System.nanoTime();
         b.getLogText().writeHtmlTo(0, sw);
         System.out.printf("Took %dms to write HTML of whole build%n", (System.nanoTime() - start) / 1000 / 1000);
-        assertThat(sw.toString(), containsString("\">456789\n</span><span class=\"pipeline-node-"));
+        assertThat(sw.toString(), containsString("\n456788\n456789\n456790\n"));
+        assertThat(sw.toString(), containsString("\n999999\n</span>"));
         // Length check (cf. Run/console.jelly, WorkflowRun/sidepanel.jelly):
         start = System.nanoTime();
         long length = b.getLogText().length();
@@ -140,8 +141,9 @@ public class PipelineLargeTextTest {
         start = System.nanoTime();
         b.getLogText().writeHtmlTo(offset, sw);
         System.out.printf("Took %dms to write truncated HTML of whole build%n", (System.nanoTime() - start) / 1000 / 1000);
-        assertThat(sw.toString(), not(containsString("\">456789\n</span><span class=\"pipeline-node-")));
-        assertThat(sw.toString(), containsString("\">999923\n</span><span class=\"pipeline-node-"));
+        assertThat(sw.toString(), not(containsString("\n456789\n")));
+        assertThat(sw.toString(), containsString("\n999923\n"));
+        assertThat(sw.toString(), containsString("\n999999\n</span>"));
         // Raw:
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
         start = System.nanoTime();
