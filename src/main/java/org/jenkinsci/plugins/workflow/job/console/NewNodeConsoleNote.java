@@ -24,6 +24,7 @@
 
 package org.jenkinsci.plugins.workflow.job.console;
 
+import com.google.common.base.Predicates;
 import hudson.Extension;
 import hudson.MarkupText;
 import hudson.Util;
@@ -32,7 +33,6 @@ import hudson.console.ConsoleAnnotator;
 import hudson.console.ConsoleNote;
 import hudson.model.TaskListener;
 import java.io.IOException;
-import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.annotation.CheckForNull;
@@ -42,6 +42,8 @@ import org.jenkinsci.plugins.workflow.flow.FlowExecution;
 import org.jenkinsci.plugins.workflow.graph.BlockEndNode;
 import org.jenkinsci.plugins.workflow.graph.BlockStartNode;
 import org.jenkinsci.plugins.workflow.graph.FlowNode;
+import org.jenkinsci.plugins.workflow.graphanalysis.Filterator;
+import org.jenkinsci.plugins.workflow.graphanalysis.FlowScanningUtils;
 import org.jenkinsci.plugins.workflow.job.WorkflowRun;
 import org.jenkinsci.plugins.workflow.support.actions.AnnotatedLogAction;
 import org.kohsuke.accmod.Restricted;
@@ -52,8 +54,8 @@ import org.kohsuke.accmod.restrictions.NoExternalUse;
  * Defines the {@code pipeline-new-node} CSS class and several attributes which may be used to control subsequent behavior:
  * <ul>
  * <li>{@code nodeId} for {@link FlowNode#getId}
- * <li>{@code parentIds} for {@link FlowNode#getParents}
  * <li>{@code startId} {@link FlowNode#getId} for {@link BlockStartNode}, else {@link BlockEndNode#getStartNode}, else absent
+ * <li>{@code enclosingId} the immediately enclosing {@link BlockStartNode}, if any
  * <li>{@code label} for {@link LabelAction} if present
  * </ul>
  * @see AnnotatedLogAction#annotateHtml
@@ -76,27 +78,29 @@ public class NewNodeConsoleNote extends ConsoleNote<WorkflowRun> {
     }
 
     private final @Nonnull String id;
-    private final @Nonnull String[] parents;
+    private final @CheckForNull String enclosing;
     private final @CheckForNull String start;
 
     private NewNodeConsoleNote(FlowNode node) {
         id = node.getId();
-        List<FlowNode> parentNodes = node.getParents();
-        parents = new String[parentNodes.size()];
-        for (int i = 0; i < parentNodes.size(); i++) {
-            parents[i] = parentNodes.get(i).getId();
+        if (node instanceof BlockEndNode) {
+            enclosing = null;
+            start = ((BlockEndNode) node).getStartNode().getId();
+        } else {
+            Filterator<FlowNode> it = FlowScanningUtils.fetchEnclosingBlocks(node).filter(Predicates.not(Predicates.equalTo(node)));
+            enclosing = it.hasNext() ? it.next().getId() : null;
+            start = node instanceof BlockStartNode ? node.getId() : null;
         }
-        start = node instanceof BlockEndNode ? ((BlockEndNode) node).getStartNode().getId() : node instanceof BlockStartNode ? node.getId() : null;
     }
 
     @Override
     public ConsoleAnnotator<?> annotate(WorkflowRun context, MarkupText text, int charPos) {
         StringBuilder startTag = new StringBuilder("<span class=\"pipeline-new-node\" nodeId=\"").append(id);
-        for (int i = 0; i < parents.length; i++) {
-            startTag.append(i == 0 ? "\" parentIds=\"" : " ").append(parents[i]);
-        }
         if (start != null) {
             startTag.append("\" startId=\"").append(start);
+        }
+        if (enclosing != null) {
+            startTag.append("\" enclosingId=\"").append(enclosing);
         }
         FlowExecution execution = context.getExecution();
         if (execution != null) {

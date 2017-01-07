@@ -39,38 +39,34 @@ function showHidePipelineSection(link) {
         // For a block node, look up other pipeline-new-node elements parented to this (transitively) and mask them and their text too.
         var nodes = $$('.pipeline-new-node')
         var ids = []
-        var parents = new Map() // id → [parents]
         var starts = new Map()
+        var enclosings = new Map() // id → enclosingId
         for (var i = 0; i < nodes.length; i++) {
             var node = nodes[i]
             var oid = node.getAttribute('nodeId')
             ids.push(oid)
-            parents.set(oid, node.getAttribute('parentIds').split(' '))
             starts.set(oid, node.getAttribute('startId'))
+            enclosings.set(oid, node.getAttribute('enclosingId'))
         }
-        // Cf. FlowScanningUtils.fetchEnclosingBlocks
-        var encloses = function(enclosing, enclosed, parents, starts) {
+        var encloses = function(enclosing, enclosed, starts, enclosings) {
             var id = enclosed
+            var start = starts.get(id)
+            if (start != null && start != id) {
+                id = start // block end node
+            }
             while (true) {
-                var start = starts.get(id)
-                if (start != null && start != id) {
-                    id = start
-                    continue // block end node
-                }
-                var ps = parents.get(id)
-                if (/* currently FlowStartNode is not represented */ ps == null || ps.length == 0) {
-                    return false // hit flow start node
-                }
-                id = ps[0] // length > 1 only for parallel block end node, which we already handled
-                // continue looking for earlier siblings and/or enclosing nodes
                 if (id == enclosing) {
                     return true // found it
+                }
+                id = enclosings.get(id)
+                if (id == null) {
+                    return false // hit flow start node
                 }
             }
         }
         for (var i = 0; i < ids.length; i++) {
             var oid = ids[i]
-            if (encloses(id, oid, parents, starts)) {
+            if (oid != id && encloses(id, oid, starts, enclosings)) {
                 showHide(oid, display)
                 var header = $$('.pipeline-new-node[nodeId=' + oid + ']')
                 if (header.length > 0) {
