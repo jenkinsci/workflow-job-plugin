@@ -62,7 +62,7 @@
         </pluginRepository>
     </pluginRepositories>
     <properties>
-        <jenkins.version>1.642.3</jenkins.version>
+        <jenkins.version>2.44-JENKINS-24141-SNAPSHOT</jenkins.version>
         <no-test-jar>false</no-test-jar>
     </properties>
     <dependencies>

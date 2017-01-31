@@ -28,6 +28,7 @@ import com.google.common.base.Optional;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
+import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
@@ -48,6 +49,7 @@ import hudson.model.Result;
 import hudson.model.Run;
 import hudson.model.StreamBuildListener;
 import hudson.model.TaskListener;
+import hudson.model.User;
 import hudson.model.listeners.RunListener;
 import hudson.model.listeners.SCMListener;
 import hudson.scm.ChangeLogSet;
@@ -55,6 +57,7 @@ import hudson.scm.RepositoryBrowser;
 import hudson.scm.SCM;
 import hudson.scm.SCMRevisionState;
 import hudson.security.ACL;
+import hudson.util.AdaptedIterator;
 import hudson.util.DaemonThreadFactory;
 import hudson.util.Iterators;
 import hudson.util.NamingThreadFactory;
@@ -66,13 +69,17 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.io.PrintStream;
 import java.nio.charset.Charset;
+import java.util.AbstractSet;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledExecutorService;
@@ -90,6 +97,7 @@ import jenkins.model.Jenkins;
 import jenkins.model.lazy.BuildReference;
 import jenkins.model.lazy.LazyBuildMixIn;
 import jenkins.model.queue.AsynchronousExecution;
+import jenkins.scm.RunWithSCMMixIn;
 import jenkins.security.NotReallyRoleSensitiveCallable;
 import jenkins.util.Timer;
 import org.jenkinsci.plugins.workflow.FilePathUtils;
@@ -120,7 +128,7 @@ import org.kohsuke.stapler.interceptor.RequirePOST;
 
 @SuppressWarnings("SynchronizeOnNonFinalField")
 @SuppressFBWarnings(value="JLM_JSR166_UTILCONCURRENT_MONITORENTER", justification="completed is an unusual usage")
-public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements FlowExecutionOwner.Executable, LazyBuildMixIn.LazyLoadingRun<WorkflowJob,WorkflowRun> {
+public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements FlowExecutionOwner.Executable, LazyBuildMixIn.LazyLoadingRun<WorkflowJob,WorkflowRun>, RunWithSCMMixIn.RunWithSCM<WorkflowJob,WorkflowRun> {
 
     private static final Logger LOGGER = Logger.getLogger(WorkflowRun.class.getName());
 
@@ -150,6 +158,21 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
     private transient boolean allowTerm;
 
     private transient boolean allowKill;
+
+    /**
+     * Cumulative list of people who contributed to the build problem.
+     *
+     * <p>
+     * This is a list of {@link User#getId() user ids} who made a change
+     * since the last non-broken build. Can be null (which should be
+     * treated like empty set), because of the compatibility.
+     *
+     * <p>
+     * This field is semi-final --- once set the value will never be modified.
+     *
+     * @since 1.137
+     */
+    private volatile Set<String> culprits;
 
     /**
      * Flag for whether or not the build has completed somehow.
@@ -187,6 +210,37 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
 
     @Override public LazyBuildMixIn.RunMixIn<WorkflowJob,WorkflowRun> getRunMixIn() {
         return runMixIn;
+    }
+
+    @Override
+    public RunWithSCMMixIn<WorkflowJob,WorkflowRun> getRunWithSCMMixIn() {
+        return new RunWithSCMMixIn<WorkflowJob, WorkflowRun>() {
+            @SuppressWarnings("unchecked") // untypable
+            @Override protected WorkflowRun asRun() {
+                return WorkflowRun.this;
+            }
+
+            @Exported
+            public synchronized List<ChangeLogSet<? extends ChangeLogSet.Entry>> getChangeSets() {
+                if (changeSets == null) {
+                    changeSets = new ArrayList<>();
+                    for (SCMCheckout co : checkouts(null)) {
+                        if (co.changelogFile != null && co.changelogFile.isFile()) {
+                            try {
+                                ChangeLogSet<? extends ChangeLogSet.Entry> changeLogSet =
+                                        co.scm.createChangeLogParser().parse(asRun(), getEffectiveBrowser(co.scm), co.changelogFile);
+                                if (!changeLogSet.isEmptySet()) {
+                                    changeSets.add(changeLogSet);
+                                }
+                            } catch (Exception x) {
+                                LOGGER.log(Level.WARNING, "could not parse " + co.changelogFile, x);
+                            }
+                        }
+                    }
+                }
+                return changeSets;
+            }
+        };
     }
 
     @Override protected BuildReference<WorkflowRun> createReference() {
@@ -631,6 +685,9 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
         } catch (Exception x) {
             LOGGER.log(Level.WARNING, "failed to save " + this + " or perform log rotation", x);
         }
+        if (culprits == null) {
+            culprits = ImmutableSortedSet.copyOf(getCulpritIds());
+        }
         onEndBuilding();
         if (completed != null) {
             synchronized (completed) {
@@ -700,26 +757,42 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
         return checkouts;
     }
 
-    @Exported
-    public synchronized List<ChangeLogSet<? extends ChangeLogSet.Entry>> getChangeSets() {
-        if (changeSets == null) {
-            changeSets = new ArrayList<>();
-            for (SCMCheckout co : checkouts(null)) {
-                if (co.changelogFile != null && co.changelogFile.isFile()) {
-                    try {
-                        ChangeLogSet<? extends ChangeLogSet.Entry> changeLogSet =
-                                co.scm.createChangeLogParser().parse(this, getEffectiveBrowser(co.scm), co.changelogFile);
-                        if (!changeLogSet.isEmptySet()) {
-                            changeSets.add(changeLogSet);
-                        }
-                    } catch (Exception x) {
-                        LOGGER.log(Level.WARNING, "could not parse " + co.changelogFile, x);
-                    }
-                }
-            }
-        }
-        return changeSets;
+    @Override
+    @Nonnull public List<ChangeLogSet<? extends ChangeLogSet.Entry>> getChangeSets() {
+        return getRunWithSCMMixIn().getChangeSets();
     }
+
+    /**
+     * List of users who committed a change since the last non-broken build till now.
+     *
+     * <p>
+     * This list at least always include people who made changes in this build, but
+     * if the previous build was a failure it also includes the culprit list from there.
+     *
+     * @return
+     *      can be empty but never null.
+     */
+    @Override
+    @Exported
+    @Nonnull public Set<User> getCulprits() {
+        return getRunWithSCMMixIn().getCulprits();
+    }
+
+    @Override
+    @CheckForNull public Set<String> getCulpritIds() {
+        return culprits;
+    }
+
+    /**
+     * Returns true if this user has made a commit to this build.
+     *
+     * @since 1.191
+     */
+    @Override
+    public boolean hasParticipant(User user) {
+        return getRunWithSCMMixIn().hasParticipant(user);
+    }
+
 
     /** Replacement for {@link SCM#getEffectiveBrowser} to work around JENKINS-35098. TODO 2.7.3+ delete */
     private static RepositoryBrowser<?> getEffectiveBrowser(SCM scm) {
