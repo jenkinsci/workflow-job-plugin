@@ -228,7 +228,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
                         if (co.changelogFile != null && co.changelogFile.isFile()) {
                             try {
                                 ChangeLogSet<? extends ChangeLogSet.Entry> changeLogSet =
-                                        co.scm.createChangeLogParser().parse(asRun(), getEffectiveBrowser(co.scm), co.changelogFile);
+                                        co.scm.createChangeLogParser().parse(asRun(), co.scm.getEffectiveBrowser(), co.changelogFile);
                                 if (!changeLogSet.isEmptySet()) {
                                     changeSets.add(changeLogSet);
                                 }
@@ -791,13 +791,6 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
     @Override
     public boolean hasParticipant(User user) {
         return getRunWithSCMMixIn().hasParticipant(user);
-    }
-
-
-    /** Replacement for {@link SCM#getEffectiveBrowser} to work around JENKINS-35098. TODO 2.7.3+ delete */
-    private static RepositoryBrowser<?> getEffectiveBrowser(SCM scm) {
-        RepositoryBrowser<?> b = scm.getBrowser();
-        return b != null ? b : scm.guessBrowser();
     }
 
     @RequirePOST
