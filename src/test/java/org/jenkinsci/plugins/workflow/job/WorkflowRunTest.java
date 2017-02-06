@@ -273,8 +273,7 @@ public class WorkflowRunTest {
         ex.interrupt();
         r.assertBuildStatus(Result.ABORTED, r.waitForCompletion(b2));
         iba = b2.getAction(InterruptedBuildAction.class);
-        assertNotNull(iba);
-        assertEquals(Collections.emptyList(), iba.getCauses());
+        assertNull(iba);
     }
 
     @Issue("JENKINS-41276")
