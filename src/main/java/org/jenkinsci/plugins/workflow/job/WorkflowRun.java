@@ -67,6 +67,7 @@ import java.io.OutputStream;
 import java.io.PrintStream;
 import java.nio.charset.Charset;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -86,6 +87,7 @@ import java.util.logging.Logger;
 import javax.annotation.CheckForNull;
 import javax.annotation.Nonnull;
 import javax.annotation.concurrent.GuardedBy;
+import jenkins.model.CauseOfInterruption;
 import jenkins.model.Jenkins;
 import jenkins.model.lazy.BuildReference;
 import jenkins.model.lazy.LazyBuildMixIn;
@@ -270,7 +272,8 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
                         }
                         Executor executor = getExecutor();
                         try {
-                            execution.interrupt(executor.abortResult());
+                            Collection<CauseOfInterruption> causes = executor.getCausesOfInterruption();
+                            execution.interrupt(executor.abortResult(), causes.toArray(new CauseOfInterruption[causes.size()]));
                         } catch (Exception x) {
                             LOGGER.log(Level.WARNING, null, x);
                         }
