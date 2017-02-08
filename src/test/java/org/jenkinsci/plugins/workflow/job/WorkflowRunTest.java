@@ -47,6 +47,7 @@ import jenkins.model.CauseOfInterruption;
 import jenkins.model.InterruptedBuildAction;
 import jenkins.model.Jenkins;
 import org.apache.commons.io.FileUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.jenkinsci.plugins.scriptsecurity.scripts.ScriptApproval;
 import org.jenkinsci.plugins.workflow.cps.CpsFlowDefinition;
 import org.jenkinsci.plugins.workflow.cps.CpsFlowExecution;
@@ -272,8 +273,30 @@ public class WorkflowRunTest {
         ex.interrupt();
         r.assertBuildStatus(Result.ABORTED, r.waitForCompletion(b2));
         iba = b2.getAction(InterruptedBuildAction.class);
+        assertNull(iba);
+    }
+
+    @Issue("JENKINS-41276")
+    @Test public void interruptCause() throws Exception {
+        r.jenkins.setSecurityRealm(r.createDummySecurityRealm());
+        WorkflowJob p = r.jenkins.createProject(WorkflowJob.class, "p");
+        ScriptApproval.get().approveSignature("method org.jenkinsci.plugins.workflow.steps.FlowInterruptedException getCauses"); // TODO should probably be @Whitelisted
+        ScriptApproval.get().approveSignature("method jenkins.model.CauseOfInterruption$UserInterruption getUser"); // ditto
+        p.setDefinition(new CpsFlowDefinition("@NonCPS def users(e) {e.causes*.user}; try {semaphore 'wait'} catch (e) {echo(/users=${users(e)}/); throw e}", true));
+        final WorkflowRun b1 = p.scheduleBuild2(0).waitForStart();
+        SemaphoreStep.waitForStart("wait/1", b1);
+        ACL.impersonate(User.get("dev").impersonate(), new Runnable() {
+            @Override public void run() {
+                b1.getExecutor().doStop();
+            }
+        });
+        r.assertBuildStatus(Result.ABORTED, r.waitForCompletion(b1));
+        r.assertLogContains("users=[dev]", b1);
+        InterruptedBuildAction iba = b1.getAction(InterruptedBuildAction.class);
         assertNotNull(iba);
-        assertEquals(Collections.emptyList(), iba.getCauses());
+        assertEquals(Collections.singletonList(new CauseOfInterruption.UserInterruption("dev")), iba.getCauses());
+        String log = JenkinsRule.getLog(b1);
+        assertEquals(log, 1, StringUtils.countMatches(log, jenkins.model.Messages.CauseOfInterruption_ShortDescription("dev")));
     }
 
     @Test
