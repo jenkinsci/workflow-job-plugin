@@ -23,23 +23,20 @@ public class WorkflowJobTest {
             "}"));
         assertTrue("No runs has been performed and there should be no SCMs", p.getSCMs().isEmpty());
 
-        p.scheduleBuild2(0);
-        j.waitUntilNoActivity();
+        j.buildAndAssertSuccess(p);
 
-        assertEquals("Expecting one SCM",1, p.getSCMs().size());
+        assertEquals("Expecting one SCM", 1, p.getSCMs().size());
 
         p.setDefinition(new CpsFlowDefinition("error 'Fail!'"));
-        p.scheduleBuild2(0);
-        j.waitUntilNoActivity();
 
-        assertEquals("Last run should have failed", Result.FAILURE, p.getLastBuild().getResult());
+        j.assertBuildStatus(Result.FAILURE, p.scheduleBuild2(0));
+
         assertEquals("Expecting one SCM even though last run failed",1, p.getSCMs().size());
 
         p.setDefinition(new CpsFlowDefinition("echo 'Pass!'"));
-        p.scheduleBuild2(0);
-        j.waitUntilNoActivity();
 
-        assertEquals("Last run should have succeeded", Result.SUCCESS, p.getLastBuild().getResult());
+        j.buildAndAssertSuccess(p);
+
         assertEquals("Expecting zero SCMs",0, p.getSCMs().size());
     }
 }
