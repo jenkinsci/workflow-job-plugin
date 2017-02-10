@@ -545,7 +545,10 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements B
     }
 
     @Override public Collection<? extends SCM> getSCMs() {
-        WorkflowRun b = getLastCompletedBuild();
+        WorkflowRun b = getLastSuccessfulBuild();
+        if (b == null) {
+            b = getLastCompletedBuild();
+        }
         if (b == null) {
             return Collections.emptySet();
         }
