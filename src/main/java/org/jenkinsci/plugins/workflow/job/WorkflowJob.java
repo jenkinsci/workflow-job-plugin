@@ -205,6 +205,14 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements B
     }
 
     @Override public boolean isBuildable() {
+        for (JobProperty<?> property : properties) {
+            if (property instanceof WorkflowJobProperty) {
+                Boolean buildable = ((WorkflowJobProperty) property).isBuildable();
+                if (buildable != null) {
+                    return buildable;
+                }
+            }
+        }
         return true; // why not?
     }
 
