@@ -1,15 +1,13 @@
 package org.jenkinsci.plugins.workflow.job;
 
-
 import hudson.model.Result;
+import hudson.security.WhoAmI;
 import org.jenkinsci.plugins.workflow.cps.CpsFlowDefinition;
+import static org.junit.Assert.*;
 import org.junit.Rule;
 import org.junit.Test;
 import org.jvnet.hudson.test.Issue;
 import org.jvnet.hudson.test.JenkinsRule;
-
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
 
 public class WorkflowJobTest {
     @Rule public JenkinsRule j = new JenkinsRule();
@@ -39,4 +37,13 @@ public class WorkflowJobTest {
 
         assertEquals("Expecting zero SCMs",0, p.getSCMs().size());
     }
+
+    @Test
+    public void addAction() throws Exception {
+        WorkflowJob p = j.jenkins.createProject(WorkflowJob.class, "p");
+        WhoAmI a = new WhoAmI();
+        p.addAction(a);
+        assertNotNull(p.getAction(WhoAmI.class));
+    }
+
 }
