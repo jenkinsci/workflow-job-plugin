@@ -36,6 +36,7 @@ import hudson.AbortException;
 import hudson.EnvVars;
 import hudson.Extension;
 import hudson.FilePath;
+import hudson.Functions;
 import hudson.XmlFile;
 import hudson.console.AnnotatedLargeText;
 import hudson.console.LineTransformationOutputStream;
@@ -621,7 +622,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
             } else if (t instanceof FlowInterruptedException) {
                 ((FlowInterruptedException) t).handle(this, listener);
             } else if (t != null) {
-                t.printStackTrace(listener.getLogger());
+                listener.getLogger().println(Functions.printThrowable(t).trim()); // TODO 2.43+ use Functions.printStackTrace
             }
             listener.finished(getResult());
             listener.closeQuietly();
