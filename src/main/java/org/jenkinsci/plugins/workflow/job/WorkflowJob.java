@@ -196,6 +196,8 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements B
         } else {
             quietPeriod = null;
         }
+        getTriggersJobProperty().stopTriggers();
+        getTriggersJobProperty().startTriggers(Items.currentlyUpdatingByXml());
     }
 
 
