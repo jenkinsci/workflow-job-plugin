@@ -29,6 +29,7 @@ import hudson.BulkChange;
 import hudson.Extension;
 import hudson.ExtensionList;
 import hudson.FilePath;
+import hudson.Functions;
 import hudson.Launcher;
 import hudson.init.InitMilestone;
 import hudson.init.Initializer;
@@ -641,7 +642,7 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements B
             } catch (AbortException x) {
                 listener.error("polling failed in " + co.workspace + " on " + co.node + ": " + x.getMessage());
             } catch (Exception x) {
-                x.printStackTrace(listener.error("polling failed in " + co.workspace + " on " + co.node));
+                listener.error("polling failed in " + co.workspace + " on " + co.node).println(Functions.printThrowable(x).trim()); // TODO 2.43+ use Functions.printStackTrace
             }
         }
         return result;
