@@ -182,6 +182,13 @@ public class PipelineTriggersJobProperty extends JobProperty<WorkflowJob> {
         public String getDisplayName() {
             return "Build triggers";
         }
+
+        @Override
+        public JobProperty<?> newInstance(StaplerRequest req, JSONObject formData) throws FormException {
+            PipelineTriggersJobProperty prop = (PipelineTriggersJobProperty) super.newInstance(req, formData);
+            return prop.triggers.isEmpty() ? null : prop;
+        }
+
     }
 
     @Extension

@@ -148,9 +148,11 @@ public class PipelineTriggersJobPropertyTest {
     public void configRoundTrip() throws Exception {
         WorkflowJob defaultCase = r.jenkins.createProject(WorkflowJob.class, "defaultCase");
         assertTrue(defaultCase.getTriggers().isEmpty());
+        assertNull(defaultCase.getProperty(PipelineTriggersJobProperty.class));
 
         WorkflowJob roundTripDefault = r.configRoundtrip(defaultCase);
         assertTrue(roundTripDefault.getTriggers().isEmpty());
+        assertNull(defaultCase.getProperty(PipelineTriggersJobProperty.class));
 
         WorkflowJob withTriggerCase = r.jenkins.createProject(WorkflowJob.class, "withTriggerCase");
         withTriggerCase.addTrigger(new MockTrigger());
