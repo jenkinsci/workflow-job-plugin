@@ -173,22 +173,12 @@ public class PipelineTriggersJobPropertyTest {
         assertEquals("[null, false, null, true, null, false]", MockTrigger.startsAndStops.toString());
     }
 
+    @Issue("JENKINS-42446")
     @Test
     public void triggerPresentDuringStart() throws Exception {
         WorkflowJob p = r.jenkins.createProject(WorkflowJob.class, "triggerPresent");
-        r.configRoundtrip(p);
         assertNull(getTriggerFromList(QueryingMockTrigger.class,
                 p.getTriggersJobProperty().getTriggers()));
-        configSubmit(p);
-
-        QueryingMockTrigger t = getTriggerFromList(QueryingMockTrigger.class,
-                p.getTriggersJobProperty().getTriggers());
-        assertNotNull(t);
-        assertTrue(t.isStarted);
-        assertTrue(t.foundSelf);
-    }
-
-    private void configSubmit(WorkflowJob p) throws Exception {
         JenkinsRule.WebClient wc = r.createWebClient();
         String newConfig = org.apache.commons.io.IOUtils.toString(
                 PipelineTriggersJobPropertyTest.class.getResourceAsStream(
@@ -200,18 +190,6 @@ public class PipelineTriggersJobPropertyTest {
         params.add(new NameValuePair("json", newConfig));
         request.setRequestParameters(params);
         wc.getPage(request);
-    }
-
-    @Issue("JENKINS-42446")
-    @Test
-    public void triggerPresentAndStartedDuringCreate() throws Exception {
-        WorkflowJob p = r.jenkins.createProject(WorkflowJob.class, "triggerPresent");
-        // configRoundTrip NOT called here since we want to mimic
-        // a job creation operation.
-        assertNull(getTriggerFromList(QueryingMockTrigger.class,
-                p.getTriggersJobProperty().getTriggers()));
-        configSubmit(p);
-
         QueryingMockTrigger t = getTriggerFromList(QueryingMockTrigger.class,
                 p.getTriggersJobProperty().getTriggers());
         assertNotNull(t);
