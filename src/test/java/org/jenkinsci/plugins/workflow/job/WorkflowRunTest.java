@@ -82,7 +82,7 @@ public class WorkflowRunTest {
         WorkflowRun b2 = r.assertBuildStatusSuccess(p.scheduleBuild2(0));
         assertEquals(b1, b2.getPreviousBuild());
         assertEquals(null, b1.getPreviousBuild());
-        r.assertLogContains("hello\n", b1);
+        r.assertLogContains("hello", b1);
     }
 
     @Issue("JENKINS-30910")
