@@ -24,6 +24,7 @@
 
 package org.jenkinsci.plugins.workflow.job;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import hudson.AbortException;
 import hudson.BulkChange;
 import hudson.Extension;
@@ -409,6 +410,7 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements B
         return getDefaultAuthentication();
     }
 
+    @SuppressFBWarnings(value="RCN_REDUNDANT_NULLCHECK_OF_NONNULL_VALUE", justification="TODO 1.653+ switch to Jenkins.getInstanceOrNull")
     @Override public Label getAssignedLabel() {
         Jenkins j = Jenkins.getInstance();
         if (j == null) {
@@ -572,6 +574,7 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements B
         return typical;
     }
 
+    @SuppressFBWarnings(value="RCN_REDUNDANT_NULLCHECK_OF_NONNULL_VALUE", justification="TODO 1.653+ switch to Jenkins.getInstanceOrNull")
     @Override public PollingResult poll(TaskListener listener) {
         // TODO call SCMPollListener
         WorkflowRun lastBuild = getLastBuild();

@@ -272,6 +272,10 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
                             return;
                         }
                         Executor executor = getExecutor();
+                        if (executor == null) {
+                            LOGGER.log(Level.WARNING, "Lost executor for {0}", WorkflowRun.this);
+                            return;
+                        }
                         try {
                             Collection<CauseOfInterruption> causes = executor.getCausesOfInterruption();
                             execution.interrupt(executor.abortResult(), causes.toArray(new CauseOfInterruption[causes.size()]));
