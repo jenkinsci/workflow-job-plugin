@@ -612,7 +612,6 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
     private void finish(@Nonnull Result r, @CheckForNull Throwable t) {
         setResult(r);
         LOGGER.log(Level.INFO, "{0} completed: {1}", new Object[] {this, getResult()});
-        // TODO set duration
         if (listener == null) {
             LOGGER.log(Level.WARNING, this + " failed to start", t);
         } else {
