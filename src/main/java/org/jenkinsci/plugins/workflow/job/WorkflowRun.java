@@ -393,8 +393,11 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
     @Override public EnvVars getEnvironment(TaskListener listener) throws IOException, InterruptedException {
         EnvVars env = super.getEnvironment(listener);
 
-        for (NodeProperty nodeProperty: Jenkins.getInstance().getGlobalNodeProperties()) {
-            nodeProperty.buildEnvVars(env,listener);
+        Jenkins instance = Jenkins.getInstance();
+        if (instance != null) {
+            for (NodeProperty nodeProperty : instance.getGlobalNodeProperties()) {
+                nodeProperty.buildEnvVars(env, listener);
+            }
         }
 
         // TODO EnvironmentContributingAction does not support Job yet:
