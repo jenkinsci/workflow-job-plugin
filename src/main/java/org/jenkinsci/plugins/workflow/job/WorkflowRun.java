@@ -56,6 +56,7 @@ import hudson.scm.RepositoryBrowser;
 import hudson.scm.SCM;
 import hudson.scm.SCMRevisionState;
 import hudson.security.ACL;
+import hudson.slaves.NodeProperty;
 import hudson.util.DaemonThreadFactory;
 import hudson.util.Iterators;
 import hudson.util.NamingThreadFactory;
@@ -391,6 +392,11 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
 
     @Override public EnvVars getEnvironment(TaskListener listener) throws IOException, InterruptedException {
         EnvVars env = super.getEnvironment(listener);
+
+        for (NodeProperty nodeProperty: Jenkins.getInstance().getGlobalNodeProperties()) {
+            nodeProperty.buildEnvVars(env,listener);
+        }
+
         // TODO EnvironmentContributingAction does not support Job yet:
         ParametersAction a = getAction(ParametersAction.class);
         if (a != null) {

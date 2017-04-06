@@ -43,6 +43,11 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
+
+import hudson.slaves.EnvironmentVariablesNodeProperty;
+import hudson.slaves.NodeProperty;
+import hudson.slaves.NodePropertyDescriptor;
+import hudson.util.DescribableList;
 import jenkins.model.CauseOfInterruption;
 import jenkins.model.InterruptedBuildAction;
 import jenkins.model.Jenkins;
@@ -324,6 +329,22 @@ public class WorkflowRunTest {
         r.assertLogContains("[b] b-outside-2", b);
         r.assertLogContains("[a] a-inside-2", b);
         r.assertLogContains("[b] b-inside-2", b);
+    }
+
+    @Test
+    @Issue("JENKINS-43396")
+    public void globalNodePropertiesInEnv() throws Exception {
+        DescribableList<NodeProperty<?>, NodePropertyDescriptor> original = r.jenkins.getGlobalNodeProperties();
+        EnvironmentVariablesNodeProperty envProp = new EnvironmentVariablesNodeProperty(
+                new EnvironmentVariablesNodeProperty.Entry("KEY", "VALUE"));
+
+        original.add(envProp);
+
+        WorkflowJob j = r.jenkins.createProject(WorkflowJob.class, "envVars");
+        j.setDefinition(new CpsFlowDefinition("echo \"KEY is ${env.KEY}\"", true));
+
+        WorkflowRun b = r.assertBuildStatusSuccess(j.scheduleBuild2(0));
+        r.assertLogContains("KEY is " + envProp.getEnvVars().get("KEY"), b);
     }
 
 }
