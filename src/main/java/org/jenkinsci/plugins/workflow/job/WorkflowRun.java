@@ -624,7 +624,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
     /** Handles normal build completion (including errors) but also handles the case that the flow did not even start correctly, for example due to an error in {@link FlowExecution#start}. */
     private void finish(@Nonnull Result r, @CheckForNull Throwable t) {
         setResult(r);
-        LOGGER.log(Level.INFO, "{0} completed: {1}", new Object[] {this, getResult()});
+        LOGGER.log(Level.INFO, "{0} completed: {1}", new Object[] {toString(), getResult()});
         if (listener == null) {
             LOGGER.log(Level.WARNING, this + " failed to start", t);
         } else {

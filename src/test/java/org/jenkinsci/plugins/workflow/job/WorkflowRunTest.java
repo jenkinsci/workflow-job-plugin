@@ -48,6 +48,8 @@ import hudson.slaves.EnvironmentVariablesNodeProperty;
 import hudson.slaves.NodeProperty;
 import hudson.slaves.NodePropertyDescriptor;
 import hudson.util.DescribableList;
+import java.lang.ref.WeakReference;
+import java.util.logging.Level;
 import jenkins.model.CauseOfInterruption;
 import jenkins.model.InterruptedBuildAction;
 import jenkins.model.Jenkins;
@@ -68,6 +70,8 @@ import org.junit.Test;
 import org.jvnet.hudson.test.BuildWatcher;
 import org.jvnet.hudson.test.Issue;
 import org.jvnet.hudson.test.JenkinsRule;
+import org.jvnet.hudson.test.LoggerRule;
+import org.jvnet.hudson.test.MemoryAssert;
 import org.jvnet.hudson.test.MockAuthorizationStrategy;
 import org.jvnet.hudson.test.recipes.LocalData;
 
@@ -75,6 +79,7 @@ public class WorkflowRunTest {
 
     @ClassRule public static BuildWatcher buildWatcher = new BuildWatcher();
     @Rule public JenkinsRule r = new JenkinsRule();
+    @Rule public LoggerRule logging = new LoggerRule();
 
     @Test public void basics() throws Exception {
         WorkflowJob p = r.jenkins.createProject(WorkflowJob.class, "p");
@@ -174,6 +179,18 @@ public class WorkflowRunTest {
     private void assertColor(WorkflowRun b, BallColor color) throws IOException {
         assertSame(color, b.getIconColor());
         assertSame(color, b.getParent().getIconColor());
+    }
+
+    @Test public void cleanup() throws Exception {
+        logging.record("", Level.INFO).capture(256); // like WebAppMain would do, if in a real instance rather than JenkinsRule
+        WorkflowJob p = r.jenkins.createProject(WorkflowJob.class, "p");
+        p.setDefinition(new CpsFlowDefinition("", true));
+        WorkflowRun b1 = r.buildAndAssertSuccess(p);
+        WeakReference<WorkflowRun> b1r = new WeakReference<>(b1);
+        b1.delete();
+        b1 = null;
+        r.jenkins.getQueue().clearLeftItems(); // so we do not need to wait 5m
+        MemoryAssert.assertGC(b1r, false);
     }
 
     @Test public void scriptApproval() throws Exception {
