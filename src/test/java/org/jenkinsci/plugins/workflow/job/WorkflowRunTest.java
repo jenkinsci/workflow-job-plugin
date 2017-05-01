@@ -107,7 +107,7 @@ public class WorkflowRunTest {
 
     @Test public void funnyParameters() throws Exception {
         WorkflowJob p = r.jenkins.createProject(WorkflowJob.class, "p");
-        p.setDefinition(new CpsFlowDefinition("echo \"a.b=${binding['a.b']}\"", true));
+        p.setDefinition(new CpsFlowDefinition("echo \"a.b=${params['a.b']}\"", true));
         p.addProperty(new ParametersDefinitionProperty(new StringParameterDefinition("a.b", null)));
         WorkflowRun b = r.assertBuildStatusSuccess(p.scheduleBuild2(0, new ParametersAction(new StringParameterValue("a.b", "v"))));
         r.assertLogContains("a.b=v", b);
