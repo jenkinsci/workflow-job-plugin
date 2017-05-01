@@ -702,7 +702,11 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
             LOGGER.log(Level.WARNING, "failed to save " + this + " or perform log rotation", x);
         }
         if (culprits == null) {
-            culprits = ImmutableSortedSet.copyOf(getCulpritIds());
+            HashSet<String> tempCulpritIds = new HashSet<>();
+            for (User u : getCulprits()) {
+                tempCulpritIds.add(u.getId());
+            }
+            culprits = ImmutableSortedSet.copyOf(tempCulpritIds);
         }
         onEndBuilding();
         if (completed != null) {
