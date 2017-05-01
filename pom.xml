@@ -64,9 +64,9 @@
     <properties>
         <jenkins-core.version>2.58-20170501.155158-2</jenkins-core.version> <!-- TODO: Switch to release once https://github.com/jenkinsci/jenkins/pull/2730 is merged and released -->
         <jenkins-war.version>2.58-20170501.155220-2</jenkins-war.version> <!-- TODO: Switch to release once https://github.com/jenkinsci/jenkins/pull/2730 is merged and released -->
-        <jenkins-test-harness.version>2.19</jenkins-test-harness.version>
+        <jenkins-test-harness.version>2.21</jenkins-test-harness.version>
         <no-test-jar>false</no-test-jar>
-        <workflow-support-plugin.version>2.2</workflow-support-plugin.version>
+        <workflow-support-plugin.version>2.14</workflow-support-plugin.version>
     </properties>
     <dependencies>
         <dependency>
@@ -82,13 +82,19 @@
         <dependency>
             <groupId>org.jenkins-ci.plugins.workflow</groupId>
             <artifactId>workflow-cps</artifactId>
-            <version>1.15</version>
+            <version>2.29</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.jenkins-ci.plugins</groupId>
+            <artifactId>structs</artifactId>
+            <version>1.6</version>
             <scope>test</scope>
         </dependency>
         <dependency>
             <groupId>org.jenkins-ci.plugins.workflow</groupId>
             <artifactId>workflow-basic-steps</artifactId>
-            <version>1.15</version>
+            <version>2.4</version>
             <scope>test</scope>
         </dependency>
         <dependency>
@@ -101,13 +107,13 @@
         <dependency>
             <groupId>org.jenkins-ci.plugins.workflow</groupId>
             <artifactId>workflow-scm-step</artifactId>
-            <version>2.2</version>
+            <version>2.4</version>
             <scope>test</scope>
         </dependency>
         <dependency>
             <groupId>org.jenkins-ci.plugins.workflow</groupId>
             <artifactId>workflow-durable-task-step</artifactId>
-            <version>2.0</version>
+            <version>2.11</version>
             <scope>test</scope>
         </dependency>
     </dependencies>
