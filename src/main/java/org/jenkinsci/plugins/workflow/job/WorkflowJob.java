@@ -35,8 +35,6 @@ import hudson.Launcher;
 import hudson.init.InitMilestone;
 import hudson.init.Initializer;
 import hudson.model.Action;
-import hudson.model.BuildableItem;
-import hudson.model.Cause;
 import hudson.model.Computer;
 import hudson.model.Descriptor;
 import hudson.model.DescriptorVisibilityFilter;
@@ -89,7 +87,6 @@ import jenkins.model.Jenkins;
 import jenkins.model.ParameterizedJobMixIn;
 import jenkins.model.lazy.LazyBuildMixIn;
 import jenkins.triggers.SCMTriggerItem;
-import jenkins.util.TimeDuration;
 import net.sf.json.JSONObject;
 import org.acegisecurity.Authentication;
 import org.jenkinsci.plugins.workflow.flow.FlowDefinition;
@@ -99,14 +96,12 @@ import org.jenkinsci.plugins.workflow.job.properties.PipelineTriggersJobProperty
 import org.kohsuke.accmod.Restricted;
 import org.kohsuke.accmod.restrictions.DoNotUse;
 import org.kohsuke.accmod.restrictions.NoExternalUse;
-import org.kohsuke.stapler.QueryParameter;
 import org.kohsuke.stapler.StaplerRequest;
 import org.kohsuke.stapler.StaplerResponse;
 import org.kohsuke.stapler.export.Exported;
-import org.kohsuke.stapler.interceptor.RequirePOST;
 
 @SuppressWarnings({"unchecked", "rawtypes"})
-public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements BuildableItem, LazyBuildMixIn.LazyLoadingJob<WorkflowJob,WorkflowRun>, ParameterizedJobMixIn.ParameterizedJob, TopLevelItem, Queue.FlyweightTask, SCMTriggerItem {
+public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements LazyBuildMixIn.LazyLoadingJob<WorkflowJob,WorkflowRun>, ParameterizedJobMixIn.ParameterizedJob<WorkflowJob, WorkflowRun>, TopLevelItem, Queue.FlyweightTask, SCMTriggerItem {
 
     private static final Logger LOGGER = Logger.getLogger(WorkflowJob.class.getName());
 
@@ -160,14 +155,6 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements B
             }
             @Override protected Class<WorkflowRun> getBuildClass() {
                 return WorkflowRun.class;
-            }
-        };
-    }
-
-    private ParameterizedJobMixIn<WorkflowJob,WorkflowRun> createParameterizedJobMixIn() {
-        return new ParameterizedJobMixIn<WorkflowJob,WorkflowRun>() {
-            @Override protected WorkflowJob asJob() {
-                return WorkflowJob.this;
             }
         };
     }
@@ -262,46 +249,12 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements B
         return buildMixIn.newBuild();
     }
 
-    @Deprecated
-    @Override public boolean scheduleBuild() {
-        return createParameterizedJobMixIn().scheduleBuild();
-    }
-
-    @Override public boolean scheduleBuild(Cause c) {
-        return createParameterizedJobMixIn().scheduleBuild(c);
-    }
-
-    @Deprecated
-    @Override public boolean scheduleBuild(int quietPeriod) {
-        return createParameterizedJobMixIn().scheduleBuild(quietPeriod);
-    }
-
-    @Override public boolean scheduleBuild(int quietPeriod, Cause c) {
-        return createParameterizedJobMixIn().scheduleBuild(quietPeriod, c);
-    }
-
     @Override public @CheckForNull QueueTaskFuture<WorkflowRun> scheduleBuild2(int quietPeriod, Action... actions) {
-        return createParameterizedJobMixIn().scheduleBuild2(quietPeriod, actions);
-    }
-
-    public void doBuild(StaplerRequest req, StaplerResponse rsp, @QueryParameter TimeDuration delay) throws IOException, ServletException {
-        createParameterizedJobMixIn().doBuild(req, rsp, delay);
-    }
-
-    public void doBuildWithParameters(StaplerRequest req, StaplerResponse rsp, @QueryParameter TimeDuration delay) throws IOException, ServletException {
-        createParameterizedJobMixIn().doBuildWithParameters(req, rsp, delay);
-    }
-
-    @RequirePOST public void doCancelQueue(StaplerRequest req, StaplerResponse rsp ) throws IOException, ServletException {
-        createParameterizedJobMixIn().doCancelQueue(req, rsp);
+        return getParameterizedJobMixIn().scheduleBuild2(quietPeriod, actions);
     }
 
     @Override protected SearchIndexBuilder makeSearchIndex() {
-        return createParameterizedJobMixIn().extendSearchIndex(super.makeSearchIndex());
-    }
-
-    public boolean isParameterized() {
-        return createParameterizedJobMixIn().isParameterized();
+        return getParameterizedJobMixIn().extendSearchIndex(super.makeSearchIndex());
     }
 
     @SuppressWarnings("deprecation")
@@ -321,10 +274,6 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements B
     public void setQuietPeriod(Integer seconds) throws IOException {
         this.quietPeriod = seconds;
         save();
-    }
-
-    @Override public String getBuildNowText() {
-        return createParameterizedJobMixIn().getBuildNowText();
     }
 
     @Override public boolean isBuildBlocked() {
