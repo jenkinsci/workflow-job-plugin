@@ -43,10 +43,18 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
+
+import hudson.slaves.EnvironmentVariablesNodeProperty;
+import hudson.slaves.NodeProperty;
+import hudson.slaves.NodePropertyDescriptor;
+import hudson.util.DescribableList;
+import java.lang.ref.WeakReference;
+import java.util.logging.Level;
 import jenkins.model.CauseOfInterruption;
 import jenkins.model.InterruptedBuildAction;
 import jenkins.model.Jenkins;
 import org.apache.commons.io.FileUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.jenkinsci.plugins.scriptsecurity.scripts.ScriptApproval;
 import org.jenkinsci.plugins.workflow.cps.CpsFlowDefinition;
 import org.jenkinsci.plugins.workflow.cps.CpsFlowExecution;
@@ -62,6 +70,8 @@ import org.junit.Test;
 import org.jvnet.hudson.test.BuildWatcher;
 import org.jvnet.hudson.test.Issue;
 import org.jvnet.hudson.test.JenkinsRule;
+import org.jvnet.hudson.test.LoggerRule;
+import org.jvnet.hudson.test.MemoryAssert;
 import org.jvnet.hudson.test.MockAuthorizationStrategy;
 import org.jvnet.hudson.test.recipes.LocalData;
 
@@ -69,6 +79,7 @@ public class WorkflowRunTest {
 
     @ClassRule public static BuildWatcher buildWatcher = new BuildWatcher();
     @Rule public JenkinsRule r = new JenkinsRule();
+    @Rule public LoggerRule logging = new LoggerRule();
 
     @Test public void basics() throws Exception {
         WorkflowJob p = r.jenkins.createProject(WorkflowJob.class, "p");
@@ -81,7 +92,7 @@ public class WorkflowRunTest {
         WorkflowRun b2 = r.assertBuildStatusSuccess(p.scheduleBuild2(0));
         assertEquals(b1, b2.getPreviousBuild());
         assertEquals(null, b1.getPreviousBuild());
-        r.assertLogContains("hello\n", b1);
+        r.assertLogContains("hello", b1);
     }
 
     @Issue("JENKINS-30910")
@@ -168,6 +179,18 @@ public class WorkflowRunTest {
     private void assertColor(WorkflowRun b, BallColor color) throws IOException {
         assertSame(color, b.getIconColor());
         assertSame(color, b.getParent().getIconColor());
+    }
+
+    @Test public void cleanup() throws Exception {
+        logging.record("", Level.INFO).capture(256); // like WebAppMain would do, if in a real instance rather than JenkinsRule
+        WorkflowJob p = r.jenkins.createProject(WorkflowJob.class, "p");
+        p.setDefinition(new CpsFlowDefinition("", true));
+        WorkflowRun b1 = r.buildAndAssertSuccess(p);
+        WeakReference<WorkflowRun> b1r = new WeakReference<>(b1);
+        b1.delete();
+        b1 = null;
+        r.jenkins.getQueue().clearLeftItems(); // so we do not need to wait 5m
+        MemoryAssert.assertGC(b1r, false);
     }
 
     @Test public void scriptApproval() throws Exception {
@@ -272,8 +295,30 @@ public class WorkflowRunTest {
         ex.interrupt();
         r.assertBuildStatus(Result.ABORTED, r.waitForCompletion(b2));
         iba = b2.getAction(InterruptedBuildAction.class);
+        assertNull(iba);
+    }
+
+    @Issue("JENKINS-41276")
+    @Test public void interruptCause() throws Exception {
+        r.jenkins.setSecurityRealm(r.createDummySecurityRealm());
+        WorkflowJob p = r.jenkins.createProject(WorkflowJob.class, "p");
+        ScriptApproval.get().approveSignature("method org.jenkinsci.plugins.workflow.steps.FlowInterruptedException getCauses"); // TODO should probably be @Whitelisted
+        ScriptApproval.get().approveSignature("method jenkins.model.CauseOfInterruption$UserInterruption getUser"); // ditto
+        p.setDefinition(new CpsFlowDefinition("@NonCPS def users(e) {e.causes*.user}; try {semaphore 'wait'} catch (e) {echo(/users=${users(e)}/); throw e}", true));
+        final WorkflowRun b1 = p.scheduleBuild2(0).waitForStart();
+        SemaphoreStep.waitForStart("wait/1", b1);
+        ACL.impersonate(User.get("dev").impersonate(), new Runnable() {
+            @Override public void run() {
+                b1.getExecutor().doStop();
+            }
+        });
+        r.assertBuildStatus(Result.ABORTED, r.waitForCompletion(b1));
+        r.assertLogContains("users=[dev]", b1);
+        InterruptedBuildAction iba = b1.getAction(InterruptedBuildAction.class);
         assertNotNull(iba);
-        assertEquals(Collections.emptyList(), iba.getCauses());
+        assertEquals(Collections.singletonList(new CauseOfInterruption.UserInterruption("dev")), iba.getCauses());
+        String log = JenkinsRule.getLog(b1);
+        assertEquals(log, 1, StringUtils.countMatches(log, jenkins.model.Messages.CauseOfInterruption_ShortDescription("dev")));
     }
 
     @Test
@@ -301,6 +346,22 @@ public class WorkflowRunTest {
         r.assertLogContains("[b] b-outside-2", b);
         r.assertLogContains("[a] a-inside-2", b);
         r.assertLogContains("[b] b-inside-2", b);
+    }
+
+    @Test
+    @Issue("JENKINS-43396")
+    public void globalNodePropertiesInEnv() throws Exception {
+        DescribableList<NodeProperty<?>, NodePropertyDescriptor> original = r.jenkins.getGlobalNodeProperties();
+        EnvironmentVariablesNodeProperty envProp = new EnvironmentVariablesNodeProperty(
+                new EnvironmentVariablesNodeProperty.Entry("KEY", "VALUE"));
+
+        original.add(envProp);
+
+        WorkflowJob j = r.jenkins.createProject(WorkflowJob.class, "envVars");
+        j.setDefinition(new CpsFlowDefinition("echo \"KEY is ${env.KEY}\"", true));
+
+        WorkflowRun b = r.assertBuildStatusSuccess(j.scheduleBuild2(0));
+        r.assertLogContains("KEY is " + envProp.getEnvVars().get("KEY"), b);
     }
 
 }

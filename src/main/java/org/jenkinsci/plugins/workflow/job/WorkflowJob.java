@@ -24,11 +24,13 @@
 
 package org.jenkinsci.plugins.workflow.job;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import hudson.AbortException;
 import hudson.BulkChange;
 import hudson.Extension;
 import hudson.ExtensionList;
 import hudson.FilePath;
+import hudson.Functions;
 import hudson.Launcher;
 import hudson.init.InitMilestone;
 import hudson.init.Initializer;
@@ -205,6 +207,14 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements B
     }
 
     @Override public boolean isBuildable() {
+        for (JobProperty<?> property : properties) {
+            if (property instanceof WorkflowJobProperty) {
+                Boolean buildable = ((WorkflowJobProperty) property).isBuildable();
+                if (buildable != null) {
+                    return buildable;
+                }
+            }
+        }
         return true; // why not?
     }
 
@@ -400,6 +410,7 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements B
         return getDefaultAuthentication();
     }
 
+    @SuppressFBWarnings(value="RCN_REDUNDANT_NULLCHECK_OF_NONNULL_VALUE", justification="TODO 1.653+ switch to Jenkins.getInstanceOrNull")
     @Override public Label getAssignedLabel() {
         Jenkins j = Jenkins.getInstance();
         if (j == null) {
@@ -537,7 +548,10 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements B
     }
 
     @Override public Collection<? extends SCM> getSCMs() {
-        WorkflowRun b = getLastCompletedBuild();
+        WorkflowRun b = getLastSuccessfulBuild();
+        if (b == null) {
+            b = getLastCompletedBuild();
+        }
         if (b == null) {
             return Collections.emptySet();
         }
@@ -560,6 +574,7 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements B
         return typical;
     }
 
+    @SuppressFBWarnings(value="RCN_REDUNDANT_NULLCHECK_OF_NONNULL_VALUE", justification="TODO 1.653+ switch to Jenkins.getInstanceOrNull")
     @Override public PollingResult poll(TaskListener listener) {
         // TODO call SCMPollListener
         WorkflowRun lastBuild = getLastBuild();
@@ -630,7 +645,7 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements B
             } catch (AbortException x) {
                 listener.error("polling failed in " + co.workspace + " on " + co.node + ": " + x.getMessage());
             } catch (Exception x) {
-                x.printStackTrace(listener.error("polling failed in " + co.workspace + " on " + co.node));
+                listener.error("polling failed in " + co.workspace + " on " + co.node).println(Functions.printThrowable(x).trim()); // TODO 2.43+ use Functions.printStackTrace
             }
         }
         return result;

@@ -37,6 +37,7 @@ import hudson.AbortException;
 import hudson.EnvVars;
 import hudson.Extension;
 import hudson.FilePath;
+import hudson.Functions;
 import hudson.XmlFile;
 import hudson.console.AnnotatedLargeText;
 import hudson.console.LineTransformationOutputStream;
@@ -57,6 +58,7 @@ import hudson.scm.RepositoryBrowser;
 import hudson.scm.SCM;
 import hudson.scm.SCMRevisionState;
 import hudson.security.ACL;
+import hudson.slaves.NodeProperty;
 import hudson.util.AdaptedIterator;
 import hudson.util.DaemonThreadFactory;
 import hudson.util.Iterators;
@@ -71,6 +73,7 @@ import java.io.PrintStream;
 import java.nio.charset.Charset;
 import java.util.AbstractSet;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -93,6 +96,7 @@ import java.util.logging.Logger;
 import javax.annotation.CheckForNull;
 import javax.annotation.Nonnull;
 import javax.annotation.concurrent.GuardedBy;
+import jenkins.model.CauseOfInterruption;
 import jenkins.model.Jenkins;
 import jenkins.model.lazy.BuildReference;
 import jenkins.model.lazy.LazyBuildMixIn;
@@ -323,8 +327,13 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
                             return;
                         }
                         Executor executor = getExecutor();
+                        if (executor == null) {
+                            LOGGER.log(Level.WARNING, "Lost executor for {0}", WorkflowRun.this);
+                            return;
+                        }
                         try {
-                            execution.interrupt(executor.abortResult());
+                            Collection<CauseOfInterruption> causes = executor.getCausesOfInterruption();
+                            execution.interrupt(executor.abortResult(), causes.toArray(new CauseOfInterruption[causes.size()]));
                         } catch (Exception x) {
                             LOGGER.log(Level.WARNING, null, x);
                         }
@@ -437,6 +446,14 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
 
     @Override public EnvVars getEnvironment(TaskListener listener) throws IOException, InterruptedException {
         EnvVars env = super.getEnvironment(listener);
+
+        Jenkins instance = Jenkins.getInstance();
+        if (instance != null) {
+            for (NodeProperty nodeProperty : instance.getGlobalNodeProperties()) {
+                nodeProperty.buildEnvVars(env, listener);
+            }
+        }
+
         // TODO EnvironmentContributingAction does not support Job yet:
         ParametersAction a = getAction(ParametersAction.class);
         if (a != null) {
@@ -661,8 +678,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
     /** Handles normal build completion (including errors) but also handles the case that the flow did not even start correctly, for example due to an error in {@link FlowExecution#start}. */
     private void finish(@Nonnull Result r, @CheckForNull Throwable t) {
         setResult(r);
-        LOGGER.log(Level.INFO, "{0} completed: {1}", new Object[] {this, getResult()});
-        // TODO set duration
+        LOGGER.log(Level.INFO, "{0} completed: {1}", new Object[] {toString(), getResult()});
         if (listener == null) {
             LOGGER.log(Level.WARNING, this + " failed to start", t);
         } else {
@@ -672,7 +688,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
             } else if (t instanceof FlowInterruptedException) {
                 ((FlowInterruptedException) t).handle(this, listener);
             } else if (t != null) {
-                t.printStackTrace(listener.getLogger());
+                listener.getLogger().println(Functions.printThrowable(t).trim()); // TODO 2.43+ use Functions.printStackTrace
             }
             listener.finished(getResult());
             listener.closeQuietly();
