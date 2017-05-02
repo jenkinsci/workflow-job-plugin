@@ -373,16 +373,16 @@ public class WorkflowRunTest {
         p.setDefinition(new CpsFlowDefinition("import org.jvnet.hudson.test.FakeChangeLogSCM\n" +
                 "semaphore 'waitFirst'\n" +
                 "def testScm = new FakeChangeLogSCM()\n" +
-                "testScm.addChange().withAuthor('alice' + env.BUILD_NUMBER)\n" +
+                "testScm.addChange().withAuthor(/alice$BUILD_NUMBER/)\n" +
                 "node {\n" +
                 "    checkout(testScm)\n" +
                 "    semaphore 'waitSecond'\n" +
                 "    def secondScm = new FakeChangeLogSCM()\n" +
-                "    secondScm.addChange().withAuthor('bob' + env.BUILD_NUMBER)\n" +
+                "    secondScm.addChange().withAuthor(/bob$BUILD_NUMBER/)\n" +
                 "    checkout(secondScm)\n" +
                 "    semaphore 'waitThird'\n" +
                 "    def thirdScm = new FakeChangeLogSCM()\n" +
-                "    thirdScm.addChange().withAuthor('charlie' + env.BUILD_NUMBER)\n" +
+                "    thirdScm.addChange().withAuthor(/charlie$BUILD_NUMBER/)\n" +
                 "    checkout(thirdScm)\n" +
                 "}\n", false));
 
