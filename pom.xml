@@ -28,7 +28,7 @@
     <parent>
         <groupId>org.jenkins-ci.plugins</groupId>
         <artifactId>plugin</artifactId>
-        <version>2.27-20170501.155323-2</version> <!-- TODO https://github.com/jenkinsci/plugin-pom/pull/59 -->
+        <version>2.27</version>
         <relativePath />
     </parent>
     <groupId>org.jenkins-ci.plugins.workflow</groupId>
@@ -62,10 +62,9 @@
         </pluginRepository>
     </pluginRepositories>
     <properties>
-        <jenkins-core.version>2.59-20170501.193800-1</jenkins-core.version> <!-- TODO https://github.com/jenkinsci/jenkins/pull/2864 -->
-        <jenkins-war.version>2.59-20170501.193835-1</jenkins-war.version>
+        <jenkins-core.version>2.59-20170502.212005-2</jenkins-core.version> <!-- TODO https://github.com/jenkinsci/jenkins/pull/2864 -->
+        <jenkins-war.version>2.59-20170502.212049-2</jenkins-war.version>
         <java.level>8</java.level>
-        <jenkins-test-harness.version>2.19</jenkins-test-harness.version>
         <no-test-jar>false</no-test-jar>
         <workflow-support-plugin.version>2.2</workflow-support-plugin.version>
     </properties>

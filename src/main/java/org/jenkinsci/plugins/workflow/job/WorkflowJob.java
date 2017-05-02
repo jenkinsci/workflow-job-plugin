@@ -250,7 +250,7 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements L
     }
 
     @Override public @CheckForNull QueueTaskFuture<WorkflowRun> scheduleBuild2(int quietPeriod, Action... actions) {
-        return getParameterizedJobMixIn().scheduleBuild2(quietPeriod, actions);
+        return ParameterizedJobMixIn.ParameterizedJob.super.scheduleBuild2(quietPeriod, actions);
     }
 
     @Override protected SearchIndexBuilder makeSearchIndex() {
