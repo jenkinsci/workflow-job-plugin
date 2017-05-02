@@ -24,6 +24,8 @@
 
 package org.jenkinsci.plugins.workflow.job;
 
+import com.google.common.collect.ImmutableSet;
+import hudson.AbortException;
 import hudson.model.BallColor;
 import hudson.model.Executor;
 import hudson.model.Item;
@@ -371,54 +373,50 @@ public class WorkflowRunTest {
         p.setDefinition(new CpsFlowDefinition("import org.jvnet.hudson.test.FakeChangeLogSCM\n" +
                 "semaphore 'waitFirst'\n" +
                 "def testScm = new FakeChangeLogSCM()\n" +
-                "testScm.addChange().withAuthor('alice')\n" +
+                "testScm.addChange().withAuthor('alice' + env.BUILD_NUMBER)\n" +
                 "node {\n" +
-                "    ws {\n" +
-                "        checkout(testScm)\n" +
-                "    }\n" +
+                "    checkout(testScm)\n" +
                 "    semaphore 'waitSecond'\n" +
                 "    def secondScm = new FakeChangeLogSCM()\n" +
-                "    secondScm.addChange().withAuthor('bob')\n" +
-                "    ws {\n" +
-                "        checkout(secondScm)\n" +
-                "    }\n" +
+                "    secondScm.addChange().withAuthor('bob' + env.BUILD_NUMBER)\n" +
+                "    checkout(secondScm)\n" +
                 "    semaphore 'waitThird'\n" +
                 "    def thirdScm = new FakeChangeLogSCM()\n" +
-                "    thirdScm.addChange().withAuthor('charlie')\n" +
-                "    ws {\n" +
-                "        checkout(thirdScm)\n" +
-                "    }\n" +
+                "    thirdScm.addChange().withAuthor('charlie' + env.BUILD_NUMBER)\n" +
+                "    checkout(thirdScm)\n" +
                 "}\n", false));
 
         WorkflowRun b1 = p.scheduleBuild2(0).waitForStart();
+
         SemaphoreStep.waitForStart("waitFirst/1", b1);
         assertTrue(b1.getCulpritIds().isEmpty());
         SemaphoreStep.success("waitFirst/1", null);
 
         SemaphoreStep.waitForStart("waitSecond/1", b1);
-        Set<String> origCulprits = b1.getCulpritIds();
-        assertNotNull(origCulprits);
-        assertEquals(1, origCulprits.size());
-        assertTrue(origCulprits.contains("alice"));
-
+        assertEquals(ImmutableSet.of("alice1"), b1.getCulpritIds());
         SemaphoreStep.success("waitSecond/1", null);
 
         SemaphoreStep.waitForStart("waitThird/1", b1);
-        Set<String> secondCulprits = b1.getCulpritIds();
-        assertNotNull(secondCulprits);
-        assertEquals(2, secondCulprits.size());
-        assertTrue(secondCulprits.contains("alice"));
-        assertTrue(secondCulprits.contains("bob"));
+        assertEquals(ImmutableSet.of("alice1", "bob1"), b1.getCulpritIds());
+        SemaphoreStep.failure("waitThird/1", new AbortException());
 
-        SemaphoreStep.success("waitThird/1", b1);
+        r.assertBuildStatus(Result.FAILURE, r.waitForCompletion(b1));
 
-        r.assertBuildStatusSuccess(r.waitForCompletion(b1));
+        WorkflowRun b2 = p.scheduleBuild2(0).waitForStart();
 
-        Set<String> thirdCulprits = b1.getCulpritIds();
-        assertNotNull(thirdCulprits);
-        assertEquals(3, thirdCulprits.size());
-        assertTrue(thirdCulprits.contains("alice"));
-        assertTrue(thirdCulprits.contains("bob"));
-        assertTrue(thirdCulprits.contains("charlie"));
+        SemaphoreStep.waitForStart("waitFirst/2", b2);
+        assertEquals(ImmutableSet.of("alice1", "bob1"), b2.getCulpritIds());
+        SemaphoreStep.success("waitFirst/2", null);
+
+        SemaphoreStep.waitForStart("waitSecond/2", b2);
+        assertEquals(ImmutableSet.of("alice1", "bob1", "alice2"), b2.getCulpritIds());
+        SemaphoreStep.success("waitSecond/2", null);
+
+        SemaphoreStep.waitForStart("waitThird/2", b2);
+        assertEquals(ImmutableSet.of("alice1", "bob1", "alice2", "bob2"), b2.getCulpritIds());
+        SemaphoreStep.success("waitThird/2", b2);
+
+        r.assertBuildStatusSuccess(r.waitForCompletion(b2));
+        assertEquals(ImmutableSet.of("alice1", "bob1", "alice2", "bob2", "charlie2"), b2.getCulpritIds());
     }
 }
