@@ -64,7 +64,7 @@
     <properties>
         <jenkins-core.version>2.58-20170502.171727-6</jenkins-core.version> <!-- TODO: Switch to release once https://github.com/jenkinsci/jenkins/pull/2730 is merged and released -->
         <jenkins-war.version>2.58-20170502.171808-6</jenkins-war.version> <!-- TODO: Switch to release once https://github.com/jenkinsci/jenkins/pull/2730 is merged and released -->
-        <jenkins-test-harness.version>2.22-20170502.170034-3</jenkins-test-harness.version> <!-- TODO: Switch to release once https://github.com/jenkinsci/jenkins-test-harness/pull/58 is merged and released -->
+        <jenkins-test-harness.version>2.22</jenkins-test-harness.version>
         <no-test-jar>false</no-test-jar>
         <workflow-support-plugin.version>2.14</workflow-support-plugin.version>
         <java.level>8</java.level>
