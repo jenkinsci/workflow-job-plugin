@@ -54,12 +54,10 @@ import hudson.model.User;
 import hudson.model.listeners.RunListener;
 import hudson.model.listeners.SCMListener;
 import hudson.scm.ChangeLogSet;
-import hudson.scm.RepositoryBrowser;
 import hudson.scm.SCM;
 import hudson.scm.SCMRevisionState;
 import hudson.security.ACL;
 import hudson.slaves.NodeProperty;
-import hudson.util.AdaptedIterator;
 import hudson.util.DaemonThreadFactory;
 import hudson.util.Iterators;
 import hudson.util.NamingThreadFactory;
@@ -71,13 +69,11 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.io.PrintStream;
 import java.nio.charset.Charset;
-import java.util.AbstractSet;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -214,33 +210,6 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
 
     @Override public LazyBuildMixIn.RunMixIn<WorkflowJob,WorkflowRun> getRunMixIn() {
         return runMixIn;
-    }
-
-    @SuppressWarnings("unchecked") // untypable
-    @Override public WorkflowRun asRun() {
-        return WorkflowRun.this;
-    }
-
-    @Override
-    @Exported
-    public synchronized List<ChangeLogSet<? extends ChangeLogSet.Entry>> getChangeSets() {
-        if (changeSets == null) {
-            changeSets = new ArrayList<>();
-            for (SCMCheckout co : checkouts(null)) {
-                if (co.changelogFile != null && co.changelogFile.isFile()) {
-                    try {
-                        ChangeLogSet<? extends ChangeLogSet.Entry> changeLogSet =
-                                co.scm.createChangeLogParser().parse(asRun(), co.scm.getEffectiveBrowser(), co.changelogFile);
-                        if (!changeLogSet.isEmptySet()) {
-                            changeSets.add(changeLogSet);
-                        }
-                    } catch (Exception x) {
-                        LOGGER.log(Level.WARNING, "could not parse " + co.changelogFile, x);
-                    }
-                }
-            }
-        }
-        return changeSets;
     }
 
     @Override protected BuildReference<WorkflowRun> createReference() {
@@ -697,13 +666,6 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
         } catch (Exception x) {
             LOGGER.log(Level.WARNING, "failed to save " + this + " or perform log rotation", x);
         }
-        if (culprits == null) {
-            HashSet<String> tempCulpritIds = new HashSet<>();
-            for (User u : getCulprits()) {
-                tempCulpritIds.add(u.getId());
-            }
-            culprits = ImmutableSortedSet.copyOf(tempCulpritIds);
-        }
         onEndBuilding();
         if (completed != null) {
             synchronized (completed) {
@@ -774,8 +736,46 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
     }
 
     @Override
+    @Exported
+    public synchronized List<ChangeLogSet<? extends ChangeLogSet.Entry>> getChangeSets() {
+        if (changeSets == null) {
+            changeSets = new ArrayList<>();
+            for (SCMCheckout co : checkouts(null)) {
+                if (co.changelogFile != null && co.changelogFile.isFile()) {
+                    try {
+                        ChangeLogSet<? extends ChangeLogSet.Entry> changeLogSet =
+                                co.scm.createChangeLogParser().parse(this, co.scm.getEffectiveBrowser(), co.changelogFile);
+                        if (!changeLogSet.isEmptySet()) {
+                            changeSets.add(changeLogSet);
+                        }
+                    } catch (Exception x) {
+                        LOGGER.log(Level.WARNING, "could not parse " + co.changelogFile, x);
+                    }
+                }
+            }
+        }
+        return changeSets;
+    }
+
+    @Override
     @CheckForNull public Set<String> getCulpritIds() {
+        if (shouldCalculateCulprits()) {
+            HashSet<String> tempCulpritIds = new HashSet<>();
+            for (User u : getCulprits()) {
+                tempCulpritIds.add(u.getId());
+            }
+            if (isBuilding()) {
+                return ImmutableSortedSet.copyOf(tempCulpritIds);
+            } else {
+                culprits = ImmutableSortedSet.copyOf(tempCulpritIds);
+            }
+        }
         return culprits;
+    }
+
+    @Override
+    public boolean shouldCalculateCulprits() {
+        return isBuilding() || culprits == null;
     }
 
     @RequirePOST

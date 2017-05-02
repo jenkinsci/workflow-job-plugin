@@ -364,4 +364,61 @@ public class WorkflowRunTest {
         r.assertLogContains("KEY is " + envProp.getEnvVars().get("KEY"), b);
     }
 
+    @Test
+    @Issue("JENKINS-24141")
+    public void culprits() throws Exception {
+        WorkflowJob p = r.jenkins.createProject(WorkflowJob.class, "p");
+        p.setDefinition(new CpsFlowDefinition("import org.jvnet.hudson.test.FakeChangeLogSCM\n" +
+                "semaphore 'waitFirst'\n" +
+                "def testScm = new FakeChangeLogSCM()\n" +
+                "testScm.addChange().withAuthor('alice')\n" +
+                "node {\n" +
+                "    ws {\n" +
+                "        checkout(testScm)\n" +
+                "    }\n" +
+                "    semaphore 'waitSecond'\n" +
+                "    def secondScm = new FakeChangeLogSCM()\n" +
+                "    secondScm.addChange().withAuthor('bob')\n" +
+                "    ws {\n" +
+                "        checkout(secondScm)\n" +
+                "    }\n" +
+                "    semaphore 'waitThird'\n" +
+                "    def thirdScm = new FakeChangeLogSCM()\n" +
+                "    thirdScm.addChange().withAuthor('charlie')\n" +
+                "    ws {\n" +
+                "        checkout(thirdScm)\n" +
+                "    }\n" +
+                "}\n", false));
+
+        WorkflowRun b1 = p.scheduleBuild2(0).waitForStart();
+        SemaphoreStep.waitForStart("waitFirst/1", b1);
+        assertTrue(b1.getCulpritIds().isEmpty());
+        SemaphoreStep.success("waitFirst/1", null);
+
+        SemaphoreStep.waitForStart("waitSecond/1", b1);
+        Set<String> origCulprits = b1.getCulpritIds();
+        assertNotNull(origCulprits);
+        assertEquals(1, origCulprits.size());
+        assertTrue(origCulprits.contains("alice"));
+
+        SemaphoreStep.success("waitSecond/1", null);
+
+        SemaphoreStep.waitForStart("waitThird/1", b1);
+        Set<String> secondCulprits = b1.getCulpritIds();
+        assertNotNull(secondCulprits);
+        assertEquals(2, secondCulprits.size());
+        assertTrue(secondCulprits.contains("alice"));
+        assertTrue(secondCulprits.contains("bob"));
+
+        SemaphoreStep.success("waitThird/1", b1);
+
+        r.assertBuildStatusSuccess(r.waitForCompletion(b1));
+
+        Set<String> thirdCulprits = b1.getCulpritIds();
+        assertNotNull(thirdCulprits);
+        assertEquals(3, thirdCulprits.size());
+        assertTrue(thirdCulprits.contains("alice"));
+        assertTrue(thirdCulprits.contains("bob"));
+        assertTrue(thirdCulprits.contains("charlie"));
+    }
 }
