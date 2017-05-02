@@ -101,7 +101,7 @@ import jenkins.model.Jenkins;
 import jenkins.model.lazy.BuildReference;
 import jenkins.model.lazy.LazyBuildMixIn;
 import jenkins.model.queue.AsynchronousExecution;
-import jenkins.scm.RunWithSCMMixIn;
+import jenkins.scm.RunWithSCM;
 import jenkins.security.NotReallyRoleSensitiveCallable;
 import jenkins.util.Timer;
 import org.jenkinsci.plugins.workflow.FilePathUtils;
@@ -132,7 +132,7 @@ import org.kohsuke.stapler.interceptor.RequirePOST;
 
 @SuppressWarnings("SynchronizeOnNonFinalField")
 @SuppressFBWarnings(value="JLM_JSR166_UTILCONCURRENT_MONITORENTER", justification="completed is an unusual usage")
-public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements FlowExecutionOwner.Executable, LazyBuildMixIn.LazyLoadingRun<WorkflowJob,WorkflowRun>, RunWithSCMMixIn.RunWithSCM<WorkflowJob,WorkflowRun> {
+public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements FlowExecutionOwner.Executable, LazyBuildMixIn.LazyLoadingRun<WorkflowJob,WorkflowRun>, RunWithSCM<WorkflowJob,WorkflowRun> {
 
     private static final Logger LOGGER = Logger.getLogger(WorkflowRun.class.getName());
 
@@ -216,35 +216,31 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
         return runMixIn;
     }
 
-    @Override
-    public RunWithSCMMixIn<WorkflowJob,WorkflowRun> getRunWithSCMMixIn() {
-        return new RunWithSCMMixIn<WorkflowJob, WorkflowRun>() {
-            @SuppressWarnings("unchecked") // untypable
-            @Override protected WorkflowRun asRun() {
-                return WorkflowRun.this;
-            }
+    @SuppressWarnings("unchecked") // untypable
+    @Override public WorkflowRun asRun() {
+        return WorkflowRun.this;
+    }
 
-            @Exported
-            public synchronized List<ChangeLogSet<? extends ChangeLogSet.Entry>> getChangeSets() {
-                if (changeSets == null) {
-                    changeSets = new ArrayList<>();
-                    for (SCMCheckout co : checkouts(null)) {
-                        if (co.changelogFile != null && co.changelogFile.isFile()) {
-                            try {
-                                ChangeLogSet<? extends ChangeLogSet.Entry> changeLogSet =
-                                        co.scm.createChangeLogParser().parse(asRun(), co.scm.getEffectiveBrowser(), co.changelogFile);
-                                if (!changeLogSet.isEmptySet()) {
-                                    changeSets.add(changeLogSet);
-                                }
-                            } catch (Exception x) {
-                                LOGGER.log(Level.WARNING, "could not parse " + co.changelogFile, x);
-                            }
+    @Override
+    @Exported
+    public synchronized List<ChangeLogSet<? extends ChangeLogSet.Entry>> getChangeSets() {
+        if (changeSets == null) {
+            changeSets = new ArrayList<>();
+            for (SCMCheckout co : checkouts(null)) {
+                if (co.changelogFile != null && co.changelogFile.isFile()) {
+                    try {
+                        ChangeLogSet<? extends ChangeLogSet.Entry> changeLogSet =
+                                co.scm.createChangeLogParser().parse(asRun(), co.scm.getEffectiveBrowser(), co.changelogFile);
+                        if (!changeLogSet.isEmptySet()) {
+                            changeSets.add(changeLogSet);
                         }
+                    } catch (Exception x) {
+                        LOGGER.log(Level.WARNING, "could not parse " + co.changelogFile, x);
                     }
                 }
-                return changeSets;
             }
-        };
+        }
+        return changeSets;
     }
 
     @Override protected BuildReference<WorkflowRun> createReference() {
@@ -778,39 +774,8 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
     }
 
     @Override
-    @Nonnull public List<ChangeLogSet<? extends ChangeLogSet.Entry>> getChangeSets() {
-        return getRunWithSCMMixIn().getChangeSets();
-    }
-
-    /**
-     * List of users who committed a change since the last non-broken build till now.
-     *
-     * <p>
-     * This list at least always include people who made changes in this build, but
-     * if the previous build was a failure it also includes the culprit list from there.
-     *
-     * @return
-     *      can be empty but never null.
-     */
-    @Override
-    @Exported
-    @Nonnull public Set<User> getCulprits() {
-        return getRunWithSCMMixIn().getCulprits();
-    }
-
-    @Override
     @CheckForNull public Set<String> getCulpritIds() {
         return culprits;
-    }
-
-    /**
-     * Returns true if this user has made a commit to this build.
-     *
-     * @since 1.191
-     */
-    @Override
-    public boolean hasParticipant(User user) {
-        return getRunWithSCMMixIn().hasParticipant(user);
     }
 
     @RequirePOST
