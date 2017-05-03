@@ -334,7 +334,7 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements B
         }
         setDisabled(b);
         if (b) {
-            Jenkins.getInstance().getQueue().cancel(this);
+            Jenkins.getActiveInstance().getQueue().cancel(this);
         }
         save();
         ItemListener.fireOnUpdated(this);
