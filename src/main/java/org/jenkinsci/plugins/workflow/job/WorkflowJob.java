@@ -54,6 +54,7 @@ import hudson.model.RunMap;
 import hudson.model.TaskListener;
 import hudson.model.TopLevelItem;
 import hudson.model.TopLevelItemDescriptor;
+import hudson.model.listeners.ItemListener;
 import hudson.model.listeners.SCMListener;
 import hudson.model.queue.CauseOfBlockage;
 import hudson.model.queue.QueueTaskFuture;
@@ -124,6 +125,7 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements B
      * TODO is it important to persist this? {@link hudson.model.AbstractProject#pollingBaseline} is not persisted.
      */
     private transient volatile Map<String,SCMRevisionState> pollingBaselines;
+    private volatile boolean disabled;
 
     public WorkflowJob(ItemGroup parent, String name) {
         super(parent, name);
@@ -197,6 +199,8 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements B
         } else {
             quietPeriod = null;
         }
+
+        // TODO call makeDisabled
     }
 
 
@@ -302,6 +306,38 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements B
 
     public boolean isParameterized() {
         return createParameterizedJobMixIn().isParameterized();
+    }
+
+    // TODO @Override
+    public boolean isDisabled() {
+        return disabled;
+    }
+
+    @Restricted(DoNotUse.class)
+    // TODO @Override
+    public void setDisabled(boolean disabled) {
+        this.disabled = disabled;
+    }
+
+    // TODO @Override
+    public boolean supportsMakeDisabled() {
+        return true; // TODO but not if this is a branch project
+    }
+
+    // TODO use parent version
+    public void makeDisabled(boolean b) throws IOException {
+        if (isDisabled() == b) {
+            return; // noop
+        }
+        if (b && !supportsMakeDisabled()) {
+            return; // do nothing if the disabling is unsupported
+        }
+        setDisabled(b);
+        if (b) {
+            Jenkins.getInstance().getQueue().cancel(this);
+        }
+        save();
+        ItemListener.fireOnUpdated(this);
     }
 
     @SuppressWarnings("deprecation")
