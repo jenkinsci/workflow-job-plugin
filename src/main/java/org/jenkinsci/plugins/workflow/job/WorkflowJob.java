@@ -36,6 +36,7 @@ import hudson.init.InitMilestone;
 import hudson.init.Initializer;
 import hudson.model.Action;
 import hudson.model.BallColor;
+import hudson.model.BuildAuthorizationToken;
 import hudson.model.BuildableItem;
 import hudson.model.Cause;
 import hudson.model.Computer;
@@ -621,6 +622,31 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements B
             }
         }
         return typical;
+    }
+
+    // TODO https://github.com/jenkinsci/jenkins/pull/2866 remove override
+    public boolean schedulePolling() {
+        if (isDisabled()) {
+            return false;
+        }
+        SCMTrigger scmt = getSCMTrigger();
+        if (scmt == null) {
+            return false;
+        }
+        scmt.run();
+        return true;
+    }
+
+    // TODO https://github.com/jenkinsci/jenkins/pull/2866 remove override
+    @SuppressWarnings("deprecation")
+    public void doPolling(StaplerRequest req, StaplerResponse rsp) throws IOException, ServletException {
+        if (!(this instanceof SCMTriggerItem)) {
+            rsp.sendError(404);
+            return;
+        }
+        BuildAuthorizationToken.checkPermission((Job) this, getAuthToken(), req, rsp);
+        schedulePolling();
+        rsp.sendRedirect(".");
     }
 
     @SuppressFBWarnings(value="RCN_REDUNDANT_NULLCHECK_OF_NONNULL_VALUE", justification="TODO 1.653+ switch to Jenkins.getInstanceOrNull")
