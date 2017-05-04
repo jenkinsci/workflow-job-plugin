@@ -35,6 +35,7 @@ import hudson.Launcher;
 import hudson.init.InitMilestone;
 import hudson.init.Initializer;
 import hudson.model.Action;
+import hudson.model.BallColor;
 import hudson.model.BuildableItem;
 import hudson.model.Cause;
 import hudson.model.Computer;
@@ -200,7 +201,7 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements B
             quietPeriod = null;
         }
 
-        // TODO call makeDisabled
+        makeDisabled(json.optBoolean("disable"));
     }
 
 
@@ -262,7 +263,11 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements B
         return buildMixIn.createHistoryWidget();
     }
 
+    // TODO https://github.com/jenkinsci/jenkins/pull/2866 remove override
     @Override public Queue.Executable createExecutable() throws IOException {
+        if (isDisabled()) {
+            return null;
+        }
         return buildMixIn.newBuild();
     }
 
@@ -308,23 +313,23 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements B
         return createParameterizedJobMixIn().isParameterized();
     }
 
-    // TODO @Override
+    // TODO https://github.com/jenkinsci/jenkins/pull/2866 @Override
     public boolean isDisabled() {
         return disabled;
     }
 
     @Restricted(DoNotUse.class)
-    // TODO @Override
+    // TODO https://github.com/jenkinsci/jenkins/pull/2866 @Override
     public void setDisabled(boolean disabled) {
         this.disabled = disabled;
     }
 
-    // TODO @Override
+    // TODO https://github.com/jenkinsci/jenkins/pull/2866 @Override
     public boolean supportsMakeDisabled() {
         return true; // TODO but not if this is a branch project
     }
 
-    // TODO use parent version
+    // TODO https://github.com/jenkinsci/jenkins/pull/2866 use parent version
     public void makeDisabled(boolean b) throws IOException {
         if (isDisabled() == b) {
             return; // noop
@@ -338,6 +343,14 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements B
         }
         save();
         ItemListener.fireOnUpdated(this);
+    }
+
+    @Override public BallColor getIconColor() {
+        if (isDisabled()) {
+            return isBuilding() ? BallColor.DISABLED_ANIME : BallColor.DISABLED;
+        } else {
+            return super.getIconColor();
+        }
     }
 
     @SuppressWarnings("deprecation")
@@ -699,8 +712,9 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements B
     }
 
     @Override protected void performDelete() throws IOException, InterruptedException {
-        super.performDelete();
+        makeDisabled(true);
         // TODO call SCM.processWorkspaceBeforeDeletion
+        super.performDelete();
     }
 
     @Initializer(before=InitMilestone.EXTENSIONS_AUGMENTED)
