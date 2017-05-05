@@ -33,6 +33,7 @@ import org.jenkinsci.plugins.workflow.steps.AbstractStepDescriptorImpl;
 import org.jenkinsci.plugins.workflow.steps.AbstractStepExecutionImpl;
 import org.jenkinsci.plugins.workflow.steps.AbstractStepImpl;
 import org.jenkinsci.plugins.workflow.steps.StepContextParameter;
+import org.jenkinsci.plugins.workflow.test.steps.SemaphoreStep;
 import static org.junit.Assert.*;
 import org.junit.ClassRule;
 import org.junit.Rule;
@@ -49,6 +50,29 @@ public class WorkflowRunRestartTest {
 
     @ClassRule public static BuildWatcher buildWatcher = new BuildWatcher();
     @Rule public RestartableJenkinsRule story = new RestartableJenkinsRule();
+
+    @Issue("JENKINS-27299")
+    @Test public void disabled() {
+        story.addStep(new Statement() {
+            @Override public void evaluate() throws Throwable {
+                WorkflowJob p = story.j.jenkins.createProject(WorkflowJob.class, "p");
+                p.setDefinition(new CpsFlowDefinition("node {semaphore 'wait'}"));
+                WorkflowRun b = p.scheduleBuild2(0).waitForStart();
+                SemaphoreStep.waitForStart("wait/1", b);
+                p.makeDisabled(true);
+            }
+        });
+        story.addStep(new Statement() {
+            @Override public void evaluate() throws Throwable {
+                WorkflowJob p = story.j.jenkins.getItemByFullName("p", WorkflowJob.class);
+                assertTrue(p.isDisabled());
+                WorkflowRun b = p.getBuildByNumber(1);
+                assertTrue(b.isBuilding());
+                SemaphoreStep.success("wait/1", null);
+                story.j.assertBuildStatusSuccess(story.j.waitForCompletion(b));
+            }
+        });
+    }
 
     @Issue("JENKINS-25550")
     @Test public void hardKill() throws Exception {

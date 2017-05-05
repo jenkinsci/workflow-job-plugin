@@ -1,5 +1,9 @@
 package org.jenkinsci.plugins.workflow.job;
 
+import com.gargoylesoftware.htmlunit.HttpMethod;
+import com.gargoylesoftware.htmlunit.WebRequest;
+import com.gargoylesoftware.htmlunit.html.HtmlCheckBoxInput;
+import com.gargoylesoftware.htmlunit.html.HtmlForm;
 import hudson.model.Result;
 import hudson.security.WhoAmI;
 import org.jenkinsci.plugins.workflow.cps.CpsFlowDefinition;
@@ -44,6 +48,27 @@ public class WorkflowJobTest {
         WhoAmI a = new WhoAmI();
         p.addAction(a);
         assertNotNull(p.getAction(WhoAmI.class));
+    }
+
+    @Issue("JENKINS-27299")
+    @Test public void disabled() throws Exception {
+        WorkflowJob p = j.jenkins.createProject(WorkflowJob.class, "p");
+        assertFalse(p.isDisabled());
+        assertTrue(p.isBuildable());
+        JenkinsRule.WebClient wc = j.createWebClient();
+        j.submit(wc.getPage(p).<HtmlForm>getHtmlElementById("disable-project"));
+        assertTrue(p.isDisabled());
+        assertFalse(p.isBuildable());
+        HtmlForm form = wc.getPage(p, "configure").getFormByName("config");
+        HtmlCheckBoxInput checkbox = form.getInputByName("disable");
+        assertTrue(checkbox.isChecked());
+        checkbox.setChecked(false);
+        j.submit(form);
+        assertFalse(p.isDisabled());
+        wc.getPage(new WebRequest(wc.createCrumbedUrl(p.getUrl() + "disable"), HttpMethod.POST));
+        assertTrue(p.isDisabled());
+        assertNull(p.scheduleBuild2(0));
+        // TODO https://github.com/jenkinsci/jenkins/pull/2866 reënable by CLI
     }
 
 }
