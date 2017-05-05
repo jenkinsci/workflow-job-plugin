@@ -29,12 +29,9 @@ import hudson.model.JobPropertyDescriptor;
 import hudson.model.Result;
 import jenkins.triggers.ReverseBuildTrigger;
 import org.jenkinsci.plugins.workflow.cps.CpsFlowDefinition;
-import org.jenkinsci.plugins.workflow.job.WorkflowJob;
-import org.jenkinsci.plugins.workflow.job.WorkflowRun;
 import org.junit.Test;
 import static org.junit.Assert.*;
 import org.junit.ClassRule;
-import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.runners.model.Statement;
 import org.jvnet.hudson.test.BuildWatcher;
@@ -48,11 +45,11 @@ public class ReverseBuildTriggerTest {
     @ClassRule public static BuildWatcher buildWatcher = new BuildWatcher();
     @Rule public RestartableJenkinsRule story = new RestartableJenkinsRule();
 
-    @Ignore("TODO fails prior to 1.656")
     @Issue("JENKINS-33971")
     @Test public void upstreamMapRebuilding() throws Exception {
         story.addStep(new Statement() {
             @Override public void evaluate() throws Throwable {
+                story.j.jenkins.setQuietPeriod(0);
                 WorkflowJob us = story.j.jenkins.createProject(WorkflowJob.class, "us");
                 us.setDefinition(new CpsFlowDefinition(""));
                 us.addProperty(new SlowToLoad()); // force it to load after ds when we restart
