@@ -641,10 +641,6 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements B
     // TODO https://github.com/jenkinsci/jenkins/pull/2866 remove override
     @SuppressWarnings("deprecation")
     public void doPolling(StaplerRequest req, StaplerResponse rsp) throws IOException, ServletException {
-        if (!(this instanceof SCMTriggerItem)) {
-            rsp.sendError(404);
-            return;
-        }
         BuildAuthorizationToken.checkPermission((Job) this, getAuthToken(), req, rsp);
         schedulePolling();
         rsp.sendRedirect(".");
