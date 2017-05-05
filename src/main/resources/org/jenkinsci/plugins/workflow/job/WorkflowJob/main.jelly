@@ -24,7 +24,7 @@
   ~ THE SOFTWARE.
   -->
 
-<j:jelly xmlns:j="jelly:core" xmlns:st="jelly:stapler" xmlns:p="/lib/hudson/project" xmlns:t="/lib/hudson">
+<j:jelly xmlns:j="jelly:core" xmlns:st="jelly:stapler" xmlns:p="/lib/hudson/project" xmlns:t="/lib/hudson" xmlns:l="/lib/layout" xmlns:f="/lib/form">
     <j:choose> <!-- TODO https://github.com/jenkinsci/jenkins/pull/2866 <p:makeDisabled/> -->
         <j:when test="${!it.supportsMakeDisabled()}">
             <!-- for now, quietly omit the option -->
