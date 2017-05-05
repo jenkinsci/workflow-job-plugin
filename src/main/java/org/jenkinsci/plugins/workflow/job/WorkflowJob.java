@@ -102,6 +102,8 @@ import org.jenkinsci.plugins.workflow.job.properties.PipelineTriggersJobProperty
 import org.kohsuke.accmod.Restricted;
 import org.kohsuke.accmod.restrictions.DoNotUse;
 import org.kohsuke.accmod.restrictions.NoExternalUse;
+import org.kohsuke.stapler.HttpRedirect;
+import org.kohsuke.stapler.HttpResponse;
 import org.kohsuke.stapler.QueryParameter;
 import org.kohsuke.stapler.StaplerRequest;
 import org.kohsuke.stapler.StaplerResponse;
@@ -345,6 +347,22 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements B
         }
         save();
         ItemListener.fireOnUpdated(this);
+    }
+
+    // TODO https://github.com/jenkinsci/jenkins/pull/2866 remove override
+    @RequirePOST
+    public HttpResponse doDisable() throws IOException, ServletException {
+        checkPermission(CONFIGURE);
+        makeDisabled(true);
+        return new HttpRedirect(".");
+    }
+
+    // TODO https://github.com/jenkinsci/jenkins/pull/2866 remove override
+    @RequirePOST
+    public HttpResponse doEnable() throws IOException, ServletException {
+        checkPermission(CONFIGURE);
+        makeDisabled(false);
+        return new HttpRedirect(".");
     }
 
     @Override public BallColor getIconColor() {
