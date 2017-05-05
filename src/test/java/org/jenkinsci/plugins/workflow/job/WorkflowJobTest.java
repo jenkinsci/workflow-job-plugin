@@ -5,8 +5,12 @@ import com.gargoylesoftware.htmlunit.WebRequest;
 import com.gargoylesoftware.htmlunit.html.HtmlCheckBoxInput;
 import com.gargoylesoftware.htmlunit.html.HtmlForm;
 import hudson.model.Result;
+import hudson.plugins.git.GitSCM;
 import hudson.security.WhoAmI;
+import hudson.triggers.SCMTrigger;
+import jenkins.plugins.git.GitSampleRepoRule;
 import org.jenkinsci.plugins.workflow.cps.CpsFlowDefinition;
+import org.jenkinsci.plugins.workflow.cps.CpsScmFlowDefinition;
 import static org.junit.Assert.*;
 import org.junit.Rule;
 import org.junit.Test;
@@ -14,7 +18,9 @@ import org.jvnet.hudson.test.Issue;
 import org.jvnet.hudson.test.JenkinsRule;
 
 public class WorkflowJobTest {
+
     @Rule public JenkinsRule j = new JenkinsRule();
+    @Rule public GitSampleRepoRule sampleRepo = new GitSampleRepoRule();
 
     @Issue("JENKINS-40255")
     @Test public void getSCM() throws Exception {
@@ -40,6 +46,26 @@ public class WorkflowJobTest {
         j.buildAndAssertSuccess(p);
 
         assertEquals("Expecting zero SCMs",0, p.getSCMs().size());
+    }
+
+    @Issue("JENKINS-34716")
+    @Test public void polling() throws Exception {
+        sampleRepo.init();
+        sampleRepo.write("Jenkinsfile", "echo 'first version'");
+        sampleRepo.git("add", "Jenkinsfile");
+        sampleRepo.git("commit", "-m", "init");
+        WorkflowJob p = j.jenkins.createProject(WorkflowJob.class, "p");
+        p.addTrigger(new SCMTrigger(""));
+        p.setDefinition(new CpsScmFlowDefinition(new GitSCM(sampleRepo.toString()), "Jenkinsfile"));
+        j.assertLogContains("first version", j.buildAndAssertSuccess(p));
+        sampleRepo.write("Jenkinsfile", "echo 'second version'");
+        sampleRepo.git("commit", "-a", "-m", "init");
+        j.jenkins.setQuietPeriod(0);
+        j.createWebClient().getPage(new WebRequest(j.createWebClient().createCrumbedUrl(p.getUrl() + "polling"), HttpMethod.POST));
+        j.waitUntilNoActivity();
+        WorkflowRun b2 = p.getLastBuild();
+        assertEquals(2, b2.getNumber());
+        j.assertLogContains("second version", b2);
     }
 
     @Test
