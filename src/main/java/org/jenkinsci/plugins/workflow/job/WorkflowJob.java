@@ -328,7 +328,7 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements B
 
     // TODO https://github.com/jenkinsci/jenkins/pull/2866 @Override
     public boolean supportsMakeDisabled() {
-        return true; // TODO but not if this is a branch project
+        return true;
     }
 
     // TODO https://github.com/jenkinsci/jenkins/pull/2866 remove override
