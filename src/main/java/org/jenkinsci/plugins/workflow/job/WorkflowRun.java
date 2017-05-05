@@ -28,6 +28,7 @@ import com.google.common.base.Optional;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
+import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
@@ -49,10 +50,10 @@ import hudson.model.Result;
 import hudson.model.Run;
 import hudson.model.StreamBuildListener;
 import hudson.model.TaskListener;
+import hudson.model.User;
 import hudson.model.listeners.RunListener;
 import hudson.model.listeners.SCMListener;
 import hudson.scm.ChangeLogSet;
-import hudson.scm.RepositoryBrowser;
 import hudson.scm.SCM;
 import hudson.scm.SCMRevisionState;
 import hudson.security.ACL;
@@ -72,10 +73,12 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledExecutorService;
@@ -94,6 +97,7 @@ import jenkins.model.Jenkins;
 import jenkins.model.lazy.BuildReference;
 import jenkins.model.lazy.LazyBuildMixIn;
 import jenkins.model.queue.AsynchronousExecution;
+import jenkins.scm.RunWithSCM;
 import jenkins.security.NotReallyRoleSensitiveCallable;
 import jenkins.util.Timer;
 import org.jenkinsci.plugins.workflow.FilePathUtils;
@@ -124,7 +128,7 @@ import org.kohsuke.stapler.interceptor.RequirePOST;
 
 @SuppressWarnings("SynchronizeOnNonFinalField")
 @SuppressFBWarnings(value="JLM_JSR166_UTILCONCURRENT_MONITORENTER", justification="completed is an unusual usage")
-public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements FlowExecutionOwner.Executable, LazyBuildMixIn.LazyLoadingRun<WorkflowJob,WorkflowRun> {
+public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements FlowExecutionOwner.Executable, LazyBuildMixIn.LazyLoadingRun<WorkflowJob,WorkflowRun>, RunWithSCM<WorkflowJob,WorkflowRun> {
 
     private static final Logger LOGGER = Logger.getLogger(WorkflowRun.class.getName());
 
@@ -154,6 +158,21 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
     private transient boolean allowTerm;
 
     private transient boolean allowKill;
+
+    /**
+     * Cumulative list of people who contributed to the build problem.
+     *
+     * <p>
+     * This is a list of {@link User#getId() user ids} who made a change
+     * since the last non-broken build. Can be null (which should be
+     * treated like empty set), because of the compatibility.
+     *
+     * <p>
+     * This field is semi-final --- once set the value will never be modified.
+     *
+     * @since 1.137
+     */
+    private volatile Set<String> culprits;
 
     /**
      * Flag for whether or not the build has completed somehow.
@@ -716,6 +735,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
         return checkouts;
     }
 
+    @Override
     @Exported
     public synchronized List<ChangeLogSet<? extends ChangeLogSet.Entry>> getChangeSets() {
         if (changeSets == null) {
@@ -724,7 +744,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
                 if (co.changelogFile != null && co.changelogFile.isFile()) {
                     try {
                         ChangeLogSet<? extends ChangeLogSet.Entry> changeLogSet =
-                                co.scm.createChangeLogParser().parse(this, getEffectiveBrowser(co.scm), co.changelogFile);
+                                co.scm.createChangeLogParser().parse(this, co.scm.getEffectiveBrowser(), co.changelogFile);
                         if (!changeLogSet.isEmptySet()) {
                             changeSets.add(changeLogSet);
                         }
@@ -737,10 +757,25 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
         return changeSets;
     }
 
-    /** Replacement for {@link SCM#getEffectiveBrowser} to work around JENKINS-35098. TODO 2.7.3+ delete */
-    private static RepositoryBrowser<?> getEffectiveBrowser(SCM scm) {
-        RepositoryBrowser<?> b = scm.getBrowser();
-        return b != null ? b : scm.guessBrowser();
+    @Override
+    @CheckForNull public Set<String> getCulpritIds() {
+        if (shouldCalculateCulprits()) {
+            HashSet<String> tempCulpritIds = new HashSet<>();
+            for (User u : getCulprits()) {
+                tempCulpritIds.add(u.getId());
+            }
+            if (isBuilding()) {
+                return ImmutableSortedSet.copyOf(tempCulpritIds);
+            } else {
+                culprits = ImmutableSortedSet.copyOf(tempCulpritIds);
+            }
+        }
+        return culprits;
+    }
+
+    @Override
+    public boolean shouldCalculateCulprits() {
+        return isBuilding() || culprits == null;
     }
 
     @RequirePOST
