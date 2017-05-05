@@ -154,7 +154,7 @@ public class WorkflowRunTest {
         assertColor(b1, BallColor.BLUE);
 
         p.makeDisabled(true);
-        assertColor(b1, BallColor.DISABLED);
+        assertSame(BallColor.DISABLED, p.getIconColor());
         p.makeDisabled(false);
 
         // get another one going
@@ -167,7 +167,7 @@ public class WorkflowRunTest {
         assertColor(b2, BallColor.BLUE_ANIME);
 
         p.makeDisabled(true);
-        assertColor(b1, BallColor.DISABLED_ANIME);
+        assertSame(BallColor.DISABLED_ANIME, p.getIconColor());
         p.makeDisabled(false);
 
         SemaphoreStep.waitForStart("wait/2", b2);
