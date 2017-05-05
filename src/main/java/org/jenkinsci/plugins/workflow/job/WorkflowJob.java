@@ -652,6 +652,11 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements B
 
     @SuppressFBWarnings(value="RCN_REDUNDANT_NULLCHECK_OF_NONNULL_VALUE", justification="TODO 1.653+ switch to Jenkins.getInstanceOrNull")
     @Override public PollingResult poll(TaskListener listener) {
+        if (!isBuildable()) {
+            listener.getLogger().println("Build disabled");
+            return PollingResult.NO_CHANGES;
+        }
+        // TODO 2.11+ call SCMDecisionHandler
         // TODO call SCMPollListener
         WorkflowRun lastBuild = getLastBuild();
         if (lastBuild == null) {
