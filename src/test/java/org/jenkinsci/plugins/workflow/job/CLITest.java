@@ -85,4 +85,14 @@ public class CLITest {
         assertThat(res.stderr(), containsString("No such item ‘q’ exists. Perhaps you meant ‘p’?"));
     }
 
+    @Test public void setBuildDescriptionAndDisplayName() throws Exception {
+        WorkflowJob p = r.createProject(WorkflowJob.class, "p");
+        p.setDefinition(new CpsFlowDefinition("", true));
+        WorkflowRun b = r.buildAndAssertSuccess(p);
+        assertThat(new CLICommandInvoker(r, "set-build-description").invokeWithArgs("p", "1", "the desc"), CLICommandInvoker.Matcher.succeededSilently());
+        assertEquals("the desc", b.getDescription());
+        assertThat(new CLICommandInvoker(r, "set-build-display-name").invokeWithArgs("p", "1", "the name"), CLICommandInvoker.Matcher.succeededSilently());
+        assertEquals("the name", b.getDisplayName());
+    }
+
 }
