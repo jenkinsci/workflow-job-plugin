@@ -62,7 +62,8 @@
         </pluginRepository>
     </pluginRepositories>
     <properties>
-        <jenkins.version>2.59-SNAPSHOT</jenkins.version> <!-- TODO -->
+        <jenkins-core.version>2.59-20170505.233004-5</jenkins-core.version> <!-- TODO https://github.com/jenkinsci/jenkins/pull/2874 -->
+        <jenkins-war.version>2.59-20170505.233305-5</jenkins-war.version>
         <java.level>8</java.level>
         <no-test-jar>false</no-test-jar>
         <workflow-support-plugin.version>2.14</workflow-support-plugin.version>
