@@ -256,7 +256,7 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements L
     }
 
     // TODO https://github.com/jenkinsci/jenkins/pull/2866 remove override
-    @Override public Queue.Executable createExecutable() throws IOException {
+    @Override public WorkflowRun createExecutable() throws IOException {
         if (isDisabled()) {
             return null;
         }
