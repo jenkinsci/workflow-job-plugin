@@ -25,6 +25,8 @@
 package org.jenkinsci.plugins.workflow.job;
 
 import hudson.cli.CLICommandInvoker;
+import java.io.File;
+import org.apache.commons.io.FileUtils;
 import static org.hamcrest.Matchers.*;
 import org.jenkinsci.plugins.workflow.cps.CpsFlowDefinition;
 import org.junit.ClassRule;
@@ -67,6 +69,20 @@ public class CLITest {
         CLICommandInvoker.Result res = new CLICommandInvoker(r, "console").invokeWithArgs("p");
         assertThat(res, CLICommandInvoker.Matcher.succeeded());
         assertThat(res.stdout(), containsString("this is what I said"));
+    }
+
+    @Issue("JENKINS-30785")
+    @Test public void reload() throws Exception {
+        WorkflowJob p = r.createProject(WorkflowJob.class, "p");
+        p.setDefinition(new CpsFlowDefinition("echo 'first version'", true));
+        r.assertLogContains("first version", r.buildAndAssertSuccess(p));
+        File configXml = new File(p.getRootDir(), "config.xml");
+        FileUtils.write(configXml, FileUtils.readFileToString(configXml).replace("first version", "second version"));
+        assertThat(new CLICommandInvoker(r, "reload-job").invokeWithArgs("p"), CLICommandInvoker.Matcher.succeededSilently());
+        r.assertLogContains("second version", r.buildAndAssertSuccess(p));
+        CLICommandInvoker.Result res = new CLICommandInvoker(r, "reload-job").invokeWithArgs("q");
+        assertThat(res, CLICommandInvoker.Matcher.failedWith(3));
+        assertThat(res.stderr(), containsString("No such item ‘q’ exists. Perhaps you meant ‘p’?"));
     }
 
 }
