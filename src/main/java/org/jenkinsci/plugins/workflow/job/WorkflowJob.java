@@ -221,7 +221,8 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements B
                 }
             }
         }
-        return true; // why not?
+        // TODO https://github.com/jenkinsci/jenkins/pull/2866: return ParameterizedJobMixIn.ParameterizedJob.super.isBuildable();
+        return !isDisabled() && !isHoldOffBuildUntilSave();
     }
 
     @Override protected RunMap<WorkflowRun> _getRuns() {
@@ -330,7 +331,7 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements B
         return true; // TODO but not if this is a branch project
     }
 
-    // TODO https://github.com/jenkinsci/jenkins/pull/2866 use parent version
+    // TODO https://github.com/jenkinsci/jenkins/pull/2866 remove override
     public void makeDisabled(boolean b) throws IOException {
         if (isDisabled() == b) {
             return; // noop
