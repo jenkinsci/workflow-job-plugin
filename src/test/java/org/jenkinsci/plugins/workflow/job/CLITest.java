@@ -32,6 +32,7 @@ import org.junit.Test;
 import static org.junit.Assert.*;
 import org.junit.Rule;
 import org.jvnet.hudson.test.BuildWatcher;
+import org.jvnet.hudson.test.Issue;
 import org.jvnet.hudson.test.JenkinsRule;
 
 public class CLITest {
@@ -56,6 +57,16 @@ public class CLITest {
         CLICommandInvoker.Result res = new CLICommandInvoker(r, "list-changes").invokeWithArgs("p", "1");
         assertThat(res, CLICommandInvoker.Matcher.succeeded());
         assertThat(res.stdout(), containsString("alice\thello"));
+    }
+
+    @Issue("JENKINS-41527")
+    @Test public void console() throws Exception {
+        WorkflowJob p = r.createProject(WorkflowJob.class, "p");
+        p.setDefinition(new CpsFlowDefinition("echo 'this is what I said'", true));
+        r.buildAndAssertSuccess(p);
+        CLICommandInvoker.Result res = new CLICommandInvoker(r, "console").invokeWithArgs("p");
+        assertThat(res, CLICommandInvoker.Matcher.succeeded());
+        assertThat(res.stdout(), containsString("this is what I said"));
     }
 
 }
