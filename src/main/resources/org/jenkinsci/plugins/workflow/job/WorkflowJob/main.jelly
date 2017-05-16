@@ -24,7 +24,31 @@
   ~ THE SOFTWARE.
   -->
 
-<j:jelly xmlns:j="jelly:core" xmlns:st="jelly:stapler" xmlns:p="/lib/hudson/project" xmlns:t="/lib/hudson">
+<j:jelly xmlns:j="jelly:core" xmlns:st="jelly:stapler" xmlns:p="/lib/hudson/project" xmlns:t="/lib/hudson" xmlns:l="/lib/layout" xmlns:f="/lib/form">
+    <j:choose> <!-- TODO https://github.com/jenkinsci/jenkins/pull/2866 <p:makeDisabled/> -->
+        <j:when test="${!it.supportsMakeDisabled()}">
+            <!-- for now, quietly omit the option -->
+        </j:when>
+        <j:when test="${it.disabled}">
+            <div class="warning">
+                <form method="post" id='enable-project' action="enable">
+                    ${%This project is currently disabled}
+                    <l:hasPermission permission="${it.CONFIGURE}">
+                        <f:submit value="${%Enable}" />
+                    </l:hasPermission>
+                </form>
+            </div>
+        </j:when>
+        <j:otherwise>
+            <div align="right">
+                <form method="post" id="disable-project" action="disable">
+                    <l:hasPermission permission="${it.CONFIGURE}">
+                        <f:submit value="${%Disable Project}" />
+                    </l:hasPermission>
+                </form>
+            </div>
+        </j:otherwise>
+    </j:choose>
     <p:projectActionFloatingBox/>
     <table style="margin-top: 1em; margin-left:1em;">
         <!-- TODO display prominentActions -->

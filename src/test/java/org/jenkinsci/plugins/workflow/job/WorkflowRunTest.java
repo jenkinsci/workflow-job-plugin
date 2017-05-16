@@ -155,6 +155,10 @@ public class WorkflowRunTest {
         assertFalse(b1.hasntStartedYet());
         assertColor(b1, BallColor.BLUE);
 
+        p.makeDisabled(true);
+        assertSame(BallColor.DISABLED, p.getIconColor());
+        p.makeDisabled(false);
+
         // get another one going
         q = p.scheduleBuild2(0);
         WorkflowRun b2 = q.getStartCondition().get();
@@ -163,6 +167,10 @@ public class WorkflowRunTest {
         // initial state should be blinking blue because the last one was blue
         assertFalse(b2.hasntStartedYet());
         assertColor(b2, BallColor.BLUE_ANIME);
+
+        p.makeDisabled(true);
+        assertSame(BallColor.DISABLED_ANIME, p.getIconColor());
+        p.makeDisabled(false);
 
         SemaphoreStep.waitForStart("wait/2", b2);
 
