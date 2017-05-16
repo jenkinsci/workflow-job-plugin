@@ -169,8 +169,6 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
      *
      * <p>
      * This field is semi-final --- once set the value will never be modified.
-     *
-     * @since 1.137
      */
     private volatile Set<String> culprits;
 
