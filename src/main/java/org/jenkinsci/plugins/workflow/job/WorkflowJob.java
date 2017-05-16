@@ -35,6 +35,7 @@ import hudson.Launcher;
 import hudson.init.InitMilestone;
 import hudson.init.Initializer;
 import hudson.model.Action;
+import hudson.model.BallColor;
 import hudson.model.Computer;
 import hudson.model.Descriptor;
 import hudson.model.DescriptorVisibilityFilter;
@@ -52,6 +53,7 @@ import hudson.model.RunMap;
 import hudson.model.TaskListener;
 import hudson.model.TopLevelItem;
 import hudson.model.TopLevelItemDescriptor;
+import hudson.model.listeners.ItemListener;
 import hudson.model.listeners.SCMListener;
 import hudson.model.queue.CauseOfBlockage;
 import hudson.model.queue.QueueTaskFuture;
@@ -82,7 +84,6 @@ import java.util.logging.Logger;
 import javax.annotation.CheckForNull;
 import javax.servlet.ServletException;
 import jenkins.model.BlockedBecauseOfBuildInProgress;
-
 import jenkins.model.Jenkins;
 import jenkins.model.ParameterizedJobMixIn;
 import jenkins.model.lazy.LazyBuildMixIn;
@@ -96,9 +97,12 @@ import org.jenkinsci.plugins.workflow.job.properties.PipelineTriggersJobProperty
 import org.kohsuke.accmod.Restricted;
 import org.kohsuke.accmod.restrictions.DoNotUse;
 import org.kohsuke.accmod.restrictions.NoExternalUse;
+import org.kohsuke.stapler.HttpRedirect;
+import org.kohsuke.stapler.HttpResponse;
 import org.kohsuke.stapler.StaplerRequest;
 import org.kohsuke.stapler.StaplerResponse;
 import org.kohsuke.stapler.export.Exported;
+import org.kohsuke.stapler.interceptor.RequirePOST;
 
 @SuppressWarnings({"unchecked", "rawtypes"})
 public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements LazyBuildMixIn.LazyLoadingJob<WorkflowJob,WorkflowRun>, ParameterizedJobMixIn.ParameterizedJob<WorkflowJob, WorkflowRun>, TopLevelItem, Queue.FlyweightTask, SCMTriggerItem {
@@ -119,6 +123,7 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements L
      * TODO is it important to persist this? {@link hudson.model.AbstractProject#pollingBaseline} is not persisted.
      */
     private transient volatile Map<String,SCMRevisionState> pollingBaselines;
+    private volatile boolean disabled;
 
     public WorkflowJob(ItemGroup parent, String name) {
         super(parent, name);
@@ -184,6 +189,8 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements L
         } else {
             quietPeriod = null;
         }
+
+        makeDisabled(json.optBoolean("disable"));
     }
 
 
@@ -202,7 +209,8 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements L
                 }
             }
         }
-        return true; // why not?
+        // TODO https://github.com/jenkinsci/jenkins/pull/2866: return ParameterizedJobMixIn.ParameterizedJob.super.isBuildable();
+        return !isDisabled() && !isHoldOffBuildUntilSave();
     }
 
     @Override protected RunMap<WorkflowRun> _getRuns() {
@@ -245,7 +253,11 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements L
         return buildMixIn.createHistoryWidget();
     }
 
-    @Override public Queue.Executable createExecutable() throws IOException {
+    // TODO https://github.com/jenkinsci/jenkins/pull/2866 remove override
+    @Override public WorkflowRun createExecutable() throws IOException {
+        if (isDisabled()) {
+            return null;
+        }
         return buildMixIn.newBuild();
     }
 
@@ -255,6 +267,62 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements L
 
     @Override protected SearchIndexBuilder makeSearchIndex() {
         return getParameterizedJobMixIn().extendSearchIndex(super.makeSearchIndex());
+    }
+
+    // TODO https://github.com/jenkinsci/jenkins/pull/2866 @Override
+    public boolean isDisabled() {
+        return disabled;
+    }
+
+    @Restricted(DoNotUse.class)
+    // TODO https://github.com/jenkinsci/jenkins/pull/2866 @Override
+    public void setDisabled(boolean disabled) {
+        this.disabled = disabled;
+    }
+
+    // TODO https://github.com/jenkinsci/jenkins/pull/2866 @Override
+    public boolean supportsMakeDisabled() {
+        return true;
+    }
+
+    // TODO https://github.com/jenkinsci/jenkins/pull/2866 remove override
+    public void makeDisabled(boolean b) throws IOException {
+        if (isDisabled() == b) {
+            return; // noop
+        }
+        if (b && !supportsMakeDisabled()) {
+            return; // do nothing if the disabling is unsupported
+        }
+        setDisabled(b);
+        if (b) {
+            Jenkins.getActiveInstance().getQueue().cancel(this);
+        }
+        save();
+        ItemListener.fireOnUpdated(this);
+    }
+
+    // TODO https://github.com/jenkinsci/jenkins/pull/2866 remove override
+    @RequirePOST
+    public HttpResponse doDisable() throws IOException, ServletException {
+        checkPermission(CONFIGURE);
+        makeDisabled(true);
+        return new HttpRedirect(".");
+    }
+
+    // TODO https://github.com/jenkinsci/jenkins/pull/2866 remove override
+    @RequirePOST
+    public HttpResponse doEnable() throws IOException, ServletException {
+        checkPermission(CONFIGURE);
+        makeDisabled(false);
+        return new HttpRedirect(".");
+    }
+
+    @Override public BallColor getIconColor() {
+        if (isDisabled()) {
+            return isBuilding() ? BallColor.DISABLED_ANIME : BallColor.DISABLED;
+        } else {
+            return super.getIconColor();
+        }
     }
 
     @SuppressWarnings("deprecation")
@@ -523,8 +591,34 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements L
         return typical;
     }
 
+    // TODO https://github.com/jenkinsci/jenkins/pull/2866 remove override
+    public boolean schedulePolling() {
+        if (isDisabled()) {
+            return false;
+        }
+        SCMTrigger scmt = getSCMTrigger();
+        if (scmt == null) {
+            return false;
+        }
+        scmt.run();
+        return true;
+    }
+
+    // TODO https://github.com/jenkinsci/jenkins/pull/2866 remove override
+    @SuppressWarnings("deprecation")
+    public void doPolling(StaplerRequest req, StaplerResponse rsp) throws IOException, ServletException {
+        hudson.model.BuildAuthorizationToken.checkPermission((Job) this, getAuthToken(), req, rsp);
+        schedulePolling();
+        rsp.sendRedirect(".");
+    }
+
     @SuppressFBWarnings(value="RCN_REDUNDANT_NULLCHECK_OF_NONNULL_VALUE", justification="TODO 1.653+ switch to Jenkins.getInstanceOrNull")
     @Override public PollingResult poll(TaskListener listener) {
+        if (!isBuildable()) {
+            listener.getLogger().println("Build disabled");
+            return PollingResult.NO_CHANGES;
+        }
+        // TODO 2.11+ call SCMDecisionHandler
         // TODO call SCMPollListener
         WorkflowRun lastBuild = getLastBuild();
         if (lastBuild == null) {
@@ -612,8 +706,9 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements L
     }
 
     @Override protected void performDelete() throws IOException, InterruptedException {
-        super.performDelete();
+        makeDisabled(true);
         // TODO call SCM.processWorkspaceBeforeDeletion
+        super.performDelete();
     }
 
     @Initializer(before=InitMilestone.EXTENSIONS_AUGMENTED)
