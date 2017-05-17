@@ -287,9 +287,11 @@ public class WorkflowRunTest {
 
     @Test public void interruptWithResult() throws Exception {
         WorkflowJob p = r.jenkins.createProject(WorkflowJob.class, "p");
-        p.setDefinition(new CpsFlowDefinition("semaphore 'hang'"));
+        p.setDefinition(new CpsFlowDefinition("sleep 1; semaphore 'hang'", true));
         WorkflowRun b1 = p.scheduleBuild2(0).waitForStart();
+        Thread.sleep(500); // TODO sleeps should not be necessary but seems to randomly fail to receive interrupt otherwise
         SemaphoreStep.waitForStart("hang/1", b1);
+        Thread.sleep(500);
         Executor ex = b1.getExecutor();
         assertNotNull(ex);
         ex.interrupt(Result.NOT_BUILT, new CauseOfInterruption.UserInterruption("bob"));
@@ -297,9 +299,12 @@ public class WorkflowRunTest {
         InterruptedBuildAction iba = b1.getAction(InterruptedBuildAction.class);
         assertNotNull(iba);
         assertEquals(Collections.singletonList(new CauseOfInterruption.UserInterruption("bob")), iba.getCauses());
+        Thread.sleep(500);
         WorkflowRun b2 = p.scheduleBuild2(0).waitForStart();
         assertEquals(2, b2.getNumber());
+        Thread.sleep(500);
         SemaphoreStep.waitForStart("hang/2", b2);
+        Thread.sleep(500);
         ex = b2.getExecutor();
         assertNotNull(ex);
         ex.interrupt();
