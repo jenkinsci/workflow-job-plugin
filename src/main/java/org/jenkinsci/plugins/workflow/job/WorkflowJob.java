@@ -36,7 +36,6 @@ import hudson.init.InitMilestone;
 import hudson.init.Initializer;
 import hudson.model.Action;
 import hudson.model.BallColor;
-import hudson.model.BuildAuthorizationToken;
 import hudson.model.Computer;
 import hudson.model.Descriptor;
 import hudson.model.DescriptorVisibilityFilter;
@@ -85,7 +84,6 @@ import java.util.logging.Logger;
 import javax.annotation.CheckForNull;
 import javax.servlet.ServletException;
 import jenkins.model.BlockedBecauseOfBuildInProgress;
-
 import jenkins.model.Jenkins;
 import jenkins.model.ParameterizedJobMixIn;
 import jenkins.model.lazy.LazyBuildMixIn;
@@ -99,12 +97,9 @@ import org.jenkinsci.plugins.workflow.job.properties.PipelineTriggersJobProperty
 import org.kohsuke.accmod.Restricted;
 import org.kohsuke.accmod.restrictions.DoNotUse;
 import org.kohsuke.accmod.restrictions.NoExternalUse;
-import org.kohsuke.stapler.HttpRedirect;
-import org.kohsuke.stapler.HttpResponse;
 import org.kohsuke.stapler.StaplerRequest;
 import org.kohsuke.stapler.StaplerResponse;
 import org.kohsuke.stapler.export.Exported;
-import org.kohsuke.stapler.interceptor.RequirePOST;
 
 @SuppressWarnings({"unchecked", "rawtypes"})
 public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements LazyBuildMixIn.LazyLoadingJob<WorkflowJob,WorkflowRun>, ParameterizedJobMixIn.ParameterizedJob<WorkflowJob, WorkflowRun>, TopLevelItem, Queue.FlyweightTask, SCMTriggerItem {
