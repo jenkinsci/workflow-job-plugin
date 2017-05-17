@@ -97,12 +97,9 @@ import org.jenkinsci.plugins.workflow.job.properties.PipelineTriggersJobProperty
 import org.kohsuke.accmod.Restricted;
 import org.kohsuke.accmod.restrictions.DoNotUse;
 import org.kohsuke.accmod.restrictions.NoExternalUse;
-import org.kohsuke.stapler.HttpRedirect;
-import org.kohsuke.stapler.HttpResponse;
 import org.kohsuke.stapler.StaplerRequest;
 import org.kohsuke.stapler.StaplerResponse;
 import org.kohsuke.stapler.export.Exported;
-import org.kohsuke.stapler.interceptor.RequirePOST;
 
 @SuppressWarnings({"unchecked", "rawtypes"})
 public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements LazyBuildMixIn.LazyLoadingJob<WorkflowJob,WorkflowRun>, ParameterizedJobMixIn.ParameterizedJob<WorkflowJob, WorkflowRun>, TopLevelItem, Queue.FlyweightTask, SCMTriggerItem {
@@ -209,8 +206,7 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements L
                 }
             }
         }
-        // TODO https://github.com/jenkinsci/jenkins/pull/2866: return ParameterizedJobMixIn.ParameterizedJob.super.isBuildable();
-        return !isDisabled() && !isHoldOffBuildUntilSave();
+        return ParameterizedJobMixIn.ParameterizedJob.super.isBuildable();
     }
 
     @Override protected RunMap<WorkflowRun> _getRuns() {
@@ -253,14 +249,6 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements L
         return buildMixIn.createHistoryWidget();
     }
 
-    // TODO https://github.com/jenkinsci/jenkins/pull/2866 remove override
-    @Override public WorkflowRun createExecutable() throws IOException {
-        if (isDisabled()) {
-            return null;
-        }
-        return buildMixIn.newBuild();
-    }
-
     @Override public @CheckForNull QueueTaskFuture<WorkflowRun> scheduleBuild2(int quietPeriod, Action... actions) {
         return ParameterizedJobMixIn.ParameterizedJob.super.scheduleBuild2(quietPeriod, actions);
     }
@@ -269,24 +257,20 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements L
         return getParameterizedJobMixIn().extendSearchIndex(super.makeSearchIndex());
     }
 
-    // TODO https://github.com/jenkinsci/jenkins/pull/2866 @Override
-    public boolean isDisabled() {
+    @Override public boolean isDisabled() {
         return disabled;
     }
 
     @Restricted(DoNotUse.class)
-    // TODO https://github.com/jenkinsci/jenkins/pull/2866 @Override
-    public void setDisabled(boolean disabled) {
+    @Override public void setDisabled(boolean disabled) {
         this.disabled = disabled;
     }
 
-    // TODO https://github.com/jenkinsci/jenkins/pull/2866 @Override
-    public boolean supportsMakeDisabled() {
+    @Override public boolean supportsMakeDisabled() {
         return true;
     }
 
-    // TODO https://github.com/jenkinsci/jenkins/pull/2866 remove override
-    public void makeDisabled(boolean b) throws IOException {
+    @Override public void makeDisabled(boolean b) throws IOException {
         if (isDisabled() == b) {
             return; // noop
         }
@@ -299,22 +283,6 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements L
         }
         save();
         ItemListener.fireOnUpdated(this);
-    }
-
-    // TODO https://github.com/jenkinsci/jenkins/pull/2866 remove override
-    @RequirePOST
-    public HttpResponse doDisable() throws IOException, ServletException {
-        checkPermission(CONFIGURE);
-        makeDisabled(true);
-        return new HttpRedirect(".");
-    }
-
-    // TODO https://github.com/jenkinsci/jenkins/pull/2866 remove override
-    @RequirePOST
-    public HttpResponse doEnable() throws IOException, ServletException {
-        checkPermission(CONFIGURE);
-        makeDisabled(false);
-        return new HttpRedirect(".");
     }
 
     @Override public BallColor getIconColor() {
@@ -589,27 +557,6 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements L
             }
         }
         return typical;
-    }
-
-    // TODO https://github.com/jenkinsci/jenkins/pull/2866 remove override
-    public boolean schedulePolling() {
-        if (isDisabled()) {
-            return false;
-        }
-        SCMTrigger scmt = getSCMTrigger();
-        if (scmt == null) {
-            return false;
-        }
-        scmt.run();
-        return true;
-    }
-
-    // TODO https://github.com/jenkinsci/jenkins/pull/2866 remove override
-    @SuppressWarnings("deprecation")
-    public void doPolling(StaplerRequest req, StaplerResponse rsp) throws IOException, ServletException {
-        hudson.model.BuildAuthorizationToken.checkPermission((Job) this, getAuthToken(), req, rsp);
-        schedulePolling();
-        rsp.sendRedirect(".");
     }
 
     @SuppressFBWarnings(value="RCN_REDUNDANT_NULLCHECK_OF_NONNULL_VALUE", justification="TODO 1.653+ switch to Jenkins.getInstanceOrNull")

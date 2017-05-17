@@ -4,6 +4,7 @@ import com.gargoylesoftware.htmlunit.HttpMethod;
 import com.gargoylesoftware.htmlunit.WebRequest;
 import com.gargoylesoftware.htmlunit.html.HtmlCheckBoxInput;
 import com.gargoylesoftware.htmlunit.html.HtmlForm;
+import hudson.cli.CLICommandInvoker;
 import hudson.model.Result;
 import hudson.plugins.git.GitSCM;
 import hudson.security.WhoAmI;
@@ -94,7 +95,8 @@ public class WorkflowJobTest {
         wc.getPage(new WebRequest(wc.createCrumbedUrl(p.getUrl() + "disable"), HttpMethod.POST));
         assertTrue(p.isDisabled());
         assertNull(p.scheduleBuild2(0));
-        // TODO https://github.com/jenkinsci/jenkins/pull/2866 reënable by CLI
+        assertThat(new CLICommandInvoker(j, "enable-job").invokeWithArgs("p"), CLICommandInvoker.Matcher.succeededSilently());
+        assertFalse(p.isDisabled());
     }
 
 }
