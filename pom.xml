@@ -62,7 +62,7 @@
         </pluginRepository>
     </pluginRepositories>
     <properties>
-        <jenkins.version>2.60</jenkins.version>
+        <jenkins.version>2.61</jenkins.version>
         <java.level>8</java.level>
         <no-test-jar>false</no-test-jar>
         <workflow-support-plugin.version>2.14</workflow-support-plugin.version>
