@@ -33,7 +33,7 @@
     </parent>
     <groupId>org.jenkins-ci.plugins.workflow</groupId>
     <artifactId>workflow-job</artifactId>
-    <version>2.11-SNAPSHOT</version>
+    <version>2.12-SNAPSHOT</version>
     <packaging>hpi</packaging>
     <name>Pipeline: Job</name>
     <url>https://wiki.jenkins-ci.org/display/JENKINS/Pipeline+Job+Plugin</url>
@@ -62,11 +62,10 @@
         </pluginRepository>
     </pluginRepositories>
     <properties>
-        <jenkins-core.version>2.59-20170505.212130-4</jenkins-core.version> <!-- TODO https://github.com/jenkinsci/jenkins/pull/2873 -->
-        <jenkins-war.version>2.59-20170505.212307-4</jenkins-war.version>
+        <jenkins.version>2.61</jenkins.version>
         <java.level>8</java.level>
         <no-test-jar>false</no-test-jar>
-        <workflow-support-plugin.version>2.2</workflow-support-plugin.version>
+        <workflow-support-plugin.version>2.14</workflow-support-plugin.version>
         <scm-api-plugin.version>2.1.1</scm-api-plugin.version>
         <git-plugin.version>3.2.0</git-plugin.version>
     </properties>
@@ -84,13 +83,19 @@
         <dependency>
             <groupId>org.jenkins-ci.plugins.workflow</groupId>
             <artifactId>workflow-cps</artifactId>
-            <version>1.15</version>
+            <version>2.29</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.jenkins-ci.plugins</groupId>
+            <artifactId>structs</artifactId>
+            <version>1.6</version>
             <scope>test</scope>
         </dependency>
         <dependency>
             <groupId>org.jenkins-ci.plugins.workflow</groupId>
             <artifactId>workflow-basic-steps</artifactId>
-            <version>1.15</version>
+            <version>2.4</version>
             <scope>test</scope>
         </dependency>
         <dependency>
@@ -103,13 +108,13 @@
         <dependency>
             <groupId>org.jenkins-ci.plugins.workflow</groupId>
             <artifactId>workflow-scm-step</artifactId>
-            <version>2.2</version>
+            <version>2.4</version>
             <scope>test</scope>
         </dependency>
         <dependency>
             <groupId>org.jenkins-ci.plugins.workflow</groupId>
             <artifactId>workflow-durable-task-step</artifactId>
-            <version>2.0</version>
+            <version>2.11</version>
             <scope>test</scope>
         </dependency>
         <dependency>

@@ -24,6 +24,8 @@
 
 package org.jenkinsci.plugins.workflow.job;
 
+import com.google.common.collect.ImmutableSet;
+import hudson.AbortException;
 import hudson.model.BallColor;
 import hudson.model.Executor;
 import hudson.model.Item;
@@ -107,7 +109,7 @@ public class WorkflowRunTest {
 
     @Test public void funnyParameters() throws Exception {
         WorkflowJob p = r.jenkins.createProject(WorkflowJob.class, "p");
-        p.setDefinition(new CpsFlowDefinition("echo \"a.b=${binding['a.b']}\"", true));
+        p.setDefinition(new CpsFlowDefinition("echo \"a.b=${params['a.b']}\"", true));
         p.addProperty(new ParametersDefinitionProperty(new StringParameterDefinition("a.b", null)));
         WorkflowRun b = r.assertBuildStatusSuccess(p.scheduleBuild2(0, new ParametersAction(new StringParameterValue("a.b", "v"))));
         r.assertLogContains("a.b=v", b);
@@ -285,9 +287,11 @@ public class WorkflowRunTest {
 
     @Test public void interruptWithResult() throws Exception {
         WorkflowJob p = r.jenkins.createProject(WorkflowJob.class, "p");
-        p.setDefinition(new CpsFlowDefinition("semaphore 'hang'"));
+        p.setDefinition(new CpsFlowDefinition("sleep 1; semaphore 'hang'", true));
         WorkflowRun b1 = p.scheduleBuild2(0).waitForStart();
+        Thread.sleep(500); // TODO sleeps should not be necessary but seems to randomly fail to receive interrupt otherwise
         SemaphoreStep.waitForStart("hang/1", b1);
+        Thread.sleep(500);
         Executor ex = b1.getExecutor();
         assertNotNull(ex);
         ex.interrupt(Result.NOT_BUILT, new CauseOfInterruption.UserInterruption("bob"));
@@ -295,9 +299,12 @@ public class WorkflowRunTest {
         InterruptedBuildAction iba = b1.getAction(InterruptedBuildAction.class);
         assertNotNull(iba);
         assertEquals(Collections.singletonList(new CauseOfInterruption.UserInterruption("bob")), iba.getCauses());
+        Thread.sleep(500);
         WorkflowRun b2 = p.scheduleBuild2(0).waitForStart();
         assertEquals(2, b2.getNumber());
+        Thread.sleep(500);
         SemaphoreStep.waitForStart("hang/2", b2);
+        Thread.sleep(500);
         ex = b2.getExecutor();
         assertNotNull(ex);
         ex.interrupt();
@@ -372,4 +379,57 @@ public class WorkflowRunTest {
         r.assertLogContains("KEY is " + envProp.getEnvVars().get("KEY"), b);
     }
 
+    @Test
+    @Issue("JENKINS-24141")
+    public void culprits() throws Exception {
+        WorkflowJob p = r.jenkins.createProject(WorkflowJob.class, "p");
+        p.setDefinition(new CpsFlowDefinition("import org.jvnet.hudson.test.FakeChangeLogSCM\n" +
+                "semaphore 'waitFirst'\n" +
+                "def testScm = new FakeChangeLogSCM()\n" +
+                "testScm.addChange().withAuthor(/alice$BUILD_NUMBER/)\n" +
+                "node {\n" +
+                "    checkout(testScm)\n" +
+                "    semaphore 'waitSecond'\n" +
+                "    def secondScm = new FakeChangeLogSCM()\n" +
+                "    secondScm.addChange().withAuthor(/bob$BUILD_NUMBER/)\n" +
+                "    checkout(secondScm)\n" +
+                "    semaphore 'waitThird'\n" +
+                "    def thirdScm = new FakeChangeLogSCM()\n" +
+                "    thirdScm.addChange().withAuthor(/charlie$BUILD_NUMBER/)\n" +
+                "    checkout(thirdScm)\n" +
+                "}\n", false));
+
+        WorkflowRun b1 = p.scheduleBuild2(0).waitForStart();
+
+        SemaphoreStep.waitForStart("waitFirst/1", b1);
+        assertTrue(b1.getCulpritIds().isEmpty());
+        SemaphoreStep.success("waitFirst/1", null);
+
+        SemaphoreStep.waitForStart("waitSecond/1", b1);
+        assertEquals(ImmutableSet.of("alice1"), b1.getCulpritIds());
+        SemaphoreStep.success("waitSecond/1", null);
+
+        SemaphoreStep.waitForStart("waitThird/1", b1);
+        assertEquals(ImmutableSet.of("alice1", "bob1"), b1.getCulpritIds());
+        SemaphoreStep.failure("waitThird/1", new AbortException());
+
+        r.assertBuildStatus(Result.FAILURE, r.waitForCompletion(b1));
+
+        WorkflowRun b2 = p.scheduleBuild2(0).waitForStart();
+
+        SemaphoreStep.waitForStart("waitFirst/2", b2);
+        assertEquals(ImmutableSet.of("alice1", "bob1"), b2.getCulpritIds());
+        SemaphoreStep.success("waitFirst/2", null);
+
+        SemaphoreStep.waitForStart("waitSecond/2", b2);
+        assertEquals(ImmutableSet.of("alice1", "bob1", "alice2"), b2.getCulpritIds());
+        SemaphoreStep.success("waitSecond/2", null);
+
+        SemaphoreStep.waitForStart("waitThird/2", b2);
+        assertEquals(ImmutableSet.of("alice1", "bob1", "alice2", "bob2"), b2.getCulpritIds());
+        SemaphoreStep.success("waitThird/2", b2);
+
+        r.assertBuildStatusSuccess(r.waitForCompletion(b2));
+        assertEquals(ImmutableSet.of("alice1", "bob1", "alice2", "bob2", "charlie2"), b2.getCulpritIds());
+    }
 }
