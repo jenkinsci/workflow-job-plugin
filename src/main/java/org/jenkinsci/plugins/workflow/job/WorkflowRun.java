@@ -240,7 +240,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
             execution = newExecution;
             newExecution.start();
             executionPromise.set(newExecution);
-            FlowExecutionListener.fireRunning(execution, false);
+            FlowExecutionListener.fireRunning(execution);
 
         } catch (Throwable x) {
             execution = null; // ensures isInProgress returns false
@@ -593,7 +593,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
             executionPromise.set(execution);
             if (!execution.isComplete()) {
                 // we've been restarted while we were running. let's get the execution going again.
-                FlowExecutionListener.fireRunning(execution, true);
+                FlowExecutionListener.fireResumed(execution);
 
                 try {
                     OutputStream logger = new FileOutputStream(getLogFile(), true);

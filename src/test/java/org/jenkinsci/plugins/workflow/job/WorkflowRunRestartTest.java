@@ -191,7 +191,13 @@ public class WorkflowRunRestartTest {
             @Override
             public void evaluate() throws Throwable {
                 WorkflowJob p = story.j.jenkins.createProject(WorkflowJob.class, "p");
-                p.setDefinition(new CpsFlowDefinition("echo 'Running for listener'; sleep 0; semaphore 'wait'; sleep 0; error 'fail'", true));
+                p.setDefinition(new CpsFlowDefinition("echo 'Running for listener'\n" +
+                        "sleep 0\n" +
+                        "semaphore 'wait'\n" +
+                        "sleep 0\n" +
+                        "semaphore 'post-resume'\n" +
+                        "sleep 0\n" +
+                        "error 'fail'\n", true));
                 WorkflowRun b = p.scheduleBuild2(0).waitForStart();
                 SemaphoreStep.waitForStart("wait/1", b);
                 ExecListener listener = ExtensionList.lookup(FlowExecutionListener.class).get(ExecListener.class);
@@ -209,12 +215,19 @@ public class WorkflowRunRestartTest {
                 assertTrue(b.isBuilding());
                 SemaphoreStep.success("wait/1", null);
 
+                SemaphoreStep.waitForStart("post-resume/1", b);
+                ExecListener listener = ExtensionList.lookup(FlowExecutionListener.class).get(ExecListener.class);
+                assertNotNull(listener);
+                assertEquals(0, listener.started);
+                assertEquals(1, listener.resumed);
+                assertEquals(0, listener.finished);
+
+                SemaphoreStep.success("post-resume/1", null);
+
                 story.j.assertBuildStatus(Result.FAILURE, story.j.waitForCompletion(b));
                 story.j.assertLogContains("Running for listener", b);
 
-                ExecListener listener = ExtensionList.lookup(FlowExecutionListener.class).get(ExecListener.class);
-                assertNotNull(listener);
-                assertEquals(1, listener.started);
+                assertEquals(0, listener.started);
                 assertEquals(1, listener.resumed);
                 assertEquals(1, listener.finished);
                 assertTrue(listener.graphListener.wasCalledBeforeExecListener);
@@ -231,7 +244,18 @@ public class WorkflowRunRestartTest {
         ExecGraphListener graphListener = new ExecGraphListener();
 
         @Override
-        public void onRunning(FlowExecution execution, boolean resumed) {
+        public void onRunning(FlowExecution execution) {
+            addGraphListenerCheckList(execution);
+            started++;
+        }
+
+        @Override
+        public void onResumed(FlowExecution execution) {
+            addGraphListenerCheckList(execution);
+            resumed++;
+        }
+
+        private void addGraphListenerCheckList(FlowExecution execution) {
             execution.addListener(graphListener);
             boolean listHasExec = false;
             for (FlowExecution e : FlowExecutionList.get()) {
@@ -240,10 +264,6 @@ public class WorkflowRunRestartTest {
                 }
             }
             assertTrue(listHasExec);
-            started++;
-            if (resumed) {
-                this.resumed++;
-            }
         }
 
         @Override
