@@ -33,6 +33,7 @@ import org.jenkinsci.plugins.workflow.cps.CpsFlowDefinition;
 import org.jenkinsci.plugins.workflow.flow.FlowExecution;
 import org.jenkinsci.plugins.workflow.flow.FlowExecutionList;
 import org.jenkinsci.plugins.workflow.flow.FlowExecutionListener;
+import org.jenkinsci.plugins.workflow.flow.GraphListener;
 import org.jenkinsci.plugins.workflow.graph.FlowEndNode;
 import org.jenkinsci.plugins.workflow.graph.FlowNode;
 import org.jenkinsci.plugins.workflow.steps.AbstractStepDescriptorImpl;
@@ -216,6 +217,7 @@ public class WorkflowRunRestartTest {
                 assertEquals(1, listener.started);
                 assertEquals(1, listener.resumed);
                 assertEquals(1, listener.finished);
+                assertTrue(listener.graphListener.wasCalledBeforeExecListener);
             }
         });
 
@@ -226,9 +228,11 @@ public class WorkflowRunRestartTest {
         int started;
         int finished;
         int resumed;
+        ExecGraphListener graphListener = new ExecGraphListener();
 
         @Override
         public void onRunning(FlowExecution execution, boolean resumed) {
+            execution.addListener(graphListener);
             boolean listHasExec = false;
             for (FlowExecution e : FlowExecutionList.get()) {
                 if (e.equals(execution)) {
@@ -256,6 +260,20 @@ public class WorkflowRunRestartTest {
             assertTrue(heads.get(0) instanceof FlowEndNode);
             FlowEndNode node = (FlowEndNode)heads.get(0);
             assertEquals(Result.FAILURE, node.getResult());
+        }
+    }
+
+    public static class ExecGraphListener implements GraphListener.Synchronous {
+        boolean wasCalledBeforeExecListener;
+
+        @Override
+        public void onNewHead(FlowNode node) {
+            if (node instanceof FlowEndNode) {
+                ExecListener listener = ExtensionList.lookup(FlowExecutionListener.class).get(ExecListener.class);
+                if (listener.finished == 0) {
+                    wasCalledBeforeExecListener = true;
+                }
+            }
         }
     }
 }
