@@ -103,6 +103,7 @@ import org.jenkinsci.plugins.workflow.actions.TimingAction;
 import org.jenkinsci.plugins.workflow.flow.FlowDefinition;
 import org.jenkinsci.plugins.workflow.flow.FlowExecution;
 import org.jenkinsci.plugins.workflow.flow.FlowExecutionList;
+import org.jenkinsci.plugins.workflow.flow.FlowExecutionListener;
 import org.jenkinsci.plugins.workflow.flow.FlowExecutionOwner;
 import org.jenkinsci.plugins.workflow.flow.GraphListener;
 import org.jenkinsci.plugins.workflow.flow.StashManager;
@@ -239,6 +240,8 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
             execution = newExecution;
             newExecution.start();
             executionPromise.set(newExecution);
+            FlowExecutionListener.fireRunning(execution, false);
+
         } catch (Throwable x) {
             execution = null; // ensures isInProgress returns false
             finish(Result.FAILURE, x);
@@ -590,6 +593,8 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
             executionPromise.set(execution);
             if (!execution.isComplete()) {
                 // we've been restarted while we were running. let's get the execution going again.
+                FlowExecutionListener.fireRunning(execution, true);
+
                 try {
                     OutputStream logger = new FileOutputStream(getLogFile(), true);
                     listener = new StreamBuildListener(logger, Charset.defaultCharset());
@@ -659,6 +664,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
         } catch (IOException x) {
             LOGGER.log(Level.WARNING, "failed to clean up stashes from " + this, x);
         }
+        FlowExecutionListener.fireCompleted(getExecution());
     }
 
     @Override public void deleteArtifacts() throws IOException {
