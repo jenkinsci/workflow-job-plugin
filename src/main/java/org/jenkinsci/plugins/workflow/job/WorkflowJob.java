@@ -53,7 +53,6 @@ import hudson.model.RunMap;
 import hudson.model.TaskListener;
 import hudson.model.TopLevelItem;
 import hudson.model.TopLevelItemDescriptor;
-import hudson.model.listeners.ItemListener;
 import hudson.model.listeners.SCMListener;
 import hudson.model.queue.CauseOfBlockage;
 import hudson.model.queue.QueueTaskFuture;
@@ -268,21 +267,6 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements L
 
     @Override public boolean supportsMakeDisabled() {
         return true;
-    }
-
-    @Override public void makeDisabled(boolean b) throws IOException {
-        if (isDisabled() == b) {
-            return; // noop
-        }
-        if (b && !supportsMakeDisabled()) {
-            return; // do nothing if the disabling is unsupported
-        }
-        setDisabled(b);
-        if (b) {
-            Jenkins.getActiveInstance().getQueue().cancel(this);
-        }
-        save();
-        ItemListener.fireOnUpdated(this);
     }
 
     @Override public BallColor getIconColor() {
