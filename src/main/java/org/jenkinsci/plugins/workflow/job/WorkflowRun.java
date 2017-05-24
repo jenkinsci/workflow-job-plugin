@@ -664,7 +664,10 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
         } catch (IOException x) {
             LOGGER.log(Level.WARNING, "failed to clean up stashes from " + this, x);
         }
-        FlowExecutionListener.fireCompleted(getExecution());
+        FlowExecution exec = getExecution();
+        if (exec != null) {
+            FlowExecutionListener.fireCompleted(exec);
+        }
     }
 
     @Override public void deleteArtifacts() throws IOException {
