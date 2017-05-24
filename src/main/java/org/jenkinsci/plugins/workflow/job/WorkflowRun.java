@@ -41,6 +41,7 @@ import hudson.Functions;
 import hudson.XmlFile;
 import hudson.console.AnnotatedLargeText;
 import hudson.console.LineTransformationOutputStream;
+import hudson.console.ModelHyperlinkNote;
 import hudson.model.Executor;
 import hudson.model.Item;
 import hudson.model.ParameterValue;
@@ -100,6 +101,7 @@ import jenkins.model.queue.AsynchronousExecution;
 import jenkins.scm.RunWithSCM;
 import jenkins.security.NotReallyRoleSensitiveCallable;
 import jenkins.util.Timer;
+import org.acegisecurity.Authentication;
 import org.jenkinsci.plugins.workflow.FilePathUtils;
 import org.jenkinsci.plugins.workflow.actions.LogAction;
 import org.jenkinsci.plugins.workflow.actions.ThreadNameAction;
@@ -241,6 +243,14 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
             OutputStream logger = new FileOutputStream(getLogFile());
             listener = new StreamBuildListener(logger, Charset.defaultCharset());
             listener.started(getCauses());
+            Authentication auth = Jenkins.getAuthentication();
+            if (!auth.equals(ACL.SYSTEM)) {
+                String name = auth.getName();
+                if (!auth.equals(Jenkins.ANONYMOUS)) {
+                    name = ModelHyperlinkNote.encodeTo(User.get(name));
+                }
+                listener.getLogger().println(hudson.model.Messages.Run_running_as_(name));
+            }
             RunListener.fireStarted(this, listener);
             updateSymlinks(listener);
             FlowDefinition definition = getParent().getDefinition();
