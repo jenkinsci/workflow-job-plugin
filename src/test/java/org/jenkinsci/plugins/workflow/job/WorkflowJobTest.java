@@ -4,12 +4,34 @@ import com.gargoylesoftware.htmlunit.HttpMethod;
 import com.gargoylesoftware.htmlunit.WebRequest;
 import com.gargoylesoftware.htmlunit.html.HtmlCheckBoxInput;
 import com.gargoylesoftware.htmlunit.html.HtmlForm;
+import hudson.EnvVars;
+import hudson.FilePath;
+import hudson.Launcher;
+import hudson.LauncherDecorator;
 import hudson.cli.CLICommandInvoker;
+import hudson.model.Job;
+import hudson.model.Node;
 import hudson.model.Result;
+import hudson.model.Run;
+import hudson.model.TaskListener;
 import hudson.plugins.git.GitSCM;
+import hudson.scm.PollingResult;
+import hudson.scm.SCMRevisionState;
 import hudson.security.WhoAmI;
 import hudson.triggers.SCMTrigger;
+import hudson.util.StreamTaskListener;
+import java.io.ByteArrayOutputStream;
+import java.io.File;
+import java.io.IOException;
+import java.io.UnsupportedEncodingException;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import jenkins.plugins.git.GitSampleRepoRule;
+import jenkins.scm.impl.mock.MockSCM;
+import jenkins.scm.impl.mock.MockSCMRevision;
+import org.hamcrest.Matchers;
 import org.jenkinsci.plugins.workflow.cps.CpsFlowDefinition;
 import org.jenkinsci.plugins.workflow.cps.CpsScmFlowDefinition;
 import static org.junit.Assert.*;
@@ -17,6 +39,8 @@ import org.junit.Rule;
 import org.junit.Test;
 import org.jvnet.hudson.test.Issue;
 import org.jvnet.hudson.test.JenkinsRule;
+import org.jvnet.hudson.test.SingleFileSCM;
+import org.jvnet.hudson.test.TestExtension;
 
 public class WorkflowJobTest {
 
@@ -99,4 +123,79 @@ public class WorkflowJobTest {
         assertFalse(p.isDisabled());
     }
 
+    @Issue("JENKINS-44520")
+    @Test public void shouldInvokeLauncherDecoratorForNodeDuringPolling() throws Exception {
+        WorkflowJob p = j.jenkins.createProject(WorkflowJob.class, "p");
+        p.setDefinition(new CpsFlowDefinition(
+            "node {\n" +
+                    "  checkout(new " + WorkflowJobTest.class.getName() + ".MySCM())\n" +
+            "}"));
+        assertTrue("No runs has been performed and there should be no SCMs", p.getSCMs().isEmpty());
+        // Init checkout history
+        j.buildAndAssertSuccess(p);
+        // Init polling baselines
+        p.poll(TaskListener.NULL);
+        
+        ByteArrayOutputStream ostream = new ByteArrayOutputStream();
+        TaskListener l = new StreamTaskListener(ostream);
+        p.poll(l);
+
+        assertThat("Variable has not been printed", ostream.toString(), Matchers.containsString("INJECTED=MYSCM"));
+    }
+    
+    @TestExtension(value = "shouldInvokeLauncherDecoratorForNodeDuringPolling")
+    public static final class MyNodeLauncherDecorator extends LauncherDecorator {
+
+        @Override
+        public Launcher decorate(Launcher lnchr, Node node) {
+            // Just inject the environment variable
+            Map<String, String> env = new HashMap<>();
+            env.put("INJECTED", "MYSCM");
+            return lnchr.decorateByEnv(new EnvVars(env));
+        }  
+    }
+    
+    public static final class MySCM extends SingleFileSCM {
+
+        public MySCM() throws UnsupportedEncodingException {
+            super("Jenkinsfile", "echo Done");
+        }
+
+        @Override
+        public boolean requiresWorkspaceForPolling() {
+            return true;
+        }
+
+        @Override
+        public SCMRevisionState calcRevisionsFromBuild(Run<?, ?> build, FilePath workspace, Launcher launcher, TaskListener listener) throws IOException, InterruptedException {
+            // TODO: ideally should be implemented in SingleFileSCM, because it inherits stub impl from NullSCM
+            return new SCMRevisionState() {
+                @Override
+                public String getDisplayName() {
+                    return "MySCM";
+                }
+
+                @Override
+                public String getIconFileName() {
+                    return "fingerprint.png";
+                }
+
+                @Override
+                public String getUrlName() {
+                    return "foo";
+                }  
+            };
+        }
+
+        @Override
+        public PollingResult compareRemoteRevisionWith(Job<?, ?> project, Launcher launcher, FilePath workspace, TaskListener listener, SCMRevisionState baseline) throws IOException, InterruptedException {
+            List<String> commandLine = 
+                    Arrays.asList("echo", hudson.remoting.Launcher.isWindows() ? "INJECTED=%INJECTED%" : "INJECTED=$INJECTED");
+            Launcher.ProcStarter p = launcher.launch().cmds(commandLine).stdout(listener);
+            p.start().join();
+            
+            // Do the original stuff
+            return super.compareRemoteRevisionWith(project, launcher, workspace, listener, baseline); //To change body of generated methods, choose Tools | Templates.
+        }
+    }
 }

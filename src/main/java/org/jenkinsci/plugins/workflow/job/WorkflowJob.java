@@ -595,7 +595,11 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements L
                         continue;
                     }
                     workspace = new FilePath(c.getChannel(), co.workspace);
-                    launcher = workspace.createLauncher(listener).decorateByEnv(getEnvironment(c.getNode(), listener));
+                    final Node node = c.getNode();
+                    launcher = workspace.createLauncher(listener).decorateByEnv(getEnvironment(node, listener));
+                    if (node != null) {
+                        launcher = launcher.decorateFor(node);
+                    }
                     lease = c.getWorkspaceList().acquire(workspace, !isConcurrentBuild());
                 } else {
                     workspace = null;
