@@ -651,7 +651,7 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements L
     @Extension(ordinal=1) public static final class DescriptorImpl extends TopLevelItemDescriptor {
 
         @Override public String getDisplayName() {
-            return "Pipeline";
+            return Messages.WorkflowJob_DisplayName();
         }
 
         @Override public TopLevelItem newInstance(ItemGroup parent, String name) {
