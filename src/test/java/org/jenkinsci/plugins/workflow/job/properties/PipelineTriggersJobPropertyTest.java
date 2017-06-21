@@ -140,7 +140,7 @@ public class PipelineTriggersJobPropertyTest {
         assertEquals(mockFromProp, mockFromJob);
 
         assertNotNull(((MockTrigger)mockFromProp).currentStatus());
-        assertEquals("[null, false, null, false, null, false]", MockTrigger.startsAndStops.toString());
+        assertEquals("[null, false, null, false]", MockTrigger.startsAndStops.toString());
     }
 
     @Test
