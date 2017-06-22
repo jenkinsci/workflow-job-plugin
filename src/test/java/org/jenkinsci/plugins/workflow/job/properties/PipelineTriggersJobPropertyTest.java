@@ -43,6 +43,7 @@ import org.jvnet.hudson.test.recipes.LocalData;
 
 import java.net.URL;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 import static org.junit.Assert.assertEquals;
@@ -50,6 +51,7 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
+import org.jvnet.hudson.test.Issue;
 
 public class PipelineTriggersJobPropertyTest {
     @ClassRule
@@ -192,6 +194,16 @@ public class PipelineTriggersJobPropertyTest {
         assertNotNull(t);
         assertTrue(t.isStarted);
         assertTrue(t.foundSelf);
+    }
+    
+    @Test
+    @Issue("JENKINS-45067")
+    public void triggerMethodsShouldNotThrowNPEWhenNotAssigned() {
+        MockTrigger t = new MockTrigger();
+        PipelineTriggersJobProperty prop = new PipelineTriggersJobProperty(Arrays.asList(t));
+        
+        prop.startTriggers(true);
+        prop.stopTriggers();
     }
 
     private <T extends Trigger> T getTriggerFromList(Class<T> clazz, List<Trigger<?>> triggers) {
