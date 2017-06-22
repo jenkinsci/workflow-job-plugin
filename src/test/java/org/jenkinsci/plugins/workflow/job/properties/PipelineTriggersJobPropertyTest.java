@@ -30,6 +30,7 @@ import com.gargoylesoftware.htmlunit.WebRequest;
 import com.gargoylesoftware.htmlunit.util.NameValuePair;
 import hudson.model.Item;
 import hudson.model.Items;
+import hudson.model.Job;
 import hudson.triggers.TimerTrigger;
 import hudson.triggers.Trigger;
 import org.jenkinsci.plugins.workflow.job.WorkflowJob;
@@ -199,11 +200,32 @@ public class PipelineTriggersJobPropertyTest {
     @Test
     @Issue("JENKINS-45067")
     public void triggerMethodsShouldNotThrowNPEWhenNotAssigned() {
-        MockTrigger t = new MockTrigger();
+        ProjectDependentTrigger t = new ProjectDependentTrigger();
         PipelineTriggersJobProperty prop = new PipelineTriggersJobProperty(Arrays.asList(t));
         
         prop.startTriggers(true);
+        assertFalse("Trigger#start() API requires project to be non-null, hence it must not be invoked", t.triedToStart);
+        
         prop.stopTriggers();
+        assertTrue("Trigger#stop() API does not require project to be non-null, hence it should be invoked", t.triedToStop);
+    }
+    
+    private static class ProjectDependentTrigger extends Trigger<Job<?, ?>> {
+
+        boolean triedToStart, triedToStop;
+        
+        @Override
+        public void start(Job<?, ?> project, boolean newInstance) {
+            triedToStart = true;
+            System.out.println("Triggering " + project.getFullDisplayName());
+        }
+
+        @Override
+        public void stop() {
+            triedToStop = true;
+        }
+        
+        
     }
 
     private <T extends Trigger> T getTriggerFromList(Class<T> clazz, List<Trigger<?>> triggers) {

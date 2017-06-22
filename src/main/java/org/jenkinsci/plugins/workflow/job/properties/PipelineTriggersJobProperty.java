@@ -106,11 +106,14 @@ public class PipelineTriggersJobProperty extends JobProperty<WorkflowJob> {
      * @param newInstance {@code true} if it is a newly created instance.
      */
     public void startTriggers(boolean newInstance) {
-        if (owner == null && LOGGER.isLoggable(Level.FINE)) {
-            // This is a normal behavior. Even if we miss the triggers,
-            // They will be started once WorkflowJob#addProperty() is called (standard method override).
-            LOGGER.log(Level.FINE, "Cannot start triggers. Owner of the JobProperty has not been assigned yet", 
-                    new IllegalStateException("JobProperty owner is null"));
+        if (owner == null) {
+            if (LOGGER.isLoggable(Level.FINE)) {
+                // This is a normal behavior. Even if we miss the triggers,
+                // They will be started once WorkflowJob#addProperty() is called (standard method override).
+                LOGGER.log(Level.FINE, "Cannot start triggers. Owner of the JobProperty has not been assigned yet", 
+                        new IllegalStateException("JobProperty owner is null"));
+            }
+            return;
         }
         
         for (Trigger trigger : triggers) {
