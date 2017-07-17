@@ -180,7 +180,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
      * Non-null soon after the build starts or is reloaded from disk.
      * Recomputed in {@link #onLoad} based on {@link FlowExecution#isComplete}.
      * TODO may be better to make this a persistent field.
-     * That would allow the execution of a completed build to be loaded on demand, reducing overhead for some operations.
+     * That would allow the execution of a completed build to be loaded on demand (JENKINS-45585), reducing overhead for some operations.
      * It would also remove the need to null out {@link #execution} merely to force {@link #isInProgress} to be false
      * in the case of broken or hard-killed builds which lack a single head node.
      */
