@@ -610,7 +610,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
         if (execution != null) {
             try {
                 execution.onLoad(new Owner(this));
-            } catch (IOException x) {
+            } catch (Exception x) {
                 LOGGER.log(Level.WARNING, null, x);
                 execution = null; // probably too broken to use
             }
