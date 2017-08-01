@@ -758,11 +758,8 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
      *
      * @param run A non-null run
      */
-    public void copyCheckouts(@Nonnull WorkflowRun run) {
-        if (checkouts == null) {
-            checkouts = new PersistedList<>(this);
-        }
-        checkouts.addAll(run.checkouts(null));
+    public synchronized void copyCheckouts(@Nonnull WorkflowRun run) {
+        checkouts(null).addAll(run.checkouts(null));
     }
 
     @Override
