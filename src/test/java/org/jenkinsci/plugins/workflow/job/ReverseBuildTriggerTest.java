@@ -33,7 +33,6 @@ import org.junit.Test;
 import static org.junit.Assert.*;
 import org.junit.ClassRule;
 import org.junit.Rule;
-import org.junit.runners.model.Statement;
 import org.jvnet.hudson.test.BuildWatcher;
 import org.jvnet.hudson.test.Issue;
 import org.jvnet.hudson.test.RestartableJenkinsRule;
@@ -47,34 +46,30 @@ public class ReverseBuildTriggerTest {
 
     @Issue("JENKINS-33971")
     @Test public void upstreamMapRebuilding() throws Exception {
-        story.addStep(new Statement() {
-            @Override public void evaluate() throws Throwable {
-                story.j.jenkins.setQuietPeriod(0);
-                WorkflowJob us = story.j.jenkins.createProject(WorkflowJob.class, "us");
-                us.setDefinition(new CpsFlowDefinition(""));
-                us.addProperty(new SlowToLoad()); // force it to load after ds when we restart
-                WorkflowJob ds = story.j.jenkins.createProject(WorkflowJob.class, "ds");
-                ds.setDefinition(new CpsFlowDefinition(""));
-                ds.addTrigger(new ReverseBuildTrigger("us", Result.SUCCESS));
-                story.j.assertBuildStatusSuccess(us.scheduleBuild2(0));
-                story.j.waitUntilNoActivity();
-                WorkflowRun ds1 = ds.getLastCompletedBuild();
-                assertNotNull(ds1);
-                assertEquals(1, ds1.getNumber());
-            }
+        story.then(r -> {
+            r.jenkins.setQuietPeriod(0);
+            WorkflowJob us = r.jenkins.createProject(WorkflowJob.class, "us");
+            us.setDefinition(new CpsFlowDefinition("", true));
+            us.addProperty(new SlowToLoad()); // force it to load after ds when we restart
+            WorkflowJob ds = r.jenkins.createProject(WorkflowJob.class, "ds");
+            ds.setDefinition(new CpsFlowDefinition("", true));
+            ds.addTrigger(new ReverseBuildTrigger("us", Result.SUCCESS));
+            r.assertBuildStatusSuccess(us.scheduleBuild2(0));
+            r.waitUntilNoActivity();
+            WorkflowRun ds1 = ds.getLastCompletedBuild();
+            assertNotNull(ds1);
+            assertEquals(1, ds1.getNumber());
         });
-        story.addStep(new Statement() {
-            @Override public void evaluate() throws Throwable {
-                WorkflowJob us = story.j.jenkins.getItemByFullName("us", WorkflowJob.class);
-                assertNotNull(us);
-                WorkflowJob ds = story.j.jenkins.getItemByFullName("ds", WorkflowJob.class);
-                assertNotNull(ds);
-                story.j.assertBuildStatusSuccess(us.scheduleBuild2(0));
-                story.j.waitUntilNoActivity();
-                WorkflowRun ds2 = ds.getLastCompletedBuild();
-                assertNotNull(ds2);
-                assertEquals(2, ds2.getNumber());
-            }
+        story.then(r -> {
+            WorkflowJob us = r.jenkins.getItemByFullName("us", WorkflowJob.class);
+            assertNotNull(us);
+            WorkflowJob ds = r.jenkins.getItemByFullName("ds", WorkflowJob.class);
+            assertNotNull(ds);
+            r.assertBuildStatusSuccess(us.scheduleBuild2(0));
+            r.waitUntilNoActivity();
+            WorkflowRun ds2 = ds.getLastCompletedBuild();
+            assertNotNull(ds2);
+            assertEquals(2, ds2.getNumber());
         });
     }
     public static class SlowToLoad extends JobProperty<WorkflowJob> {
