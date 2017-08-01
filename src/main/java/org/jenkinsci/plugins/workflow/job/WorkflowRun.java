@@ -736,6 +736,19 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
         return checkouts;
     }
 
+    /**
+     * Copy the {@link #checkouts} from another non-null {@link WorkflowRun} to this one. This is used to preserve SCM
+     * information for polling.
+     *
+     * @param run A non-null run
+     */
+    public void copyCheckouts(@Nonnull WorkflowRun run) {
+        if (checkouts == null) {
+            checkouts = new PersistedList<>(this);
+        }
+        checkouts.addAll(run.checkouts(null));
+    }
+
     @Exported
     public synchronized List<ChangeLogSet<? extends ChangeLogSet.Entry>> getChangeSets() {
         if (changeSets == null) {
