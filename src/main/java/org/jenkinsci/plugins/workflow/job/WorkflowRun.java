@@ -103,6 +103,7 @@ import org.jenkinsci.plugins.workflow.FilePathUtils;
 import org.jenkinsci.plugins.workflow.actions.LogAction;
 import org.jenkinsci.plugins.workflow.actions.ThreadNameAction;
 import org.jenkinsci.plugins.workflow.actions.TimingAction;
+import org.jenkinsci.plugins.workflow.flow.FlowCopier;
 import org.jenkinsci.plugins.workflow.flow.FlowDefinition;
 import org.jenkinsci.plugins.workflow.flow.FlowExecution;
 import org.jenkinsci.plugins.workflow.flow.FlowExecutionList;
@@ -735,7 +736,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
         }
         return checkouts;
     }
-
+    
     @Exported
     public synchronized List<ChangeLogSet<? extends ChangeLogSet.Entry>> getChangeSets() {
         if (changeSets == null) {
@@ -971,4 +972,14 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
         }
     }
 
+    @Restricted(DoNotUse.class) // impl
+    @Extension public static class Checkouts extends FlowCopier.ByRun {
+
+        @Override public void copy(Run<?, ?> original, Run<?, ?> copy, TaskListener listener) throws IOException, InterruptedException {
+            if (original instanceof WorkflowRun && copy instanceof WorkflowRun) {
+                ((WorkflowRun)copy).checkouts(null).addAll(((WorkflowRun)original).checkouts(null));
+            }
+        }
+
+    }
 }
