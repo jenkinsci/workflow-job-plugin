@@ -141,6 +141,14 @@ public class PipelineTriggersJobPropertyTest {
 
         assertNotNull(((MockTrigger)mockFromProp).currentStatus());
         assertEquals("[null, false, null, false, null, false]", MockTrigger.startsAndStops.toString());
+
+        // Verify that we can replace an existing trigger.
+        Trigger newTimerTrigger = new TimerTrigger("@hourly");
+
+        p.addTrigger(newTimerTrigger);
+
+        Trigger newTimerFromJob = p.getTriggers().get(newTimerTrigger.getDescriptor());
+        assertEquals(newTimerTrigger.getSpec(), newTimerFromJob.getSpec());
     }
 
     @Test

@@ -71,7 +71,7 @@ public class PipelineTriggersJobProperty extends JobProperty<WorkflowJob> {
     }
 
     public void setTriggers(List<Trigger<?>> triggers) {
-        this.triggers = triggers;
+        this.triggers.addAll(triggers);
     }
 
     public List<Trigger<?>> getTriggers() {
