@@ -147,6 +147,10 @@ public class PipelineTriggersJobPropertyTest {
 
         p.addTrigger(newTimerTrigger);
 
+        // Verify that we only have two triggers and that one of them is a MockTrigger.
+        assertEquals(2, p.getTriggers().size());
+        assertNotNull(p.getTriggers().get(mockFromJob.getDescriptor()));
+
         Trigger newTimerFromJob = p.getTriggers().get(newTimerTrigger.getDescriptor());
         assertEquals(newTimerTrigger.getSpec(), newTimerFromJob.getSpec());
     }
