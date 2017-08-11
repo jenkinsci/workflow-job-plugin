@@ -792,6 +792,12 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
     }
 
     @Override
+    @Exported
+    @Nonnull public Set<User> getCulprits() {
+        return RunWithSCM.super.getCulprits();
+    }
+
+    @Override
     public boolean shouldCalculateCulprits() {
         return isBuilding() || culprits == null;
     }
