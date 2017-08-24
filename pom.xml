@@ -28,7 +28,7 @@
     <parent>
         <groupId>org.jenkins-ci.plugins</groupId>
         <artifactId>plugin</artifactId>
-        <version>2.29</version>
+        <version>2.33</version>
         <relativePath />
     </parent>
     <groupId>org.jenkins-ci.plugins.workflow</groupId>
@@ -62,7 +62,8 @@
         </pluginRepository>
     </pluginRepositories>
     <properties>
-        <jenkins.version>2.62</jenkins.version>
+        <jenkins-core.version>2.76-20170824.211531-1</jenkins-core.version> <!-- TODO https://github.com/jenkinsci/jenkins/pull/2993 -->
+        <jenkins-war.version>2.76-20170824.211608-1</jenkins-war.version>
         <java.level>8</java.level>
         <no-test-jar>false</no-test-jar>
         <workflow-support-plugin.version>2.14</workflow-support-plugin.version>
@@ -140,6 +141,12 @@
             <artifactId>git</artifactId>
             <version>${git-plugin.version}</version>
             <scope>test</scope>
+            <exclusions>
+                <exclusion> <!-- TODO pending https://github.com/jenkinsci/git-client-plugin/pull/264 -->
+                    <groupId>commons-codec</groupId>
+                    <artifactId>commons-codec</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
         <dependency>
             <groupId>org.jenkins-ci.plugins</groupId>
