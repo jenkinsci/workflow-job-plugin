@@ -71,6 +71,7 @@ import hudson.util.DescribableList;
 import hudson.widgets.HistoryWidget;
 import java.io.File;
 import java.io.IOException;
+import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -92,6 +93,7 @@ import org.acegisecurity.Authentication;
 import org.jenkinsci.plugins.workflow.flow.FlowDefinition;
 import org.jenkinsci.plugins.workflow.flow.FlowDefinitionDescriptor;
 import org.jenkinsci.plugins.workflow.job.properties.DisableConcurrentBuildsJobProperty;
+import org.jenkinsci.plugins.workflow.job.properties.LoggerDecorationJobProperty;
 import org.jenkinsci.plugins.workflow.job.properties.PipelineTriggersJobProperty;
 import org.kohsuke.accmod.Restricted;
 import org.kohsuke.accmod.restrictions.DoNotUse;
@@ -171,6 +173,17 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements L
         } catch (IOException x) {
             LOGGER.log(Level.WARNING, "could not save " + this, x);
         }
+    }
+
+    OutputStream decorateLogger(WorkflowRun build, OutputStream logger) {
+        OutputStream outputLogger = logger;
+
+        for (JobProperty<?> property : properties) {
+            if (property instanceof LoggerDecorationJobProperty) {
+                outputLogger = ((LoggerDecorationJobProperty) property).decorateLogger(this, build, outputLogger);
+            }
+        }
+        return outputLogger;
     }
 
     @SuppressWarnings("deprecation")

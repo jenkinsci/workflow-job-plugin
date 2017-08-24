@@ -242,6 +242,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
         try {
             onStartBuilding();
             OutputStream logger = new FileOutputStream(getLogFile());
+            logger = project.decorateLogger(this, logger);
             listener = new StreamBuildListener(logger, Charset.defaultCharset());
             listener.started(getCauses());
             Authentication auth = Jenkins.getAuthentication();
