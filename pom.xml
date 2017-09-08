@@ -65,7 +65,8 @@
         <jenkins.version>2.62</jenkins.version>
         <java.level>8</java.level>
         <no-test-jar>false</no-test-jar>
-        <workflow-support-plugin.version>2.14</workflow-support-plugin.version>
+        <!-- Temp version until https://github.com/jenkinsci/workflow-support-plugin/pull/43 is released -->
+        <workflow-support-plugin.version>2.15-deferactionwrite-20170901.213922-1</workflow-support-plugin.version>
         <scm-api-plugin.version>2.1.1</scm-api-plugin.version>
         <git-plugin.version>3.2.0</git-plugin.version>
     </properties>
@@ -73,22 +74,26 @@
         <dependency>
             <groupId>org.jenkins-ci.plugins.workflow</groupId>
             <artifactId>workflow-step-api</artifactId>
-            <version>2.10</version>
+            <!-- Temp version until https://github.com/jenkinsci/workflow-step-api-plugin/pull/29 gets released  -->
+            <version>2.13-deferactionwrite2-20170901.210414-1</version>
         </dependency>
         <dependency>
             <groupId>org.jenkins-ci.plugins.workflow</groupId>
             <artifactId>workflow-api</artifactId>
-            <version>2.15</version>
+            <!-- Temp version for https://github.com/jenkinsci/workflow-api-plugin/pull/49 -->
+            <version>2.21-deferactionwrite-20170901.212705-1</version>
         </dependency>
         <dependency>
             <groupId>org.jenkins-ci.plugins.workflow</groupId>
             <artifactId>workflow-support</artifactId>
+            <!-- Temp version until https://github.com/jenkinsci/workflow-support-plugin/pull/43 is released -->
             <version>${workflow-support-plugin.version}</version>
         </dependency>
         <dependency>
             <groupId>org.jenkins-ci.plugins.workflow</groupId>
             <artifactId>workflow-cps</artifactId>
-            <version>2.29</version>
+            <!-- Temp version until https://github.com/jenkinsci/workflow-cps-plugin/pull/170 is released -->
+            <version>2.41-deferactionwrite-20170908.150443-1</version>
             <scope>test</scope>
         </dependency>
         <dependency>
