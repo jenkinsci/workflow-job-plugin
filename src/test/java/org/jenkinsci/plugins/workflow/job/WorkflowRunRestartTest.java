@@ -24,11 +24,11 @@
 
 package org.jenkinsci.plugins.workflow.job;
 
-import com.google.inject.Inject;
 import hudson.ExtensionList;
 import hudson.model.Executor;
 import hudson.model.Result;
 import hudson.model.TaskListener;
+import java.util.Collections;
 import org.jenkinsci.plugins.workflow.cps.CpsFlowDefinition;
 import org.jenkinsci.plugins.workflow.flow.FlowExecution;
 import org.jenkinsci.plugins.workflow.flow.FlowExecutionList;
@@ -36,16 +36,11 @@ import org.jenkinsci.plugins.workflow.flow.FlowExecutionListener;
 import org.jenkinsci.plugins.workflow.flow.GraphListener;
 import org.jenkinsci.plugins.workflow.graph.FlowEndNode;
 import org.jenkinsci.plugins.workflow.graph.FlowNode;
-import org.jenkinsci.plugins.workflow.steps.AbstractStepDescriptorImpl;
-import org.jenkinsci.plugins.workflow.steps.AbstractStepExecutionImpl;
-import org.jenkinsci.plugins.workflow.steps.AbstractStepImpl;
-import org.jenkinsci.plugins.workflow.steps.StepContextParameter;
 import org.jenkinsci.plugins.workflow.test.steps.SemaphoreStep;
 import static org.junit.Assert.*;
 import org.junit.ClassRule;
 import org.junit.Rule;
 import org.junit.Test;
-import org.junit.runners.model.Statement;
 import org.jvnet.hudson.test.BuildWatcher;
 import org.jvnet.hudson.test.Issue;
 import org.jvnet.hudson.test.RestartableJenkinsRule;
@@ -54,6 +49,11 @@ import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.DataBoundSetter;
 
 import java.util.List;
+import java.util.Set;
+import org.jenkinsci.plugins.workflow.steps.Step;
+import org.jenkinsci.plugins.workflow.steps.StepContext;
+import org.jenkinsci.plugins.workflow.steps.StepDescriptor;
+import org.jenkinsci.plugins.workflow.steps.StepExecution;
 
 public class WorkflowRunRestartTest {
 
@@ -62,89 +62,79 @@ public class WorkflowRunRestartTest {
 
     @Issue("JENKINS-27299")
     @Test public void disabled() {
-        story.addStep(new Statement() {
-            @Override public void evaluate() throws Throwable {
-                WorkflowJob p = story.j.jenkins.createProject(WorkflowJob.class, "p");
-                p.setDefinition(new CpsFlowDefinition("node {semaphore 'wait'}"));
-                WorkflowRun b = p.scheduleBuild2(0).waitForStart();
-                SemaphoreStep.waitForStart("wait/1", b);
-                p.makeDisabled(true);
-            }
+        story.then(r -> {
+            WorkflowJob p = r.jenkins.createProject(WorkflowJob.class, "p");
+            p.setDefinition(new CpsFlowDefinition("node {semaphore 'wait'}", true));
+            WorkflowRun b = p.scheduleBuild2(0).waitForStart();
+            SemaphoreStep.waitForStart("wait/1", b);
+            p.makeDisabled(true);
         });
-        story.addStep(new Statement() {
-            @Override public void evaluate() throws Throwable {
-                WorkflowJob p = story.j.jenkins.getItemByFullName("p", WorkflowJob.class);
-                assertTrue(p.isDisabled());
-                WorkflowRun b = p.getBuildByNumber(1);
-                assertTrue(b.isBuilding());
-                SemaphoreStep.success("wait/1", null);
-                story.j.assertBuildStatusSuccess(story.j.waitForCompletion(b));
-            }
+        story.then(r -> {
+            WorkflowJob p = r.jenkins.getItemByFullName("p", WorkflowJob.class);
+            assertTrue(p.isDisabled());
+            WorkflowRun b = p.getBuildByNumber(1);
+            assertTrue(b.isBuilding());
+            SemaphoreStep.success("wait/1", null);
+            r.assertBuildStatusSuccess(r.waitForCompletion(b));
         });
     }
 
     @Issue("JENKINS-25550")
     @Test public void hardKill() throws Exception {
-        story.addStep(new Statement() {
-            @Override public void evaluate() throws Throwable {
-                WorkflowJob p = story.j.jenkins.createProject(WorkflowJob.class, "p");
-                p.setDefinition(new CpsFlowDefinition("def seq = 0; retry (99) {zombie id: ++seq}"));
-                WorkflowRun b = p.scheduleBuild2(0).waitForStart();
-                story.j.waitForMessage("[1] undead", b);
-                Executor ex = b.getExecutor();
-                assertNotNull(ex);
-                ex.interrupt();
-                story.j.waitForMessage("[1] bwahaha FlowInterruptedException #1", b);
-                ex.interrupt();
-                story.j.waitForMessage("[1] bwahaha FlowInterruptedException #2", b);
-                b.doTerm();
-                story.j.waitForMessage("[2] undead", b);
-                ex.interrupt();
-                story.j.waitForMessage("[2] bwahaha FlowInterruptedException #1", b);
-                b.doKill();
-                story.j.waitForMessage("Hard kill!", b);
-                story.j.waitForCompletion(b);
-                story.j.assertBuildStatus(Result.ABORTED, b);
-            }
+        story.then(r -> {
+            WorkflowJob p = r.jenkins.createProject(WorkflowJob.class, "p");
+            p.setDefinition(new CpsFlowDefinition("def seq = 0; retry (99) {zombie id: ++seq}", true));
+            WorkflowRun b = p.scheduleBuild2(0).waitForStart();
+            r.waitForMessage("[1] undead", b);
+            Executor ex = b.getExecutor();
+            assertNotNull(ex);
+            ex.interrupt();
+            r.waitForMessage("[1] bwahaha FlowInterruptedException #1", b);
+            ex.interrupt();
+            r.waitForMessage("[1] bwahaha FlowInterruptedException #2", b);
+            b.doTerm();
+            r.waitForMessage("[2] undead", b);
+            ex.interrupt();
+            r.waitForMessage("[2] bwahaha FlowInterruptedException #1", b);
+            b.doKill();
+            r.waitForMessage("Hard kill!", b);
+            r.waitForCompletion(b);
+            r.assertBuildStatus(Result.ABORTED, b);
         });
-        story.addStep(new Statement() {
-            @Override public void evaluate() throws Throwable {
-                WorkflowJob p = story.j.jenkins.getItemByFullName("p", WorkflowJob.class);
-                WorkflowRun b = p.getBuildByNumber(1);
-                assertFalse(b.isBuilding());
-            }
+        story.then(r -> {
+            WorkflowJob p = r.jenkins.getItemByFullName("p", WorkflowJob.class);
+            WorkflowRun b = p.getBuildByNumber(1);
+            assertFalse(b.isBuilding());
         });
     }
 
     @Issue("JENKINS-33721")
     @Test public void termAndKillInSidePanel() throws Exception {
-        story.addStep(new Statement() {
-            @Override public void evaluate() throws Throwable {
-                WorkflowJob p = story.j.jenkins.createProject(WorkflowJob.class, "p");
-                p.setDefinition(new CpsFlowDefinition("def seq = 0; retry (99) {zombie id: ++seq}"));
-                WorkflowRun b = p.scheduleBuild2(0).waitForStart();
-                story.j.waitForMessage("[1] undead", b);
-                Executor ex = b.getExecutor();
-                assertNotNull(ex);
-                ex.interrupt();
-                story.j.waitForMessage("[1] bwahaha FlowInterruptedException #1", b);
-                ex.interrupt();
-                story.j.waitForMessage("[1] bwahaha FlowInterruptedException #2", b);
-                assertFalse(hasTermOrKillLink(b, "term"));
-                assertFalse(hasTermOrKillLink(b, "kill"));
-                story.j.waitForMessage("Click here to forcibly terminate running steps", b);
-                assertTrue(hasTermOrKillLink(b, "term"));
-                assertFalse(hasTermOrKillLink(b, "kill"));
-                b.doTerm();
-                story.j.waitForMessage("[2] undead", b);
-                story.j.waitForMessage("Click here to forcibly kill entire build", b);
-                assertTrue(hasTermOrKillLink(b, "term"));
-                assertTrue(hasTermOrKillLink(b, "kill"));
-                b.doKill();
-                story.j.waitForMessage("Hard kill!", b);
-                story.j.waitForCompletion(b);
-                story.j.assertBuildStatus(Result.ABORTED, b);
-            }
+        story.then(r -> {
+            WorkflowJob p = r.jenkins.createProject(WorkflowJob.class, "p");
+            p.setDefinition(new CpsFlowDefinition("def seq = 0; retry (99) {zombie id: ++seq}", true));
+            WorkflowRun b = p.scheduleBuild2(0).waitForStart();
+            r.waitForMessage("[1] undead", b);
+            Executor ex = b.getExecutor();
+            assertNotNull(ex);
+            ex.interrupt();
+            r.waitForMessage("[1] bwahaha FlowInterruptedException #1", b);
+            ex.interrupt();
+            r.waitForMessage("[1] bwahaha FlowInterruptedException #2", b);
+            assertFalse(hasTermOrKillLink(b, "term"));
+            assertFalse(hasTermOrKillLink(b, "kill"));
+            r.waitForMessage("Click here to forcibly terminate running steps", b);
+            assertTrue(hasTermOrKillLink(b, "term"));
+            assertFalse(hasTermOrKillLink(b, "kill"));
+            b.doTerm();
+            r.waitForMessage("[2] undead", b);
+            r.waitForMessage("Click here to forcibly kill entire build", b);
+            assertTrue(hasTermOrKillLink(b, "term"));
+            assertTrue(hasTermOrKillLink(b, "kill"));
+            b.doKill();
+            r.waitForMessage("Hard kill!", b);
+            r.waitForCompletion(b);
+            r.assertBuildStatus(Result.ABORTED, b);
         });
     }
 
@@ -153,33 +143,36 @@ public class WorkflowRunRestartTest {
                 .getByXPath("//a[@href = '#' and contains(@onclick, '/" + b.getUrl() + termOrKill + "')]").isEmpty();
     }
 
-    public static class Zombie extends AbstractStepImpl {
+    public static class Zombie extends Step {
         @DataBoundSetter public int id;
         @DataBoundConstructor public Zombie() {}
-        public static class Execution extends AbstractStepExecutionImpl {
-            @Inject(optional=true) private transient Zombie step;
-            @StepContextParameter private transient TaskListener listener;
+        @Override public StepExecution start(StepContext context) throws Exception {
+            return new Execution(context, id);
+        }
+        private static class Execution extends StepExecution {
             int id;
             int count;
+            Execution(StepContext context, int id) {
+                super(context);
+                this.id = id;
+            }
             @Override public boolean start() throws Exception {
-                id = step.id;
-                listener.getLogger().printf("[%d] undead%n", id);
+                getContext().get(TaskListener.class).getLogger().printf("[%d] undead%n", id);
                 return false;
             }
             @Override public void stop(Throwable cause) throws Exception {
-                listener.getLogger().printf("[%d] bwahaha %s #%d%n", id, cause.getClass().getSimpleName(), ++count);
+                getContext().get(TaskListener.class).getLogger().printf("[%d] bwahaha %s #%d%n", id, cause.getClass().getSimpleName(), ++count);
             }
-
         }
-        @TestExtension public static class DescriptorImpl extends AbstractStepDescriptorImpl {
-            public DescriptorImpl() {
-                super(Execution.class);
-            }
+        @TestExtension public static class DescriptorImpl extends StepDescriptor {
             @Override public String getFunctionName() {
                 return "zombie";
             }
             @Override public String getDisplayName() {
                 return "zombie";
+            }
+            @Override public Set<? extends Class<?>> getRequiredContext() {
+                return Collections.singleton(TaskListener.class);
             }
         }
     }
@@ -187,51 +180,45 @@ public class WorkflowRunRestartTest {
     @Issue("JENKINS-43055")
     @Test
     public void flowExecutionListener() throws Exception {
-        story.addStep(new Statement() {
-            @Override
-            public void evaluate() throws Throwable {
-                WorkflowJob p = story.j.jenkins.createProject(WorkflowJob.class, "p");
-                p.setDefinition(new CpsFlowDefinition("echo 'Running for listener'\n" +
-                        "sleep 0\n" +
-                        "semaphore 'wait'\n" +
-                        "sleep 0\n" +
-                        "semaphore 'post-resume'\n" +
-                        "sleep 0\n" +
-                        "error 'fail'\n", true));
-                WorkflowRun b = p.scheduleBuild2(0).waitForStart();
-                SemaphoreStep.waitForStart("wait/1", b);
-                ExecListener listener = ExtensionList.lookup(FlowExecutionListener.class).get(ExecListener.class);
-                assertNotNull(listener);
-                assertEquals(1, listener.started);
-                assertEquals(0, listener.resumed);
-                assertEquals(0, listener.finished);
-            }
+        story.then(r -> {
+            WorkflowJob p = r.jenkins.createProject(WorkflowJob.class, "p");
+            p.setDefinition(new CpsFlowDefinition("echo 'Running for listener'\n" +
+                "sleep 0\n" +
+                "semaphore 'wait'\n" +
+                "sleep 0\n" +
+                "semaphore 'post-resume'\n" +
+                "sleep 0\n" +
+                "error 'fail'\n", true));
+            WorkflowRun b = p.scheduleBuild2(0).waitForStart();
+            SemaphoreStep.waitForStart("wait/1", b);
+            ExecListener listener = ExtensionList.lookup(FlowExecutionListener.class).get(ExecListener.class);
+            assertNotNull(listener);
+            assertEquals(1, listener.started);
+            assertEquals(0, listener.resumed);
+            assertEquals(0, listener.finished);
         });
-        story.addStep(new Statement() {
-            @Override
-            public void evaluate() throws Throwable {
-                WorkflowJob p = story.j.jenkins.getItemByFullName("p", WorkflowJob.class);
-                WorkflowRun b = p.getLastBuild();
-                assertTrue(b.isBuilding());
-                SemaphoreStep.success("wait/1", null);
+        story.then(r -> {
+            WorkflowJob p = r.jenkins.getItemByFullName("p", WorkflowJob.class);
+            WorkflowRun b = p.getLastBuild();
+            assertTrue(b.isBuilding());
+            SemaphoreStep.success("wait/1", null);
 
-                SemaphoreStep.waitForStart("post-resume/1", b);
-                ExecListener listener = ExtensionList.lookup(FlowExecutionListener.class).get(ExecListener.class);
-                assertNotNull(listener);
-                assertEquals(0, listener.started);
-                assertEquals(1, listener.resumed);
-                assertEquals(0, listener.finished);
+            SemaphoreStep.waitForStart("post-resume/1", b);
+            ExecListener listener = ExtensionList.lookup(FlowExecutionListener.class).get(ExecListener.class);
+            assertNotNull(listener);
+            assertEquals(0, listener.started);
+            assertEquals(1, listener.resumed);
+            assertEquals(0, listener.finished);
 
-                SemaphoreStep.success("post-resume/1", null);
+            SemaphoreStep.success("post-resume/1", null);
 
-                story.j.assertBuildStatus(Result.FAILURE, story.j.waitForCompletion(b));
-                story.j.assertLogContains("Running for listener", b);
+            r.assertBuildStatus(Result.FAILURE, r.waitForCompletion(b));
+            r.assertLogContains("Running for listener", b);
 
-                assertEquals(0, listener.started);
-                assertEquals(1, listener.resumed);
-                assertEquals(1, listener.finished);
-                assertTrue(listener.graphListener.wasCalledBeforeExecListener);
-            }
+            assertEquals(0, listener.started);
+            assertEquals(1, listener.resumed);
+            assertEquals(1, listener.finished);
+            assertTrue(listener.graphListener.wasCalledBeforeExecListener);
         });
 
     }
