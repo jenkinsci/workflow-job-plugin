@@ -24,8 +24,10 @@
 
 package org.jenkinsci.plugins.workflow.job;
 
+import com.gargoylesoftware.htmlunit.WebResponse;
 import com.google.common.collect.ImmutableSet;
 import hudson.AbortException;
+import hudson.model.AbstractBuild;
 import hudson.model.BallColor;
 import hudson.model.Executor;
 import hudson.model.Item;
@@ -41,9 +43,11 @@ import hudson.security.Permission;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Set;
+import java.util.TreeSet;
 import java.util.concurrent.TimeUnit;
 
 import hudson.slaves.EnvironmentVariablesNodeProperty;
@@ -55,6 +59,8 @@ import java.util.logging.Level;
 import jenkins.model.CauseOfInterruption;
 import jenkins.model.InterruptedBuildAction;
 import jenkins.model.Jenkins;
+import net.sf.json.JSONArray;
+import net.sf.json.JSONObject;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.jenkinsci.plugins.scriptsecurity.scripts.ScriptApproval;
@@ -76,6 +82,7 @@ import org.jvnet.hudson.test.LoggerRule;
 import org.jvnet.hudson.test.MemoryAssert;
 import org.jvnet.hudson.test.MockAuthorizationStrategy;
 import org.jvnet.hudson.test.recipes.LocalData;
+import org.xml.sax.SAXException;
 
 public class WorkflowRunTest {
 
@@ -406,11 +413,11 @@ public class WorkflowRunTest {
         SemaphoreStep.success("waitFirst/1", null);
 
         SemaphoreStep.waitForStart("waitSecond/1", b1);
-        assertEquals(ImmutableSet.of("alice1"), b1.getCulpritIds());
+        assertCulprits(b1, "alice1");
         SemaphoreStep.success("waitSecond/1", null);
 
         SemaphoreStep.waitForStart("waitThird/1", b1);
-        assertEquals(ImmutableSet.of("alice1", "bob1"), b1.getCulpritIds());
+        assertCulprits(b1, "alice1", "bob1");
         SemaphoreStep.failure("waitThird/1", new AbortException());
 
         r.assertBuildStatus(Result.FAILURE, r.waitForCompletion(b1));
@@ -418,18 +425,46 @@ public class WorkflowRunTest {
         WorkflowRun b2 = p.scheduleBuild2(0).waitForStart();
 
         SemaphoreStep.waitForStart("waitFirst/2", b2);
-        assertEquals(ImmutableSet.of("alice1", "bob1"), b2.getCulpritIds());
+        assertCulprits(b2, "alice1", "bob1");
         SemaphoreStep.success("waitFirst/2", null);
 
         SemaphoreStep.waitForStart("waitSecond/2", b2);
-        assertEquals(ImmutableSet.of("alice1", "bob1", "alice2"), b2.getCulpritIds());
+        assertCulprits(b2, "alice1", "bob1", "alice2");
         SemaphoreStep.success("waitSecond/2", null);
 
         SemaphoreStep.waitForStart("waitThird/2", b2);
-        assertEquals(ImmutableSet.of("alice1", "bob1", "alice2", "bob2"), b2.getCulpritIds());
+        assertCulprits(b2, "alice1", "bob1", "alice2", "bob2");
         SemaphoreStep.success("waitThird/2", b2);
 
         r.assertBuildStatusSuccess(r.waitForCompletion(b2));
-        assertEquals(ImmutableSet.of("alice1", "bob1", "alice2", "bob2", "charlie2"), b2.getCulpritIds());
+        assertCulprits(b2, "alice1", "bob1", "alice2", "bob2", "charlie2");
     }
+
+    private void assertCulprits(WorkflowRun b, String... expectedIds) throws IOException, SAXException {
+        Set<String> actual = new TreeSet<>();
+        for (String u : b.getCulpritIds()) {
+            actual.add(u);
+        }
+        assertEquals(actual, new TreeSet<>(Arrays.asList(expectedIds)));
+
+        if (expectedIds.length > 0) {
+            JenkinsRule.WebClient wc = r.createWebClient();
+            WebResponse response = wc.goTo(b.getUrl() + "api/json?tree=culprits[id]", "application/json").getWebResponse();
+            JSONObject json = JSONObject.fromObject(response.getContentAsString());
+
+            Object culpritsArray = json.get("culprits");
+            assertNotNull(culpritsArray);
+            assertTrue(culpritsArray instanceof JSONArray);
+            Set<String> fromApi = new TreeSet<>();
+            for (Object o : ((JSONArray)culpritsArray).toArray()) {
+                assertTrue(o instanceof JSONObject);
+                Object id = ((JSONObject)o).get("id");
+                if (id instanceof String) {
+                    fromApi.add((String)id);
+                }
+            }
+            assertEquals(fromApi, new TreeSet<>(Arrays.asList(expectedIds)));
+        }
+    }
+
 }
