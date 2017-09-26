@@ -54,7 +54,21 @@
                         requiresConfirmation="true"
                         confirmationMessage="${%Really forcibly abort entire build?}"/>
             </j:if>
-            <st:include page="actions.jelly"/>
+            <j:forEach var="action" items="${it.allActions}">
+                <!--
+                  allow the action to take over the rendering, but otherwise fall back to the default
+                  the action object itself is available in the 'action' variable
+                -->
+                <j:if test="${it.checkAction(action)}">
+                    <st:include page="action.jelly" from="${action}" optional="true">
+                        <j:set var="icon" value="${action.iconClassName != null ? action.iconClassName + ' icon-md' : action.iconFileName}"/>
+                        <j:if test="${icon!=null}">
+                            <l:task icon="${icon}" title="${action.displayName}"
+                                    href="${h.getActionUrl(it.url,action)}" contextMenu="${h.isContextMenuVisible(action)}"/>
+                        </j:if>
+                    </st:include>
+                </j:if>
+            </j:forEach>
             <t:actions actions="${it.transientActions}"/>
             <j:if test="${it.previousBuild!=null}">
                 <l:task icon="images/24x24/previous.png" href="${buildUrl.previousBuildUrl}" title="${%Previous Build}" contextMenu="false"/>

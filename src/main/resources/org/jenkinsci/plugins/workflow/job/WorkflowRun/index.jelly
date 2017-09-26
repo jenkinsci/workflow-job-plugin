@@ -25,6 +25,7 @@
   -->
 
 <j:jelly xmlns:j="jelly:core" xmlns:st="jelly:stapler" xmlns:l="/lib/layout" xmlns:t="/lib/hudson" xmlns:i="jelly:fmt">
+    ${it.runAction}
     <l:layout title="${it.fullDisplayName}">
         <st:include page="sidepanel.jelly"/>
         <l:main-panel>
@@ -63,6 +64,9 @@
                     <st:include page="summary.jelly" from="${a}" optional="true" it="${a}"/>
                 </j:forEach>
             </table>
+            <j:forEach var="a" items="${it.allActions}">
+                <st:include page="runMain.jelly" it="${a}" optional="true" />
+            </j:forEach>
             <!-- TODO no upstream/downstream builds; DependencyGraph uses AP, for no obvious reason -->
         </l:main-panel>
     </l:layout>
