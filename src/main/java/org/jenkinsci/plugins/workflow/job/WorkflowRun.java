@@ -667,10 +667,16 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
         duration = Math.max(0, System.currentTimeMillis() - getStartTimeInMillis());
         try {
             save();
-            getParent().logRotate();
         } catch (Exception x) {
-            LOGGER.log(Level.WARNING, "failed to save " + this + " or perform log rotation", x);
+            LOGGER.log(Level.WARNING, "failed to save " + this, x);
         }
+        Timer.get().submit(() -> {
+            try {
+                getParent().logRotate();
+            } catch (Exception x) {
+                LOGGER.log(Level.WARNING, "failed to perform log rotation after " + this, x);
+            }
+        });
         onEndBuilding();
         if (completed != null) {
             synchronized (completed) {
@@ -783,6 +789,12 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
     }
 
     @Override
+    @Exported
+    @Nonnull public Set<User> getCulprits() {
+        return RunWithSCM.super.getCulprits();
+    }
+
+    @Override
     public boolean shouldCalculateCulprits() {
         return isBuilding() || culprits == null;
     }
@@ -879,12 +891,18 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
         @Override public FlowExecution get() throws IOException {
             WorkflowRun r = run();
             synchronized (LOADING_RUNS) {
-                while (r.execution == null && LOADING_RUNS.containsKey(key())) {
+                int count = 5;
+                while (r.execution == null && LOADING_RUNS.containsKey(key()) && count-- > 0) {
+                    Thread thread = Thread.currentThread();
+                    String origName = thread.getName();
+                    thread.setName(origName + ": waiting for " + key());
                     try {
-                        LOADING_RUNS.wait();
+                        LOADING_RUNS.wait(/* 1m */60_000);
                     } catch (InterruptedException x) {
                         LOGGER.log(Level.WARNING, "failed to wait for " + r + " to be loaded", x);
                         break;
+                    } finally {
+                        thread.setName(origName);
                     }
                 }
             }
