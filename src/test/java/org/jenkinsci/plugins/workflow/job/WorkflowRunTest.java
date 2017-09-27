@@ -117,7 +117,7 @@ public class WorkflowRunTest {
     }
 
     @Extension
-    public static class DurationRunListener extends RunListener<Run> {
+    public static final class DurationRunListener extends RunListener<Run> {
         static long duration = 0L;
         @Override
         public void onCompleted(Run run, @Nonnull TaskListener listener) {
