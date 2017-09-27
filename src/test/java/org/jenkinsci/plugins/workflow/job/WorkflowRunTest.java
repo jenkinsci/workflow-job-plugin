@@ -25,18 +25,10 @@
 package org.jenkinsci.plugins.workflow.job;
 
 import com.gargoylesoftware.htmlunit.WebResponse;
-import com.google.common.collect.ImmutableSet;
 import hudson.AbortException;
-import hudson.model.AbstractBuild;
-import hudson.model.BallColor;
-import hudson.model.Executor;
-import hudson.model.Item;
-import hudson.model.ParametersAction;
-import hudson.model.ParametersDefinitionProperty;
-import hudson.model.Result;
-import hudson.model.StringParameterDefinition;
-import hudson.model.StringParameterValue;
-import hudson.model.User;
+import hudson.Extension;
+import hudson.model.*;
+import hudson.model.listeners.RunListener;
 import hudson.model.queue.QueueTaskFuture;
 import hudson.security.ACL;
 import hudson.security.Permission;
@@ -84,6 +76,8 @@ import org.jvnet.hudson.test.MockAuthorizationStrategy;
 import org.jvnet.hudson.test.recipes.LocalData;
 import org.xml.sax.SAXException;
 
+import javax.annotation.Nonnull;
+
 public class WorkflowRunTest {
 
     @ClassRule public static BuildWatcher buildWatcher = new BuildWatcher();
@@ -112,6 +106,23 @@ public class WorkflowRunTest {
         r.assertLogContains("param=value", r.assertBuildStatusSuccess(p.scheduleBuild2(0, new ParametersAction(new StringParameterValue("PARAM", "value")))));
         p.setDefinition(new CpsFlowDefinition("echo \"param=${env.PARAM}\"",true));
         r.assertLogContains("param=value", r.assertBuildStatusSuccess(p.scheduleBuild2(0, new ParametersAction(new StringParameterValue("PARAM", "value")))));
+    }
+
+    @Issue("JENKINS-46945")
+    @Test public void durationIsCalculated() throws Exception {
+        WorkflowJob duration = r.jenkins.createProject(WorkflowJob.class, "duration");
+        duration.setDefinition(new CpsFlowDefinition("echo \"duration should not be 0 in DurationRunListener\"",true));
+        r.assertBuildStatusSuccess(duration.scheduleBuild2(0));
+        assertNotEquals(0L, DurationRunListener.duration);
+    }
+
+    @Extension
+    public static class DurationRunListener extends RunListener<Run> {
+        static long duration = 0L;
+        @Override
+        public void onCompleted(Run run, @Nonnull TaskListener listener) {
+            duration = run.getDuration();
+        }
     }
 
     @Test public void funnyParameters() throws Exception {
