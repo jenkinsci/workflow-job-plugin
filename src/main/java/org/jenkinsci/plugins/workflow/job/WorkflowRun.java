@@ -122,6 +122,7 @@ import org.jenkinsci.plugins.workflow.steps.FlowInterruptedException;
 import org.jenkinsci.plugins.workflow.steps.StepContext;
 import org.jenkinsci.plugins.workflow.steps.StepExecution;
 import org.jenkinsci.plugins.workflow.support.concurrent.Futures;
+import org.jenkinsci.plugins.workflow.support.concurrent.WithThreadName;
 import org.jenkinsci.plugins.workflow.support.steps.input.POSTHyperlinkNote;
 import org.kohsuke.accmod.Restricted;
 import org.kohsuke.accmod.restrictions.DoNotUse;
@@ -343,13 +344,8 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
                         listener = new StreamBuildListener(new NullStream());
                         return;
                     }
-                    Thread t = Thread.currentThread();
-                    String old = t.getName();
-                    t.setName(old + " (" + WorkflowRun.this + ")");
-                    try {
+                    try (WithThreadName naming = new WithThreadName(" (" + WorkflowRun.this + ")")) {
                         copyLogs();
-                    } finally {
-                        t.setName(old);
                     }
                 }
             }
@@ -902,16 +898,11 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
             synchronized (LOADING_RUNS) {
                 int count = 5;
                 while (r.execution == null && LOADING_RUNS.containsKey(key()) && count-- > 0) {
-                    Thread thread = Thread.currentThread();
-                    String origName = thread.getName();
-                    thread.setName(origName + ": waiting for " + key());
-                    try {
+                    try (WithThreadName naming = new WithThreadName(": waiting for " + key())) {
                         LOADING_RUNS.wait(/* 1m */60_000);
                     } catch (InterruptedException x) {
                         LOGGER.log(Level.WARNING, "failed to wait for " + r + " to be loaded", x);
                         break;
-                    } finally {
-                        thread.setName(origName);
                     }
                 }
             }

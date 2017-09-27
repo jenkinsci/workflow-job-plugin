@@ -28,7 +28,7 @@
     <parent>
         <groupId>org.jenkins-ci.plugins</groupId>
         <artifactId>plugin</artifactId>
-        <version>2.29</version>
+        <version>2.36</version>
         <relativePath />
     </parent>
     <groupId>org.jenkins-ci.plugins.workflow</groupId>
@@ -63,10 +63,9 @@
     </pluginRepositories>
     <properties>
         <jenkins.version>2.62</jenkins.version>
-        <jenkins-test-harness.version>2.24</jenkins-test-harness.version>
         <java.level>8</java.level>
         <no-test-jar>false</no-test-jar>
-        <workflow-support-plugin.version>2.14</workflow-support-plugin.version>
+        <workflow-support-plugin.version>2.16-20170927.202130-1</workflow-support-plugin.version> <!-- TODO https://github.com/jenkinsci/workflow-support-plugin/pull/46 -->
         <scm-api-plugin.version>2.1.1</scm-api-plugin.version>
         <git-plugin.version>3.2.0</git-plugin.version>
     </properties>
@@ -79,7 +78,7 @@
         <dependency>
             <groupId>org.jenkins-ci.plugins.workflow</groupId>
             <artifactId>workflow-api</artifactId>
-            <version>2.15</version>
+            <version>2.22</version>
         </dependency>
         <dependency>
             <groupId>org.jenkins-ci.plugins.workflow</groupId>
@@ -95,7 +94,7 @@
         <dependency>
             <groupId>org.jenkins-ci.plugins</groupId>
             <artifactId>structs</artifactId>
-            <version>1.6</version>
+            <version>1.7</version>
             <scope>test</scope>
         </dependency>
         <dependency>
@@ -141,6 +140,12 @@
             <artifactId>git</artifactId>
             <version>${git-plugin.version}</version>
             <scope>test</scope>
+            <exclusions>
+                <exclusion> <!-- TODO pending https://github.com/jenkinsci/git-client-plugin/pull/264 -->
+                    <groupId>commons-codec</groupId>
+                    <artifactId>commons-codec</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
         <dependency>
             <groupId>org.jenkins-ci.plugins</groupId>
