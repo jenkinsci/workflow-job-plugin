@@ -248,7 +248,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
                         return "Tried to resume pipeline after restart, but pipeline has resume explicitly disabled.";
                     }
                 });
-                finish(Result.ABORTED, suddenDeath);
+                finish(Result.FAILURE, suddenDeath);
                 executionPromise.setException(suddenDeath);
 
                 // TODO is there any additional cleanup we need to do here?  Better logging of errors?

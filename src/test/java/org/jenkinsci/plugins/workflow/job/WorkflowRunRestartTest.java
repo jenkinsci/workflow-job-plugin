@@ -79,6 +79,25 @@ public class WorkflowRunRestartTest {
         });
     }
 
+    @Issue("JENKINS-33761")
+    @Test public void resumeDisabled() {
+        story.then(r -> {
+            WorkflowJob p = r.jenkins.createProject(WorkflowJob.class, "p");
+            p.setDefinition(new CpsFlowDefinition("node {semaphore 'wait'}", true));
+            WorkflowRun b = p.scheduleBuild2(0).waitForStart();
+            SemaphoreStep.waitForStart("wait/1", b);
+            p.setResumeEnabled(false);
+        });
+        story.then(r -> {
+            WorkflowJob p = r.jenkins.getItemByFullName("p", WorkflowJob.class);
+            assertFalse(p.isResumeEnabled());
+            WorkflowRun b = p.getBuildByNumber(1);
+            r.waitForCompletion(b);
+            assertFalse(b.isBuilding());
+            assertEquals(Result.FAILURE, b.getResult());
+        });
+    }
+
     @Issue("JENKINS-25550")
     @Test public void hardKill() throws Exception {
         story.then(r -> {
