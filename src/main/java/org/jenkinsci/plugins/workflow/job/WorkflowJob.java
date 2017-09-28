@@ -92,6 +92,7 @@ import org.acegisecurity.Authentication;
 import org.jenkinsci.plugins.workflow.flow.FlowDefinition;
 import org.jenkinsci.plugins.workflow.flow.FlowDefinitionDescriptor;
 import org.jenkinsci.plugins.workflow.job.properties.DisableConcurrentBuildsJobProperty;
+import org.jenkinsci.plugins.workflow.job.properties.DisableResumeJobProperty;
 import org.jenkinsci.plugins.workflow.job.properties.PipelineTriggersJobProperty;
 import org.kohsuke.accmod.Restricted;
 import org.kohsuke.accmod.restrictions.DoNotUse;
@@ -114,6 +115,7 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements L
     private transient LazyBuildMixIn<WorkflowJob,WorkflowRun> buildMixIn;
     /** @deprecated replaced by {@link DisableConcurrentBuildsJobProperty} */
     private @CheckForNull Boolean concurrentBuild;
+
     /**
      * Map from {@link SCM#getKey} to last version we encountered during polling.
      * TODO is it important to persist this? {@link hudson.model.AbstractProject#pollingBaseline} is not persisted.
@@ -319,6 +321,27 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements L
     @Exported
     @Override public boolean isConcurrentBuild() {
         return getProperty(DisableConcurrentBuildsJobProperty.class) == null;
+    }
+
+    @Exported
+    public boolean isResumeEnabled() {
+        return getProperty(DisableResumeJobProperty.class) == null;
+    }
+
+    public void setResumeEnabled(boolean resumeEnabled) throws IOException {
+        boolean previousState = isResumeEnabled();
+        if (resumeEnabled != previousState) {
+            BulkChange bc = new BulkChange(this);
+            try {
+                removeProperty(DisableResumeJobProperty.class);
+                if (!resumeEnabled) {
+                    addProperty(new DisableResumeJobProperty());
+                }
+                bc.commit();
+            } finally {
+                bc.abort();
+            }
+        }
     }
 
     public void setConcurrentBuild(boolean b) throws IOException {

@@ -237,7 +237,22 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
      */
     @Override public void run() {
         if (!firstTime) {
-            throw sleep();
+            if (this.getParent().isResumeEnabled()) {
+                throw sleep();
+            } else {
+                // Resume forbidden, kill the build, do not pass go, do not collect $200.
+                execution = null; // ensures isInProgress returns false
+                FlowInterruptedException suddenDeath = new FlowInterruptedException(Result.ABORTED, new CauseOfInterruption() {
+                    @Override
+                    public String getShortDescription() {
+                        return "Tried to resume pipeline after restart, but pipeline has resume explicitly disabled.";
+                    }
+                });
+                finish(Result.ABORTED, suddenDeath);
+                executionPromise.setException(suddenDeath);
+
+                // TODO is there any additional cleanup we need to do here?  Better logging of errors?
+            }
         }
         try {
             onStartBuilding();
