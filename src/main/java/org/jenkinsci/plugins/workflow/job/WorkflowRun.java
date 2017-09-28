@@ -42,6 +42,7 @@ import hudson.XmlFile;
 import hudson.console.AnnotatedLargeText;
 import hudson.console.LineTransformationOutputStream;
 import hudson.console.ModelHyperlinkNote;
+import hudson.model.Action;
 import hudson.model.Executor;
 import hudson.model.Item;
 import hudson.model.ParameterValue;
@@ -72,6 +73,7 @@ import java.io.PrintStream;
 import java.nio.charset.Charset;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -81,11 +83,13 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentSkipListMap;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.logging.Level;
@@ -114,6 +118,7 @@ import org.jenkinsci.plugins.workflow.flow.FlowExecutionListener;
 import org.jenkinsci.plugins.workflow.flow.FlowExecutionOwner;
 import org.jenkinsci.plugins.workflow.flow.GraphListener;
 import org.jenkinsci.plugins.workflow.flow.StashManager;
+import org.jenkinsci.plugins.workflow.graph.AtomNode;
 import org.jenkinsci.plugins.workflow.graph.BlockEndNode;
 import org.jenkinsci.plugins.workflow.graph.FlowEndNode;
 import org.jenkinsci.plugins.workflow.graph.FlowNode;
@@ -237,22 +242,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
      */
     @Override public void run() {
         if (!firstTime) {
-            if (this.getParent().isResumeEnabled()) {
-                throw sleep();
-            } else {
-                // Resume forbidden, kill the build, do not pass go, do not collect $200.
-                execution = null; // ensures isInProgress returns false
-                FlowInterruptedException suddenDeath = new FlowInterruptedException(Result.ABORTED, new CauseOfInterruption() {
-                    @Override
-                    public String getShortDescription() {
-                        return "Tried to resume pipeline after restart, but pipeline has resume explicitly disabled.";
-                    }
-                });
-                finish(Result.FAILURE, suddenDeath);
-                executionPromise.setException(suddenDeath);
-
-                // TODO is there any additional cleanup we need to do here?  Better logging of errors?
-            }
+            throw sleep();
         }
         try {
             onStartBuilding();
@@ -608,6 +598,58 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
         return getParent().getFullName() + '/' + getId();
     }
 
+    static class DeadFlowExecution extends FlowExecution {
+
+        @Override
+        public void start() throws IOException {
+
+        }
+
+        @Override
+        public ListenableFuture<List<StepExecution>> getCurrentExecutions(boolean innerMostOnly) {
+              return Futures.immediateFuture(Collections.<StepExecution>emptyList());
+        }
+
+        @Override
+        public FlowExecutionOwner getOwner() { return null;}
+
+        @Override
+        public List<FlowNode> getCurrentHeads() {return Collections.EMPTY_LIST;}
+
+        @Override
+        public boolean isCurrentHead(FlowNode flowNode) { return false;}
+
+        @Override
+        public void interrupt(Result result, CauseOfInterruption... causeOfInterruptions) throws IOException, InterruptedException {
+
+        }
+
+        @Override
+        public void addListener(GraphListener graphListener) {
+            throw new UnsupportedOperationException("Can't add a listener if the execution is dead!");
+        }
+
+        @CheckForNull
+        @Override
+        public FlowNode getNode(String s) throws IOException { return null; }
+
+        @Nonnull
+        @Override
+        public Authentication getAuthentication() {
+            return this.getAuthentication();
+        }
+
+        @Override
+        public List<Action> loadActions(FlowNode flowNode) throws IOException {
+            throw new UnsupportedOperationException("Can't load actions if the execution is dead!");
+        }
+
+        @Override
+        public void saveActions(FlowNode flowNode, List<Action> list) throws IOException {
+            throw new UnsupportedOperationException("Can't save actions if the execution is dead!");
+        }
+    }
+
     /** Hack to allow {@link #execution} to use an {@link Owner} referring to this run, even when it has not yet been loaded. */
     @Override public void reload() throws IOException {
         synchronized (LOADING_RUNS) {
@@ -618,6 +660,21 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
         new XmlFile(XSTREAM,new File(getRootDir(),"build.xml")).unmarshal(this);
     }
 
+    protected void disabledResumeAfterDirtyShutdown() {
+        // Resume forbidden, hard-kill the build to avoid any naughty startup issues, do not pass go, do not collect $200.
+        execution = null; // ensures isInProgress returns false
+        completed = new AtomicBoolean(true);
+        FlowInterruptedException suddenDeath = new FlowInterruptedException(Result.ABORTED, new CauseOfInterruption() {
+            @Override
+            public String getShortDescription() {
+                return "Tried to resume pipeline after restart, but pipeline has resume explicitly disabled.";
+            }
+        });
+        finish(Result.FAILURE, suddenDeath);
+        executionPromise.setException(suddenDeath);
+        // TODO is there any additional cleanup we need to do here?  Better logging of errors?
+    }
+
     @Override protected void onLoad() {
         super.onLoad();
         if (completed != null) {
@@ -625,7 +682,15 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
         }
         if (execution != null) {
             try {
-                execution.onLoad(new Owner(this));
+                if (getParent().isResumeEnabled()) {
+                    execution.onLoad(new Owner(this));
+                } else {
+                    if (!this.getParent().isResumeEnabled()) {
+                        disabledResumeAfterDirtyShutdown();
+                        LOADING_RUNS.remove(key());
+                        return;
+                    }
+                }
             } catch (Exception x) {
                 LOGGER.log(Level.WARNING, null, x);
                 execution = null; // probably too broken to use
@@ -933,6 +998,8 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
             FlowExecution exec = r.execution;
             if (exec != null) {
                 return exec;
+            } else if (!run().getParent().isResumeEnabled()) {
+                return new DeadFlowExecution();
             } else {
                 throw new IOException(r + " did not yet start");
             }
