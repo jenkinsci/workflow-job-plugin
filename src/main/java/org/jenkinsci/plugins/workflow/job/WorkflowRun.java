@@ -83,13 +83,11 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentSkipListMap;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.logging.Level;
@@ -119,12 +117,11 @@ import org.jenkinsci.plugins.workflow.flow.FlowExecutionListener;
 import org.jenkinsci.plugins.workflow.flow.FlowExecutionOwner;
 import org.jenkinsci.plugins.workflow.flow.GraphListener;
 import org.jenkinsci.plugins.workflow.flow.StashManager;
-import org.jenkinsci.plugins.workflow.graph.AtomNode;
 import org.jenkinsci.plugins.workflow.graph.BlockEndNode;
 import org.jenkinsci.plugins.workflow.graph.FlowEndNode;
 import org.jenkinsci.plugins.workflow.graph.FlowNode;
 import org.jenkinsci.plugins.workflow.job.console.WorkflowConsoleLogger;
-import org.jenkinsci.plugins.workflow.job.properties.DurabilityHintProperty;
+import org.jenkinsci.plugins.workflow.job.properties.DurabilityHintJobProperty;
 import org.jenkinsci.plugins.workflow.steps.FlowInterruptedException;
 import org.jenkinsci.plugins.workflow.steps.StepContext;
 import org.jenkinsci.plugins.workflow.steps.StepExecution;
@@ -268,7 +265,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
             if (!getParent().isResumeEnabled()) {
                 definition.setDurabilityHint(FlowDurabilityHint.NO_PROMISES);
             } else {
-                DurabilityHintProperty hint = getParent().getProperty(DurabilityHintProperty.class);
+                DurabilityHintJobProperty hint = getParent().getProperty(DurabilityHintJobProperty.class);
                 if (hint != null) {
                     definition.setDurabilityHint(hint.getHint());
                 }
