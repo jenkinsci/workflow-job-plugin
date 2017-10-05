@@ -21,28 +21,17 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 -->
-
-<!--
-  Configure build triggers for WorkflowJob
--->
 <?jelly escape-by-default='true'?>
 <j:jelly xmlns:j="jelly:core" xmlns:st="jelly:stapler" xmlns:d="jelly:define" xmlns:l="/lib/layout" xmlns:t="/lib/hudson" xmlns:f="/lib/form">
-    <!-- build triggers config pane -->
-
     <f:entry title="${%Durability Hint}" field="durabilityHint">
-        <!-- TODO figure out why this fails to show ANY enum values-->
+        <!-- TODO figure out how to set default correctly with this -->
         <select class="setting-input" name="durabilityHint">
             Name is: ${descriptor.durabilityHintValues}
             <j:forEach var="it" items="${descriptor.durabilityHintValues}">
                 <f:option value="${it.name()}" selected="${instance != null ? it==instance[field] : it.name()==default}">
-                    ${it.name()}
+                    ${it.description()}
                 </f:option>
             </j:forEach>
         </select>
-
-
-        <!--<f:enum field="durabilityHint" default="FULL_DURABILITY">
-            <strong>cheese and ${it.name}</strong>
-        </f:enum>-->
     </f:entry>
 </j:jelly>
