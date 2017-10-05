@@ -112,6 +112,7 @@ import org.jenkinsci.plugins.workflow.actions.ThreadNameAction;
 import org.jenkinsci.plugins.workflow.actions.TimingAction;
 import org.jenkinsci.plugins.workflow.flow.FlowCopier;
 import org.jenkinsci.plugins.workflow.flow.FlowDefinition;
+import org.jenkinsci.plugins.workflow.flow.FlowDurabilityHint;
 import org.jenkinsci.plugins.workflow.flow.FlowExecution;
 import org.jenkinsci.plugins.workflow.flow.FlowExecutionList;
 import org.jenkinsci.plugins.workflow.flow.FlowExecutionListener;
@@ -262,6 +263,9 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
             FlowDefinition definition = getParent().getDefinition();
             if (definition == null) {
                 throw new AbortException("No flow definition, cannot run");
+            }
+            if (!getParent().isResumeEnabled()) {
+                definition.setDurabilityHint(FlowDurabilityHint.NO_PROMISES);
             }
             Owner owner = new Owner(this);
             
