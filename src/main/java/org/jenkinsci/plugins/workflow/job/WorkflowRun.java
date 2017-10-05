@@ -124,6 +124,7 @@ import org.jenkinsci.plugins.workflow.graph.BlockEndNode;
 import org.jenkinsci.plugins.workflow.graph.FlowEndNode;
 import org.jenkinsci.plugins.workflow.graph.FlowNode;
 import org.jenkinsci.plugins.workflow.job.console.WorkflowConsoleLogger;
+import org.jenkinsci.plugins.workflow.job.properties.DurabilityHintProperty;
 import org.jenkinsci.plugins.workflow.steps.FlowInterruptedException;
 import org.jenkinsci.plugins.workflow.steps.StepContext;
 import org.jenkinsci.plugins.workflow.steps.StepExecution;
@@ -266,7 +267,13 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
             }
             if (!getParent().isResumeEnabled()) {
                 definition.setDurabilityHint(FlowDurabilityHint.NO_PROMISES);
+            } else {
+                DurabilityHintProperty hint = getParent().getProperty(DurabilityHintProperty.class);
+                if (hint != null) {
+                    definition.setDurabilityHint(hint.getHint());
+                }
             }
+
             Owner owner = new Owner(this);
             
             FlowExecution newExecution = definition.create(owner, listener, getAllActions());
