@@ -32,10 +32,10 @@ THE SOFTWARE.
     <f:entry title="${%Durability Hint}" field="durabilityHint">
         <!-- TODO figure out why this fails to show ANY enum values-->
         <select class="setting-input" name="durabilityHint">
-            Name is: ${descriptor.getPropertyType(instance,durabilityHint).enumConstants}
-            <j:forEach var="it" items="${descriptor.getPropertyType(instance,durabilityHint).enumConstants}">
+            Name is: ${descriptor.durabilityHintValues}
+            <j:forEach var="it" items="${descriptor.durabilityHintValues}">
                 <f:option value="${it.name()}" selected="${instance != null ? it==instance[field] : it.name()==default}">
-                    ${%All Builds}
+                    ${it.name()}
                 </f:option>
             </j:forEach>
         </select>

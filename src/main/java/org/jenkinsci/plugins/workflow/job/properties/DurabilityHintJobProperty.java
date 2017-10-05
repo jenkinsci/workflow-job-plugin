@@ -54,6 +54,10 @@ public class DurabilityHintJobProperty extends OptionalJobProperty<WorkflowJob> 
     @Symbol("durabilityHint")
     public static class DescriptorImpl extends OptionalJobProperty.OptionalJobPropertyDescriptor {
 
+        public Enum[] getDurabilityHintValues() {
+            return FlowDurabilityHint.values();
+        }
+
         @Override public String getDisplayName() {
             return "How hard should we try to render the pipeline nondurable?";
         }
