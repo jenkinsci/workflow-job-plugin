@@ -688,10 +688,11 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
         if (completed != null) {
             throw new IllegalStateException("double onLoad of " + this);
         }
-        if (execution != null) {
+        FlowExecution fetchedExecution = execution;
+        if (fetchedExecution != null) {
             try {
                 if (getParent().isResumeEnabled()) {
-                    execution.onLoad(new Owner(this));
+                    fetchedExecution.onLoad(new Owner(this));
                 } else {
                     if (!this.getParent().isResumeEnabled()) {
                         disabledResumeAfterDirtyShutdown();
@@ -704,12 +705,13 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
                 execution = null; // probably too broken to use
             }
         }
-        if (execution != null) {
-            execution.addListener(new GraphL());
-            executionPromise.set(execution);
-            if (!execution.isComplete()) {
+        fetchedExecution = execution;
+        if (fetchedExecution != null) {
+            fetchedExecution.addListener(new GraphL());
+            executionPromise.set(fetchedExecution);
+            if (!fetchedExecution.isComplete()) {
                 // we've been restarted while we were running. let's get the execution going again.
-                FlowExecutionListener.fireResumed(execution);
+                FlowExecutionListener.fireResumed(fetchedExecution);
 
                 try {
                     OutputStream logger = new FileOutputStream(getLogFile(), true);
