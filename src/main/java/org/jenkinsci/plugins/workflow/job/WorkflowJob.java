@@ -62,6 +62,7 @@ import hudson.scm.SCM;
 import hudson.scm.SCMRevisionState;
 import hudson.search.SearchIndexBuilder;
 import hudson.security.ACL;
+import hudson.security.Permission;
 import hudson.slaves.WorkspaceList;
 import hudson.triggers.SCMTrigger;
 import hudson.triggers.Trigger;
@@ -361,6 +362,12 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements L
         return hasPermission(CANCEL);
     }
 
+    /**
+     * @deprecated Just use {@link #CANCEL}.
+     */
+    @Deprecated
+    public static final Permission ABORT = CANCEL;
+    
     @Override public Collection<? extends SubTask> getSubTasks() {
         // TODO mostly copied from AbstractProject, except SubTaskContributor is not available:
         List<SubTask> subTasks = new ArrayList<>();
