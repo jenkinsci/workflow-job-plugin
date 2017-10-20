@@ -47,7 +47,6 @@ import hudson.model.JobProperty;
 import hudson.model.Label;
 import hudson.model.Node;
 import hudson.model.Queue;
-import hudson.model.ResourceList;
 import hudson.model.Run;
 import hudson.model.RunMap;
 import hudson.model.TaskListener;
@@ -89,7 +88,6 @@ import jenkins.model.ParameterizedJobMixIn;
 import jenkins.model.lazy.LazyBuildMixIn;
 import jenkins.triggers.SCMTriggerItem;
 import net.sf.json.JSONObject;
-import org.acegisecurity.Authentication;
 import org.jenkinsci.plugins.workflow.flow.FlowDefinition;
 import org.jenkinsci.plugins.workflow.flow.FlowDefinitionDescriptor;
 import org.jenkinsci.plugins.workflow.job.properties.DisableConcurrentBuildsJobProperty;
@@ -297,10 +295,12 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements L
         save();
     }
 
+    // TODO delete after baseline has https://github.com/jenkinsci/jenkins/pull/3099
     @Override public boolean isBuildBlocked() {
         return getCauseOfBlockage() != null;
     }
 
+    // TODO delete after baseline has https://github.com/jenkinsci/jenkins/pull/3099
     @Deprecated
     @Override public String getWhyBlocked() {
         CauseOfBlockage c = getCauseOfBlockage();
@@ -378,14 +378,6 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements L
         return subTasks;
     }
 
-    @Override public Authentication getDefaultAuthentication() {
-        return ACL.SYSTEM;
-    }
-
-    @Override public Authentication getDefaultAuthentication(Queue.Item item) {
-        return getDefaultAuthentication();
-    }
-
     @SuppressFBWarnings(value="RCN_REDUNDANT_NULLCHECK_OF_NONNULL_VALUE", justification="TODO 1.653+ switch to Jenkins.getInstanceOrNull")
     @Override public Label getAssignedLabel() {
         Jenkins j = Jenkins.getInstance();
@@ -399,16 +391,8 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements L
         return Jenkins.getInstance();
     }
 
-    @Override public Queue.Task getOwnerTask() {
-        return this;
-    }
-
     @Override public Object getSameNodeConstraint() {
         return this;
-    }
-
-    @Override public ResourceList getResourceList() {
-        return ResourceList.EMPTY;
     }
 
     @Override public String getPronoun() {
