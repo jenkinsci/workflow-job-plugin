@@ -24,6 +24,7 @@
 
 package org.jenkinsci.plugins.workflow.job;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import hudson.AbortException;
 import hudson.BulkChange;
 import hudson.Extension;
@@ -34,8 +35,7 @@ import hudson.Launcher;
 import hudson.init.InitMilestone;
 import hudson.init.Initializer;
 import hudson.model.Action;
-import hudson.model.BuildableItem;
-import hudson.model.Cause;
+import hudson.model.BallColor;
 import hudson.model.Computer;
 import hudson.model.Descriptor;
 import hudson.model.DescriptorVisibilityFilter;
@@ -47,7 +47,6 @@ import hudson.model.JobProperty;
 import hudson.model.Label;
 import hudson.model.Node;
 import hudson.model.Queue;
-import hudson.model.ResourceList;
 import hudson.model.Run;
 import hudson.model.RunMap;
 import hudson.model.TaskListener;
@@ -62,6 +61,7 @@ import hudson.scm.SCM;
 import hudson.scm.SCMRevisionState;
 import hudson.search.SearchIndexBuilder;
 import hudson.security.ACL;
+import hudson.security.Permission;
 import hudson.slaves.WorkspaceList;
 import hudson.triggers.SCMTrigger;
 import hudson.triggers.Trigger;
@@ -83,14 +83,11 @@ import java.util.logging.Logger;
 import javax.annotation.CheckForNull;
 import javax.servlet.ServletException;
 import jenkins.model.BlockedBecauseOfBuildInProgress;
-
 import jenkins.model.Jenkins;
 import jenkins.model.ParameterizedJobMixIn;
 import jenkins.model.lazy.LazyBuildMixIn;
 import jenkins.triggers.SCMTriggerItem;
-import jenkins.util.TimeDuration;
 import net.sf.json.JSONObject;
-import org.acegisecurity.Authentication;
 import org.jenkinsci.plugins.workflow.flow.FlowDefinition;
 import org.jenkinsci.plugins.workflow.flow.FlowDefinitionDescriptor;
 import org.jenkinsci.plugins.workflow.job.properties.DisableConcurrentBuildsJobProperty;
@@ -98,14 +95,12 @@ import org.jenkinsci.plugins.workflow.job.properties.PipelineTriggersJobProperty
 import org.kohsuke.accmod.Restricted;
 import org.kohsuke.accmod.restrictions.DoNotUse;
 import org.kohsuke.accmod.restrictions.NoExternalUse;
-import org.kohsuke.stapler.QueryParameter;
 import org.kohsuke.stapler.StaplerRequest;
 import org.kohsuke.stapler.StaplerResponse;
 import org.kohsuke.stapler.export.Exported;
-import org.kohsuke.stapler.interceptor.RequirePOST;
 
 @SuppressWarnings({"unchecked", "rawtypes"})
-public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements BuildableItem, LazyBuildMixIn.LazyLoadingJob<WorkflowJob,WorkflowRun>, ParameterizedJobMixIn.ParameterizedJob, TopLevelItem, Queue.FlyweightTask, SCMTriggerItem {
+public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements LazyBuildMixIn.LazyLoadingJob<WorkflowJob,WorkflowRun>, ParameterizedJobMixIn.ParameterizedJob<WorkflowJob, WorkflowRun>, TopLevelItem, Queue.FlyweightTask, SCMTriggerItem {
 
     private static final Logger LOGGER = Logger.getLogger(WorkflowJob.class.getName());
 
@@ -123,6 +118,7 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements B
      * TODO is it important to persist this? {@link hudson.model.AbstractProject#pollingBaseline} is not persisted.
      */
     private transient volatile Map<String,SCMRevisionState> pollingBaselines;
+    private volatile boolean disabled;
 
     public WorkflowJob(ItemGroup parent, String name) {
         super(parent, name);
@@ -163,14 +159,6 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements B
         };
     }
 
-    private ParameterizedJobMixIn<WorkflowJob,WorkflowRun> createParameterizedJobMixIn() {
-        return new ParameterizedJobMixIn<WorkflowJob,WorkflowRun>() {
-            @Override protected WorkflowJob asJob() {
-                return WorkflowJob.this;
-            }
-        };
-    }
-
     public FlowDefinition getDefinition() {
         return definition;
     }
@@ -196,6 +184,7 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements B
         } else {
             quietPeriod = null;
         }
+        makeDisabled(json.optBoolean("disable"));
         getTriggersJobProperty().stopTriggers();
         getTriggersJobProperty().startTriggers(Items.currentlyUpdatingByXml());
     }
@@ -216,7 +205,7 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements B
                 }
             }
         }
-        return true; // why not?
+        return ParameterizedJobMixIn.ParameterizedJob.super.isBuildable();
     }
 
     @Override protected RunMap<WorkflowRun> _getRuns() {
@@ -259,50 +248,33 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements B
         return buildMixIn.createHistoryWidget();
     }
 
-    @Override public Queue.Executable createExecutable() throws IOException {
-        return buildMixIn.newBuild();
-    }
-
-    @Deprecated
-    @Override public boolean scheduleBuild() {
-        return createParameterizedJobMixIn().scheduleBuild();
-    }
-
-    @Override public boolean scheduleBuild(Cause c) {
-        return createParameterizedJobMixIn().scheduleBuild(c);
-    }
-
-    @Deprecated
-    @Override public boolean scheduleBuild(int quietPeriod) {
-        return createParameterizedJobMixIn().scheduleBuild(quietPeriod);
-    }
-
-    @Override public boolean scheduleBuild(int quietPeriod, Cause c) {
-        return createParameterizedJobMixIn().scheduleBuild(quietPeriod, c);
-    }
-
     @Override public @CheckForNull QueueTaskFuture<WorkflowRun> scheduleBuild2(int quietPeriod, Action... actions) {
-        return createParameterizedJobMixIn().scheduleBuild2(quietPeriod, actions);
-    }
-
-    public void doBuild(StaplerRequest req, StaplerResponse rsp, @QueryParameter TimeDuration delay) throws IOException, ServletException {
-        createParameterizedJobMixIn().doBuild(req, rsp, delay);
-    }
-
-    public void doBuildWithParameters(StaplerRequest req, StaplerResponse rsp, @QueryParameter TimeDuration delay) throws IOException, ServletException {
-        createParameterizedJobMixIn().doBuildWithParameters(req, rsp, delay);
-    }
-
-    @RequirePOST public void doCancelQueue(StaplerRequest req, StaplerResponse rsp ) throws IOException, ServletException {
-        createParameterizedJobMixIn().doCancelQueue(req, rsp);
+        return ParameterizedJobMixIn.ParameterizedJob.super.scheduleBuild2(quietPeriod, actions);
     }
 
     @Override protected SearchIndexBuilder makeSearchIndex() {
-        return createParameterizedJobMixIn().extendSearchIndex(super.makeSearchIndex());
+        return getParameterizedJobMixIn().extendSearchIndex(super.makeSearchIndex());
     }
 
-    public boolean isParameterized() {
-        return createParameterizedJobMixIn().isParameterized();
+    @Override public boolean isDisabled() {
+        return disabled;
+    }
+
+    @Restricted(DoNotUse.class)
+    @Override public void setDisabled(boolean disabled) {
+        this.disabled = disabled;
+    }
+
+    @Override public boolean supportsMakeDisabled() {
+        return true;
+    }
+
+    @Override public BallColor getIconColor() {
+        if (isDisabled()) {
+            return isBuilding() ? BallColor.DISABLED_ANIME : BallColor.DISABLED;
+        } else {
+            return super.getIconColor();
+        }
     }
 
     @SuppressWarnings("deprecation")
@@ -324,14 +296,12 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements B
         save();
     }
 
-    @Override public String getBuildNowText() {
-        return createParameterizedJobMixIn().getBuildNowText();
-    }
-
+    // TODO delete after baseline has https://github.com/jenkinsci/jenkins/pull/3099
     @Override public boolean isBuildBlocked() {
         return getCauseOfBlockage() != null;
     }
 
+    // TODO delete after baseline has https://github.com/jenkinsci/jenkins/pull/3099
     @Deprecated
     @Override public String getWhyBlocked() {
         CauseOfBlockage c = getCauseOfBlockage();
@@ -393,6 +363,12 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements B
         return hasPermission(CANCEL);
     }
 
+    /**
+     * @deprecated Just use {@link #CANCEL}.
+     */
+    @Deprecated
+    public static final Permission ABORT = CANCEL;
+    
     @Override public Collection<? extends SubTask> getSubTasks() {
         // TODO mostly copied from AbstractProject, except SubTaskContributor is not available:
         List<SubTask> subTasks = new ArrayList<>();
@@ -403,14 +379,7 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements B
         return subTasks;
     }
 
-    @Override public Authentication getDefaultAuthentication() {
-        return ACL.SYSTEM;
-    }
-
-    @Override public Authentication getDefaultAuthentication(Queue.Item item) {
-        return getDefaultAuthentication();
-    }
-
+    @SuppressFBWarnings(value="RCN_REDUNDANT_NULLCHECK_OF_NONNULL_VALUE", justification="TODO 1.653+ switch to Jenkins.getInstanceOrNull")
     @Override public Label getAssignedLabel() {
         Jenkins j = Jenkins.getInstance();
         if (j == null) {
@@ -423,16 +392,8 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements B
         return Jenkins.getInstance();
     }
 
-    @Override public Queue.Task getOwnerTask() {
-        return this;
-    }
-
     @Override public Object getSameNodeConstraint() {
         return this;
-    }
-
-    @Override public ResourceList getResourceList() {
-        return ResourceList.EMPTY;
     }
 
     @Override public String getPronoun() {
@@ -574,7 +535,13 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements B
         return typical;
     }
 
+    @SuppressFBWarnings(value="RCN_REDUNDANT_NULLCHECK_OF_NONNULL_VALUE", justification="TODO 1.653+ switch to Jenkins.getInstanceOrNull")
     @Override public PollingResult poll(TaskListener listener) {
+        if (!isBuildable()) {
+            listener.getLogger().println("Build disabled");
+            return PollingResult.NO_CHANGES;
+        }
+        // TODO 2.11+ call SCMDecisionHandler
         // TODO call SCMPollListener
         WorkflowRun lastBuild = getLastBuild();
         if (lastBuild == null) {
@@ -662,8 +629,9 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements B
     }
 
     @Override protected void performDelete() throws IOException, InterruptedException {
-        super.performDelete();
+        makeDisabled(true);
         // TODO call SCM.processWorkspaceBeforeDeletion
+        super.performDelete();
     }
 
     @Initializer(before=InitMilestone.EXTENSIONS_AUGMENTED)
@@ -675,7 +643,7 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements B
     @Extension(ordinal=1) public static final class DescriptorImpl extends TopLevelItemDescriptor {
 
         @Override public String getDisplayName() {
-            return "Pipeline";
+            return Messages.WorkflowJob_DisplayName();
         }
 
         @Override public TopLevelItem newInstance(ItemGroup parent, String name) {

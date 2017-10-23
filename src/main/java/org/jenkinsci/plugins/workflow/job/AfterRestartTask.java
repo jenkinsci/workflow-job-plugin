@@ -28,11 +28,8 @@ import hudson.model.Label;
 import hudson.model.Node;
 import hudson.model.Queue;
 import hudson.model.Queue.FlyweightTask;
-import hudson.model.ResourceList;
-import hudson.model.queue.AbstractQueueTask;
 import hudson.model.queue.CauseOfBlockage;
 import java.io.IOException;
-import org.acegisecurity.Authentication;
 import org.kohsuke.stapler.export.ExportedBean;
 
 /**
@@ -40,7 +37,7 @@ import org.kohsuke.stapler.export.ExportedBean;
  * Could be a {@code ContinuedTask}, though not really necessary since it is a {@link FlyweightTask} which would never be blocked anyway.
  */
 @ExportedBean
-class AfterRestartTask extends AbstractQueueTask implements Queue.FlyweightTask, Queue.TransientTask {
+class AfterRestartTask implements Queue.FlyweightTask, Queue.TransientTask {
 
     private final WorkflowRun run;
 
@@ -56,10 +53,12 @@ class AfterRestartTask extends AbstractQueueTask implements Queue.FlyweightTask,
         return getClass().hashCode() ^ run.hashCode();
     }
 
+    // TODO delete after baseline has https://github.com/jenkinsci/jenkins/pull/3099
     @Override public boolean isBuildBlocked() {
         return getCauseOfBlockage() != null;
     }
 
+    // TODO delete after baseline has https://github.com/jenkinsci/jenkins/pull/3099
     @Deprecated
     @Override public String getWhyBlocked() {
         CauseOfBlockage causeOfBlockage = getCauseOfBlockage();
@@ -102,16 +101,8 @@ class AfterRestartTask extends AbstractQueueTask implements Queue.FlyweightTask,
         return run.getParent().getEstimatedDuration();
     }
 
-    @Override public ResourceList getResourceList() {
-        return ResourceList.EMPTY;
-    }
-
     @Override public Queue.Executable createExecutable() throws IOException {
         return run;
-    }
-
-    @Override public Authentication getDefaultAuthentication(Queue.Item item) {
-        return getDefaultAuthentication();
     }
 
 }

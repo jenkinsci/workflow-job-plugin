@@ -71,7 +71,7 @@ public class PipelineTriggersJobProperty extends JobProperty<WorkflowJob> {
     }
 
     public void setTriggers(List<Trigger<?>> triggers) {
-        this.triggers = triggers;
+        this.triggers = new ArrayList<>(triggers);
     }
 
     public List<Trigger<?>> getTriggers() {
@@ -100,7 +100,11 @@ public class PipelineTriggersJobProperty extends JobProperty<WorkflowJob> {
 
     public void startTriggers(boolean newInstance) {
         for (Trigger trigger : triggers) {
-            trigger.start(owner, newInstance);
+            try {
+                trigger.start(owner, newInstance);
+            } catch (Exception ex) {
+                LOGGER.log(Level.SEVERE, "Can't start trigger.", ex);
+            }
         }
     }
 
@@ -158,7 +162,7 @@ public class PipelineTriggersJobProperty extends JobProperty<WorkflowJob> {
 
             thisProp.startTriggers(true);
             return thisProp;
-        } catch (IOException e) {
+        } catch (Exception e) {
             LOGGER.log(Level.WARNING, "could not configure triggers", e);
         }
 

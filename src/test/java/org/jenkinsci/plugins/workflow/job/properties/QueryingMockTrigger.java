@@ -51,7 +51,7 @@ public class QueryingMockTrigger extends Trigger<BuildableItem> {
 
     @Override public void start(BuildableItem project, boolean newInstance) {
         super.start(project, newInstance);
-        for (Trigger t : ((ParameterizedJobMixIn.ParameterizedJob)project).getTriggers().values()) {
+        for (Trigger<?> t : ((ParameterizedJobMixIn.ParameterizedJob<?, ?>) project).getTriggers().values()) {
             if (t instanceof QueryingMockTrigger) {
                 foundSelf = true;
             }
