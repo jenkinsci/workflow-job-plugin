@@ -49,6 +49,13 @@ public class WorkflowJobTest {
         assertEquals("Expecting zero SCMs",0, p.getSCMs().size());
     }
 
+    @Issue("JENKINS-37845")
+    @Test public void defaultToScmFromDefinition() throws Exception {
+        WorkflowJob p = j.jenkins.createProject(WorkflowJob.class, "p");
+        p.setDefinition(new CpsScmFlowDefinition(new GitSCM("https://sample.com/repository"), "Jenkinsfile"));
+        assertEquals("Expecting one SCM", 1, p.getSCMs().size());
+    }
+
     @Issue("JENKINS-34716")
     @Test public void polling() throws Exception {
         sampleRepo.init();

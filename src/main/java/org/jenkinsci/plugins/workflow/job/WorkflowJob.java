@@ -71,6 +71,7 @@ import hudson.util.DescribableList;
 import hudson.widgets.HistoryWidget;
 import java.io.File;
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -89,6 +90,7 @@ import jenkins.model.lazy.LazyBuildMixIn;
 import jenkins.triggers.SCMTriggerItem;
 import net.sf.json.JSONObject;
 import org.jenkinsci.plugins.workflow.flow.FlowDefinition;
+import org.jenkinsci.plugins.workflow.cps.CpsScmFlowDefinition;
 import org.jenkinsci.plugins.workflow.flow.FlowDefinitionDescriptor;
 import org.jenkinsci.plugins.workflow.job.properties.DisableConcurrentBuildsJobProperty;
 import org.jenkinsci.plugins.workflow.job.properties.PipelineTriggersJobProperty;
@@ -512,6 +514,9 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements L
         WorkflowRun b = getLastSuccessfulBuild();
         if (b == null) {
             b = getLastCompletedBuild();
+        }
+        if (b == null && definition instanceof CpsScmFlowDefinition) {
+            return Arrays.asList( ((CpsScmFlowDefinition)definition).getScm() );
         }
         if (b == null) {
             return Collections.emptySet();
