@@ -23,13 +23,12 @@ THE SOFTWARE.
 -->
 <?jelly escape-by-default='true'?>
 <j:jelly xmlns:j="jelly:core" xmlns:st="jelly:stapler" xmlns:d="jelly:define" xmlns:l="/lib/layout" xmlns:t="/lib/hudson" xmlns:f="/lib/form">
-    <f:entry title="${%Durability Hint}" field="durabilityHint">
+    <f:entry title="${%Durability Hint}" field="hint">
         <!-- TODO figure out how to set default correctly with this -->
-        <select class="setting-input" name="durabilityHint">
-            Name is: ${descriptor.durabilityHintValues}
+        <select class="setting-input" name="hint">
             <j:forEach var="it" items="${descriptor.durabilityHintValues}">
                 <f:option value="${it.name()}" selected="${instance != null ? it==instance[field] : it.name()==default}">
-                    ${it.description()}
+                    ${it.description}
                 </f:option>
             </j:forEach>
         </select>
