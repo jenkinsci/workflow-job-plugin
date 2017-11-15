@@ -608,6 +608,12 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
 
     static class DeadFlowExecution extends FlowExecution {
 
+        Authentication myAuth;
+
+        DeadFlowExecution(Authentication auth) {
+            this.myAuth = auth;
+        }
+
         @Override
         public void start() throws IOException {
 
@@ -644,7 +650,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
         @Nonnull
         @Override
         public Authentication getAuthentication() {
-            return this.getAuthentication();
+            return myAuth;
         }
 
         @Override
@@ -1009,7 +1015,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
             if (exec != null) {
                 return exec;
             } else if (!run().getParent().isResumeEnabled()) {
-                return new DeadFlowExecution();
+                return new DeadFlowExecution(Jenkins.getAuthentication());
             } else {
                 throw new IOException(r + " did not yet start");
             }
