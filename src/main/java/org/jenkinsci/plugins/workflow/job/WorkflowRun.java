@@ -263,7 +263,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
                 throw new AbortException("No flow definition, cannot run");
             }
             if (!getParent().isResumeEnabled()) {
-                definition.setDurabilityHint(FlowDurabilityHint.NO_PROMISES);
+                definition.setDurabilityHint(new FlowDurabilityHint.SurviveCleanRestart());
             } else {
                 DurabilityHintJobProperty hint = getParent().getProperty(DurabilityHintJobProperty.class);
                 if (hint != null) {
