@@ -26,12 +26,14 @@ package org.jenkinsci.plugins.workflow.job.properties;
 
 import hudson.Extension;
 import hudson.ExtensionList;
+import jenkins.model.Jenkins;
 import jenkins.model.OptionalJobProperty;
 import org.jenkinsci.Symbol;
 import org.jenkinsci.plugins.workflow.flow.FlowDurabilityHint;
 import org.jenkinsci.plugins.workflow.job.WorkflowJob;
 import org.kohsuke.stapler.DataBoundConstructor;
 
+import javax.annotation.CheckForNull;
 import javax.annotation.Nonnull;
 import java.util.List;
 
@@ -48,8 +50,16 @@ public class DurabilityHintJobProperty extends OptionalJobProperty<WorkflowJob> 
     }
 
     @DataBoundConstructor
+    public DurabilityHintJobProperty(@Nonnull String hint) {
+        this.hint = DescriptorImpl.getDurabilityHintForName(hint);
+    }
+
     public DurabilityHintJobProperty(@Nonnull FlowDurabilityHint hint) {
         this.hint = hint;
+    }
+
+    public String getHintName() {
+        return hint.getName();
     }
 
     @Extension
@@ -57,11 +67,26 @@ public class DurabilityHintJobProperty extends OptionalJobProperty<WorkflowJob> 
     public static class DescriptorImpl extends OptionalJobProperty.OptionalJobPropertyDescriptor {
 
         public List<FlowDurabilityHint> getDurabilityHintValues() {
-            return FlowDurabilityHint.all();
+            return FlowDurabilityHint.allSorted();
+        }
+
+        @CheckForNull
+        public static FlowDurabilityHint getDurabilityHintForName(String hintName) {
+            for (FlowDurabilityHint hint : FlowDurabilityHint.all()) {
+                if (hint.getName().equals(hintName)) {
+                    return hint;
+                }
+            }
+            System.out.println("No hint for name: "+hintName);
+            return null;
+        }
+
+        public static String getDefaultHintName() {
+            return Jenkins.getInstance().getExtensionList(FlowDurabilityHint.FullyDurable.class).get(0).getName();
         }
 
         @Override public String getDisplayName() {
-            return "How hard should we try to render the pipeline nondurable?";
+            return "How hard should we try to render the pipeline durable?";
         }
 
     }
