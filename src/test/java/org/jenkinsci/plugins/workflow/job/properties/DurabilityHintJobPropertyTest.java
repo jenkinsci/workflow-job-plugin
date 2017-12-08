@@ -1,7 +1,9 @@
 package org.jenkinsci.plugins.workflow.job.properties;
 
+import org.jenkinsci.plugins.workflow.cps.CpsFlowDefinition;
 import org.jenkinsci.plugins.workflow.flow.FlowDurabilityHint;
 import org.jenkinsci.plugins.workflow.job.WorkflowJob;
+import org.junit.Assert;
 import org.junit.ClassRule;
 import org.junit.Rule;
 import org.junit.Test;
@@ -18,8 +20,10 @@ public class DurabilityHintJobPropertyTest {
     public JenkinsRule r = new JenkinsRule();
 
     @Test
-    public void configRoundTrip() throws Exception{
+    public void configRoundTripAndRun() throws Exception{
         WorkflowJob defaultCase = r.jenkins.createProject(WorkflowJob.class, "testCase");
+        defaultCase.setDefinition(new CpsFlowDefinition("echo 'cheese is delicious'", false));
+
         assertNull(defaultCase.getProperty(DurabilityHintJobProperty.class));
 
         for (FlowDurabilityHint hint : FlowDurabilityHint.values()) {
@@ -28,6 +32,10 @@ public class DurabilityHintJobPropertyTest {
                 assertEquals(hint, defaultCase.getProperty(DurabilityHintJobProperty.class).getHint());
                 r.configRoundtrip(defaultCase);
                 assertEquals(hint, defaultCase.getProperty(DurabilityHintJobProperty.class).getHint());
+
+                r.buildAndAssertSuccess(defaultCase);
+                Assert.assertEquals(hint, defaultCase.getLastBuild().getExecution().getDurabilityHint());
+
                 defaultCase.removeProperty(DurabilityHintJobProperty.class);
                 assertNull(defaultCase.getProperty(DurabilityHintJobProperty.class));
             } catch (Exception ex) {
