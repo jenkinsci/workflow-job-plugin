@@ -265,18 +265,27 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
             if (definition == null) {
                 throw new AbortException("No flow definition, cannot run");
             }
+
+            boolean loggedHintOverride = false;
             if (!getParent().isResumeEnabled()) {
                 definition.setDurabilityHint(FlowDurabilityHint.PERFORMANCE_OPTIMIZED);
+                listener.getLogger().println("Resume disabled by user, switching to high-performance, low-durability mode.");
+                loggedHintOverride = true;
             } else {
                 DurabilityHintJobProperty hint = getParent().getProperty(DurabilityHintJobProperty.class);
                 if (hint != null) {
                     definition.setDurabilityHint(hint.getHint());
+                    listener.getLogger().println("Pipeline Durability Level set by property: "+hint.getHint());
+                    loggedHintOverride = true;
                 }
             }
 
             Owner owner = new Owner(this);
             
             FlowExecution newExecution = definition.create(owner, listener, getAllActions());
+            if (!loggedHintOverride) {
+                listener.getLogger().println("Running in Durability level: "+definition.getDurabilityHint());
+            }
             FlowExecutionList.get().register(owner);
             newExecution.addListener(new GraphL());
             completed = new AtomicBoolean();
