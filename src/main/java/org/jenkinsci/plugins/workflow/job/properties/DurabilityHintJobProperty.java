@@ -30,6 +30,7 @@ import jenkins.model.Jenkins;
 import jenkins.model.OptionalJobProperty;
 import org.jenkinsci.Symbol;
 import org.jenkinsci.plugins.workflow.flow.FlowDurabilityHint;
+import org.jenkinsci.plugins.workflow.flow.GlobalDefaultFlowDurabilityLevel;
 import org.jenkinsci.plugins.workflow.job.WorkflowJob;
 import org.kohsuke.stapler.DataBoundConstructor;
 
@@ -50,10 +51,6 @@ public class DurabilityHintJobProperty extends OptionalJobProperty<WorkflowJob> 
     }
 
     @DataBoundConstructor
-    public DurabilityHintJobProperty(@Nonnull String hint) {
-        this.hint = DescriptorImpl.getDurabilityHintForName(hint);
-    }
-
     public DurabilityHintJobProperty(@Nonnull FlowDurabilityHint hint) {
         this.hint = hint;
     }
@@ -64,29 +61,19 @@ public class DurabilityHintJobProperty extends OptionalJobProperty<WorkflowJob> 
 
     @Extension
     @Symbol("durabilityHint")
+
     public static class DescriptorImpl extends OptionalJobProperty.OptionalJobPropertyDescriptor {
 
-        public List<FlowDurabilityHint> getDurabilityHintValues() {
-            return FlowDurabilityHint.allSorted();
+        public FlowDurabilityHint[] getDurabilityHintValues() {
+            return FlowDurabilityHint.values();
         }
 
-        @CheckForNull
-        public static FlowDurabilityHint getDurabilityHintForName(String hintName) {
-            for (FlowDurabilityHint hint : FlowDurabilityHint.all()) {
-                if (hint.getName().equals(hintName)) {
-                    return hint;
-                }
-            }
-            System.out.println("No hint for name: "+hintName);
-            return null;
-        }
-
-        public static String getDefaultHintName() {
-            return Jenkins.getInstance().getExtensionList(FlowDurabilityHint.FullyDurable.class).get(0).getName();
+        public static FlowDurabilityHint getDefaultDurabilityHint() {
+            return GlobalDefaultFlowDurabilityLevel.getDefaultDurabilityHint();
         }
 
         @Override public String getDisplayName() {
-            return "How hard should we try to render the pipeline durable?";
+            return "Pipeline durability override";
         }
 
     }

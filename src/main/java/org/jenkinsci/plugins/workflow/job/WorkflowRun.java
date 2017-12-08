@@ -34,6 +34,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import hudson.AbortException;
+import hudson.BulkChange;
 import hudson.EnvVars;
 import hudson.Extension;
 import hudson.FilePath;
@@ -55,6 +56,7 @@ import hudson.model.TaskListener;
 import hudson.model.User;
 import hudson.model.listeners.RunListener;
 import hudson.model.listeners.SCMListener;
+import hudson.model.listeners.SaveableListener;
 import hudson.scm.ChangeLogSet;
 import hudson.scm.SCM;
 import hudson.scm.SCMRevisionState;
@@ -125,6 +127,7 @@ import org.jenkinsci.plugins.workflow.job.properties.DurabilityHintJobProperty;
 import org.jenkinsci.plugins.workflow.steps.FlowInterruptedException;
 import org.jenkinsci.plugins.workflow.steps.StepContext;
 import org.jenkinsci.plugins.workflow.steps.StepExecution;
+import org.jenkinsci.plugins.workflow.support.PipelineIOUtils;
 import org.jenkinsci.plugins.workflow.support.concurrent.Futures;
 import org.jenkinsci.plugins.workflow.support.steps.input.POSTHyperlinkNote;
 import org.kohsuke.accmod.Restricted;
@@ -263,7 +266,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
                 throw new AbortException("No flow definition, cannot run");
             }
             if (!getParent().isResumeEnabled()) {
-                definition.setDurabilityHint(new FlowDurabilityHint.SurviveCleanRestart());
+                definition.setDurabilityHint(FlowDurabilityHint.PERFORMANCE_OPTIMIZED);
             } else {
                 DurabilityHintJobProperty hint = getParent().getProperty(DurabilityHintJobProperty.class);
                 if (hint != null) {
@@ -1128,6 +1131,23 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
                 ((WorkflowRun)copy).checkouts(null).addAll(((WorkflowRun)original).checkouts(null));
             }
         }
+    }
 
+    @Override
+    public synchronized void save() throws IOException {
+
+        if(BulkChange.contains(this))   return;
+        File loc = new File(getRootDir(),"build.xml");
+        XmlFile file = new XmlFile(XSTREAM,loc);
+
+        boolean isAtomic = true;
+
+        if (this.execution != null) {
+            FlowDurabilityHint hint = this.execution.getDurabilityHint();
+            isAtomic = hint.isAtomicWrite();
+        }
+
+        PipelineIOUtils.writeByXStream(this, loc, XSTREAM2, isAtomic);
+        SaveableListener.fireOnChange(this, file);
     }
 }

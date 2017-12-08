@@ -22,9 +22,9 @@ public class DurabilityHintJobPropertyTest {
         WorkflowJob defaultCase = r.jenkins.createProject(WorkflowJob.class, "testCase");
         assertNull(defaultCase.getProperty(DurabilityHintJobProperty.class));
 
-        for (FlowDurabilityHint hint : FlowDurabilityHint.all()) {
+        for (FlowDurabilityHint hint : FlowDurabilityHint.values()) {
             try {
-                defaultCase.addProperty(new DurabilityHintJobProperty(hint.getName()));
+                defaultCase.addProperty(new DurabilityHintJobProperty(hint));
                 assertEquals(hint, defaultCase.getProperty(DurabilityHintJobProperty.class).getHint());
                 r.configRoundtrip(defaultCase);
                 assertEquals(hint, defaultCase.getProperty(DurabilityHintJobProperty.class).getHint());
