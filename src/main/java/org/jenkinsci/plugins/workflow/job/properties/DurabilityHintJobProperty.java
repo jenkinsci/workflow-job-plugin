@@ -55,10 +55,6 @@ public class DurabilityHintJobProperty extends OptionalJobProperty<WorkflowJob> 
         this.hint = hint;
     }
 
-    public String getHintName() {
-        return hint.getName();
-    }
-
     @Extension
     @Symbol("durabilityHint")
 
@@ -73,7 +69,7 @@ public class DurabilityHintJobProperty extends OptionalJobProperty<WorkflowJob> 
         }
 
         @Override public String getDisplayName() {
-            return "Pipeline durability override";
+            return "Pipeline speed/durability override";
         }
 
     }
