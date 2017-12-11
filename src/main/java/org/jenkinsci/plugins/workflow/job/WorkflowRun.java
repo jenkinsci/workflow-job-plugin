@@ -549,7 +549,9 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
         }
         if (modified) {
             try {
-                save();
+                if (this.execution != null && this.execution.getDurabilityHint().isPersistWithEveryStep()) {
+                    save();
+                }
             } catch (IOException x) {
                 LOGGER.log(Level.WARNING, null, x);
             }
