@@ -90,7 +90,7 @@ public class WorkflowRunRestartTest {
         });
         story.then(r -> {
             WorkflowJob p = r.jenkins.getItemByFullName("p", WorkflowJob.class);
-            assertFalse(p.isResumeEnabled());
+            assertFalse(p.isResumeBlocked());
             WorkflowRun b = p.getBuildByNumber(1);
             r.waitForCompletion(b);
             assertFalse(b.isBuilding());

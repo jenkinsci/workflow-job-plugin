@@ -89,6 +89,7 @@ import jenkins.model.lazy.LazyBuildMixIn;
 import jenkins.triggers.SCMTriggerItem;
 import net.sf.json.JSONObject;
 import org.acegisecurity.Authentication;
+import org.jenkinsci.plugins.workflow.flow.BlockableResume;
 import org.jenkinsci.plugins.workflow.flow.FlowDefinition;
 import org.jenkinsci.plugins.workflow.flow.FlowDefinitionDescriptor;
 import org.jenkinsci.plugins.workflow.job.properties.DisableConcurrentBuildsJobProperty;
@@ -102,7 +103,7 @@ import org.kohsuke.stapler.StaplerResponse;
 import org.kohsuke.stapler.export.Exported;
 
 @SuppressWarnings({"unchecked", "rawtypes"})
-public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements LazyBuildMixIn.LazyLoadingJob<WorkflowJob,WorkflowRun>, ParameterizedJobMixIn.ParameterizedJob<WorkflowJob, WorkflowRun>, TopLevelItem, Queue.FlyweightTask, SCMTriggerItem {
+public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements LazyBuildMixIn.LazyLoadingJob<WorkflowJob,WorkflowRun>, ParameterizedJobMixIn.ParameterizedJob<WorkflowJob, WorkflowRun>, TopLevelItem, Queue.FlyweightTask, SCMTriggerItem, BlockableResume {
 
     private static final Logger LOGGER = Logger.getLogger(WorkflowJob.class.getName());
 
@@ -324,24 +325,29 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements L
     }
 
     @Exported
-    public boolean isResumeEnabled() {
-        return getProperty(DisableResumeJobProperty.class) == null;
+    public boolean isResumeBlocked() {
+        return getProperty(DisableResumeJobProperty.class) != null;
     }
 
-    public void setResumeEnabled(boolean resumeEnabled) throws IOException {
-        boolean previousState = isResumeEnabled();
-        if (resumeEnabled != previousState) {
-            BulkChange bc = new BulkChange(this);
-            try {
-                removeProperty(DisableResumeJobProperty.class);
-                if (!resumeEnabled) {
-                    addProperty(new DisableResumeJobProperty());
+    public void setResumeBlocked(boolean resumeBlocked)  {
+        try {
+            boolean previousState = isResumeBlocked();
+            if (resumeBlocked != previousState) {
+                BulkChange bc = new BulkChange(this);
+                try {
+                    removeProperty(DisableResumeJobProperty.class);
+                    if (resumeBlocked) {
+                        addProperty(new DisableResumeJobProperty());
+                    }
+                    bc.commit();
+                } finally {
+                    bc.abort();
                 }
-                bc.commit();
-            } finally {
-                bc.abort();
             }
+        } catch (IOException ioe) {
+            LOGGER.log(Level.WARNING, "Error persisting resume property statue", ioe);
         }
+
     }
 
     public void setConcurrentBuild(boolean b) throws IOException {
