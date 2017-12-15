@@ -266,7 +266,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
             }
 
             boolean loggedHintOverride = false;
-            if (!getParent().isResumeBlocked()) {
+            if (getParent().isResumeBlocked()) {
                 definition.setDurabilityHint(FlowDurabilityHint.PERFORMANCE_OPTIMIZED);
                 listener.getLogger().println("Resume disabled by user, switching to high-performance, low-durability mode.");
                 loggedHintOverride = true;
@@ -285,7 +285,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
             if (!loggedHintOverride) {
                 listener.getLogger().println("Running in Durability level: "+definition.getDurabilityHint());
             }
-            if (!getParent().isResumeBlocked()) {
+            if (getParent().isResumeBlocked()) {
                 if (newExecution instanceof BlockableResume) {
                     ((BlockableResume) newExecution).setResumeBlocked(true);
                 }
@@ -643,7 +643,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
         FlowExecution fetchedExecution = execution;
         if (fetchedExecution != null) {
             try {
-                if (!getParent().isResumeBlocked() && execution instanceof BlockableResume) {
+                if (getParent().isResumeBlocked() && execution instanceof BlockableResume) {
                     ((BlockableResume) execution).setResumeBlocked(true);
                 }
                 fetchedExecution.onLoad(new Owner(this));
