@@ -94,7 +94,7 @@ public class WorkflowRunRestartTest {
             WorkflowRun b = p.getBuildByNumber(1);
             r.waitForCompletion(b);
             assertFalse(b.isBuilding());
-            assertEquals(Result.FAILURE, b.getResult());
+            assertEquals(Result.ABORTED, b.getResult());
         });
     }
 

@@ -96,7 +96,8 @@
         <dependency>
             <groupId>org.jenkins-ci.plugins.workflow</groupId>
             <artifactId>workflow-cps</artifactId>
-            <version>2.43-durability-v3-20171214.232951-2</version>
+            <!-- Temp version until https://github.com/jenkinsci/workflow-cps-plugin/pull/188 -->
+            <version>2.43-durability-v3-20171215.161411-3</version>
             <scope>test</scope>
         </dependency>
         <dependency>
