@@ -84,17 +84,17 @@ public class WorkflowRunRestartTest {
         story.then(r -> {
             WorkflowJob p = r.jenkins.createProject(WorkflowJob.class, "p");
             p.setDefinition(new CpsFlowDefinition("node {semaphore 'wait'}", true));
-            p.setResumeEnabled(false);
+            p.setResumeBlocked(true);
             WorkflowRun b = p.scheduleBuild2(0).waitForStart();
             SemaphoreStep.waitForStart("wait/1", b);
         });
         story.then(r -> {
             WorkflowJob p = r.jenkins.getItemByFullName("p", WorkflowJob.class);
-            assertFalse(p.isResumeEnabled());
+            assertTrue(p.isResumeBlocked());
             WorkflowRun b = p.getBuildByNumber(1);
             r.waitForCompletion(b);
             assertFalse(b.isBuilding());
-            assertEquals(Result.FAILURE, b.getResult());
+            assertEquals(Result.ABORTED, b.getResult());
         });
     }
 
