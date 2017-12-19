@@ -109,6 +109,7 @@ import org.jenkinsci.plugins.workflow.actions.LogAction;
 import org.jenkinsci.plugins.workflow.actions.ThreadNameAction;
 import org.jenkinsci.plugins.workflow.actions.TimingAction;
 import org.jenkinsci.plugins.workflow.flow.BlockableResume;
+import org.jenkinsci.plugins.workflow.flow.DurabilityHintProvider;
 import org.jenkinsci.plugins.workflow.flow.FlowCopier;
 import org.jenkinsci.plugins.workflow.flow.FlowDefinition;
 import org.jenkinsci.plugins.workflow.flow.FlowDurabilityHint;
@@ -265,30 +266,19 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
                 throw new AbortException("No flow definition, cannot run");
             }
 
-            boolean loggedHintOverride = false;
-            if (getParent().isResumeBlocked()) {
-                definition.setDurabilityHint(FlowDurabilityHint.PERFORMANCE_OPTIMIZED);
-                listener.getLogger().println("Resume disabled by user, switching to high-performance, low-durability mode.");
-                loggedHintOverride = true;
-            } else {
-                DurabilityHintJobProperty hint = getParent().getProperty(DurabilityHintJobProperty.class);
-                if (hint != null) {
-                    definition.setDurabilityHint(hint.getHint());
-                    listener.getLogger().println("Pipeline Durability Level set by property: "+hint.getHint());
-                    loggedHintOverride = true;
-                }
-            }
-
             Owner owner = new Owner(this);
-            
             FlowExecution newExecution = definition.create(owner, listener, getAllActions());
-            if (!loggedHintOverride) {
-                listener.getLogger().println("Running in Durability level: "+definition.getDurabilityHint());
-            }
+
+            boolean loggedHintOverride = false;
             if (getParent().isResumeBlocked()) {
                 if (newExecution instanceof BlockableResume) {
                     ((BlockableResume) newExecution).setResumeBlocked(true);
+                    listener.getLogger().println("Resume disabled by user, switching to high-performance, low-durability mode.");
+                    loggedHintOverride = true;
                 }
+            }
+            if (!loggedHintOverride) {  // Avoid double-logging
+                listener.getLogger().println("Running in Durability level: "+DurabilityHintProvider.suggestedFor(this.project));
             }
 
             FlowExecutionList.get().register(owner);

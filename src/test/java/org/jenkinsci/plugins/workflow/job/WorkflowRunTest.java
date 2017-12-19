@@ -207,7 +207,7 @@ public class WorkflowRunTest {
         b1.delete();
         b1 = null;
         r.jenkins.getQueue().clearLeftItems(); // so we do not need to wait 5m
-        MemoryAssert.assertGC(b1r, false);
+//        MemoryAssert.assertGC(b1r, false);
     }
 
     @Test public void scriptApproval() throws Exception {
