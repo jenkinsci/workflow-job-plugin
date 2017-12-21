@@ -424,6 +424,13 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
                 nodeProperty.buildEnvVars(env, listener);
             }
         }
+        // TODO EnvironmentContributingAction does not support Job yet:
+        ParametersAction a = getAction(ParametersAction.class);
+        if (a != null) {
+            for (ParameterValue v : a) {
+                v.buildEnvironment(this, env);
+            }
+        }
 
         EnvVars.resolve(env);
         return env;
