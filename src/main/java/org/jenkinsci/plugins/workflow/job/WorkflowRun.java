@@ -44,8 +44,6 @@ import hudson.console.LineTransformationOutputStream;
 import hudson.console.ModelHyperlinkNote;
 import hudson.model.Executor;
 import hudson.model.Item;
-import hudson.model.ParameterValue;
-import hudson.model.ParametersAction;
 import hudson.model.Queue;
 import hudson.model.Result;
 import hudson.model.Run;
@@ -424,13 +422,6 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
         if (instance != null) {
             for (NodeProperty nodeProperty : instance.getGlobalNodeProperties()) {
                 nodeProperty.buildEnvVars(env, listener);
-            }
-        }
-        // TODO EnvironmentContributingAction does not support Job yet:
-        ParametersAction a = getAction(ParametersAction.class);
-        if (a != null) {
-            for (ParameterValue v : a) {
-                v.buildEnvironment(this, env);
             }
         }
 
