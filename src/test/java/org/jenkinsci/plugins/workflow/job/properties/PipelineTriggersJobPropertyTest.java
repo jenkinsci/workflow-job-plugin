@@ -38,6 +38,7 @@ import org.junit.ClassRule;
 import org.junit.Rule;
 import org.junit.Test;
 import org.jvnet.hudson.test.BuildWatcher;
+import org.jvnet.hudson.test.Issue;
 import org.jvnet.hudson.test.JenkinsRule;
 import org.jvnet.hudson.test.recipes.LocalData;
 
@@ -93,10 +94,10 @@ public class PipelineTriggersJobPropertyTest {
         t = (MockTrigger) p.getTriggers().get(t.getDescriptor());
         assertNotNull(t);
         // The  first "null, false" is due to the p.addTrigger(t) call and won't apply in the real world.
-        assertEquals("[null, false, null, true]", MockTrigger.startsAndStops.toString());
+        assertEquals("[null, false, null, true, null, false]", MockTrigger.startsAndStops.toString());
         Boolean currentStatus = t.currentStatus();
         assertNotNull(currentStatus);
-        assertTrue(currentStatus);
+        assertFalse(currentStatus);
     }
 
     @Test
@@ -159,9 +160,11 @@ public class PipelineTriggersJobPropertyTest {
     public void configRoundTrip() throws Exception {
         WorkflowJob defaultCase = r.jenkins.createProject(WorkflowJob.class, "defaultCase");
         assertTrue(defaultCase.getTriggers().isEmpty());
+        assertNull(defaultCase.getProperty(PipelineTriggersJobProperty.class));
 
         WorkflowJob roundTripDefault = r.configRoundtrip(defaultCase);
         assertTrue(roundTripDefault.getTriggers().isEmpty());
+        assertNull(defaultCase.getProperty(PipelineTriggersJobProperty.class));
 
         WorkflowJob withTriggerCase = r.jenkins.createProject(WorkflowJob.class, "withTriggerCase");
         withTriggerCase.addTrigger(new MockTrigger());
@@ -179,13 +182,13 @@ public class PipelineTriggersJobPropertyTest {
         assertNotNull(((MockTrigger)modTriggers.get(0)).currentStatus());
 
         // The  first "null, false" is due to the p.addTrigger(t) call and won't apply in the real world.
-        assertEquals("[null, false, null, true]", MockTrigger.startsAndStops.toString());
+        assertEquals("[null, false, null, true, null, false]", MockTrigger.startsAndStops.toString());
     }
 
+    @Issue("JENKINS-42446")
     @Test
     public void triggerPresentDuringStart() throws Exception {
         WorkflowJob p = r.jenkins.createProject(WorkflowJob.class, "triggerPresent");
-        r.configRoundtrip(p);
         assertNull(getTriggerFromList(QueryingMockTrigger.class,
                 p.getTriggersJobProperty().getTriggers()));
         JenkinsRule.WebClient wc = r.createWebClient();

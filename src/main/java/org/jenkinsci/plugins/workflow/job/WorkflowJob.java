@@ -47,7 +47,6 @@ import hudson.model.JobProperty;
 import hudson.model.Label;
 import hudson.model.Node;
 import hudson.model.Queue;
-import hudson.model.ResourceList;
 import hudson.model.Run;
 import hudson.model.RunMap;
 import hudson.model.TaskListener;
@@ -62,6 +61,7 @@ import hudson.scm.SCM;
 import hudson.scm.SCMRevisionState;
 import hudson.search.SearchIndexBuilder;
 import hudson.security.ACL;
+import hudson.security.Permission;
 import hudson.slaves.WorkspaceList;
 import hudson.triggers.SCMTrigger;
 import hudson.triggers.Trigger;
@@ -188,8 +188,9 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements L
         } else {
             quietPeriod = null;
         }
-
         makeDisabled(json.optBoolean("disable"));
+        getTriggersJobProperty().stopTriggers();
+        getTriggersJobProperty().startTriggers(Items.currentlyUpdatingByXml());
     }
 
 
@@ -299,10 +300,12 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements L
         save();
     }
 
+    // TODO delete after baseline has https://github.com/jenkinsci/jenkins/pull/3099
     @Override public boolean isBuildBlocked() {
         return getCauseOfBlockage() != null;
     }
 
+    // TODO delete after baseline has https://github.com/jenkinsci/jenkins/pull/3099
     @Deprecated
     @Override public String getWhyBlocked() {
         CauseOfBlockage c = getCauseOfBlockage();
@@ -390,6 +393,12 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements L
         return hasPermission(CANCEL);
     }
 
+    /**
+     * @deprecated Just use {@link #CANCEL}.
+     */
+    @Deprecated
+    public static final Permission ABORT = CANCEL;
+    
     @Override public Collection<? extends SubTask> getSubTasks() {
         // TODO mostly copied from AbstractProject, except SubTaskContributor is not available:
         List<SubTask> subTasks = new ArrayList<>();
@@ -398,14 +407,6 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements L
             subTasks.addAll(p.getSubTasks());
         }
         return subTasks;
-    }
-
-    @Override public Authentication getDefaultAuthentication() {
-        return ACL.SYSTEM;
-    }
-
-    @Override public Authentication getDefaultAuthentication(Queue.Item item) {
-        return getDefaultAuthentication();
     }
 
     @SuppressFBWarnings(value="RCN_REDUNDANT_NULLCHECK_OF_NONNULL_VALUE", justification="TODO 1.653+ switch to Jenkins.getInstanceOrNull")
@@ -421,16 +422,8 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements L
         return Jenkins.getInstance();
     }
 
-    @Override public Queue.Task getOwnerTask() {
-        return this;
-    }
-
     @Override public Object getSameNodeConstraint() {
         return this;
-    }
-
-    @Override public ResourceList getResourceList() {
-        return ResourceList.EMPTY;
     }
 
     @Override public String getPronoun() {
