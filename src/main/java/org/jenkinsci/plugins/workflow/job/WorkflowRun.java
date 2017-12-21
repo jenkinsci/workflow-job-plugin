@@ -44,6 +44,8 @@ import hudson.console.LineTransformationOutputStream;
 import hudson.console.ModelHyperlinkNote;
 import hudson.model.Executor;
 import hudson.model.Item;
+import hudson.model.ParameterValue;
+import hudson.model.ParametersAction;
 import hudson.model.Queue;
 import hudson.model.Result;
 import hudson.model.Run;
