@@ -996,7 +996,10 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
                 copyLogs();
                 logsToCopy.put(node.getId(), 0L);
             }
-            node.addAction(new TimingAction());
+
+            if (node.getPersistentAction(TimingAction.class) == null) {
+                node.addAction(new TimingAction());
+            }
 
             logNodeMessage(node);
             if (node instanceof FlowEndNode) {
