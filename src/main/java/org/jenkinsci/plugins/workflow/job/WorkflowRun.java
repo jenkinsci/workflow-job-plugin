@@ -670,6 +670,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
             listener.closeQuietly();
         }
         logsToCopy = null;
+        logPrefixCache = null;
         try {
             save();
         } catch (Exception x) {
