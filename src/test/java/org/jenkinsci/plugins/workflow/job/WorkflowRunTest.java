@@ -210,18 +210,7 @@ public class WorkflowRunTest {
         assertSame(color, b.getParent().getIconColor());
     }
 
-    @Ignore(value = "The framework used for memory testing here seems to be functionally broken and all signs from other tests are that we do NOT have memory leaks.")
-    @Test public void cleanup() throws Exception {
-        logging.record("", Level.INFO).capture(256); // like WebAppMain would do, if in a real instance rather than JenkinsRule
-        WorkflowJob p = r.jenkins.createProject(WorkflowJob.class, "p");
-        p.setDefinition(new CpsFlowDefinition("", true));
-        WorkflowRun b1 = r.buildAndAssertSuccess(p);
-        WeakReference<WorkflowRun> b1r = new WeakReference<>(b1);
-        b1.delete();
-        b1 = null;
-        r.jenkins.getQueue().clearLeftItems(); // so we do not need to wait 5m
-        MemoryAssert.assertGC(b1r, false);
-    }
+
 
     @Test public void scriptApproval() throws Exception {
         r.jenkins.setSecurityRealm(r.createDummySecurityRealm());
