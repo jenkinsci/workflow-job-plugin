@@ -34,6 +34,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import hudson.AbortException;
+import hudson.BulkChange;
 import hudson.EnvVars;
 import hudson.Extension;
 import hudson.FilePath;
@@ -54,6 +55,7 @@ import hudson.model.TaskListener;
 import hudson.model.User;
 import hudson.model.listeners.RunListener;
 import hudson.model.listeners.SCMListener;
+import hudson.model.listeners.SaveableListener;
 import hudson.scm.ChangeLogSet;
 import hudson.scm.SCM;
 import hudson.scm.SCMRevisionState;
@@ -106,8 +108,11 @@ import org.jenkinsci.plugins.workflow.FilePathUtils;
 import org.jenkinsci.plugins.workflow.actions.LogAction;
 import org.jenkinsci.plugins.workflow.actions.ThreadNameAction;
 import org.jenkinsci.plugins.workflow.actions.TimingAction;
+import org.jenkinsci.plugins.workflow.flow.BlockableResume;
+import org.jenkinsci.plugins.workflow.flow.DurabilityHintProvider;
 import org.jenkinsci.plugins.workflow.flow.FlowCopier;
 import org.jenkinsci.plugins.workflow.flow.FlowDefinition;
+import org.jenkinsci.plugins.workflow.flow.FlowDurabilityHint;
 import org.jenkinsci.plugins.workflow.flow.FlowExecution;
 import org.jenkinsci.plugins.workflow.flow.FlowExecutionList;
 import org.jenkinsci.plugins.workflow.flow.FlowExecutionListener;
@@ -118,9 +123,11 @@ import org.jenkinsci.plugins.workflow.graph.BlockEndNode;
 import org.jenkinsci.plugins.workflow.graph.FlowEndNode;
 import org.jenkinsci.plugins.workflow.graph.FlowNode;
 import org.jenkinsci.plugins.workflow.job.console.WorkflowConsoleLogger;
+import org.jenkinsci.plugins.workflow.job.properties.DurabilityHintJobProperty;
 import org.jenkinsci.plugins.workflow.steps.FlowInterruptedException;
 import org.jenkinsci.plugins.workflow.steps.StepContext;
 import org.jenkinsci.plugins.workflow.steps.StepExecution;
+import org.jenkinsci.plugins.workflow.support.PipelineIOUtils;
 import org.jenkinsci.plugins.workflow.support.concurrent.Futures;
 import org.jenkinsci.plugins.workflow.support.concurrent.WithThreadName;
 import org.jenkinsci.plugins.workflow.support.steps.input.POSTHyperlinkNote;
@@ -259,9 +266,22 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
             if (definition == null) {
                 throw new AbortException("No flow definition, cannot run");
             }
+
             Owner owner = new Owner(this);
-            
             FlowExecution newExecution = definition.create(owner, listener, getAllActions());
+
+            boolean loggedHintOverride = false;
+            if (getParent().isResumeBlocked()) {
+                if (newExecution instanceof BlockableResume) {
+                    ((BlockableResume) newExecution).setResumeBlocked(true);
+                    listener.getLogger().println("Resume disabled by user, switching to high-performance, low-durability mode.");
+                    loggedHintOverride = true;
+                }
+            }
+            if (!loggedHintOverride) {  // Avoid double-logging
+                listener.getLogger().println("Running in Durability level: "+DurabilityHintProvider.suggestedFor(this.project));
+            }
+
             FlowExecutionList.get().register(owner);
             newExecution.addListener(new GraphL());
             completed = new AtomicBoolean();
@@ -520,7 +540,9 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
         }
         if (modified) {
             try {
-                save();
+                if (this.execution != null && this.execution.getDurabilityHint().isPersistWithEveryStep()) {
+                    save();
+                }
             } catch (IOException x) {
                 LOGGER.log(Level.WARNING, null, x);
             }
@@ -604,20 +626,25 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
         if (completed != null) {
             throw new IllegalStateException("double onLoad of " + this);
         }
-        if (execution != null) {
+        FlowExecution fetchedExecution = execution;
+        if (fetchedExecution != null) {
             try {
-                execution.onLoad(new Owner(this));
+                if (getParent().isResumeBlocked() && execution instanceof BlockableResume) {
+                    ((BlockableResume) execution).setResumeBlocked(true);
+                }
+                fetchedExecution.onLoad(new Owner(this));
             } catch (Exception x) {
                 LOGGER.log(Level.WARNING, null, x);
                 execution = null; // probably too broken to use
             }
         }
-        if (execution != null) {
-            execution.addListener(new GraphL());
-            executionPromise.set(execution);
-            if (!execution.isComplete()) {
+        fetchedExecution = execution;
+        if (fetchedExecution != null) {
+            fetchedExecution.addListener(new GraphL());
+            executionPromise.set(fetchedExecution);
+            if (!fetchedExecution.isComplete()) {
                 // we've been restarted while we were running. let's get the execution going again.
-                FlowExecutionListener.fireResumed(execution);
+                FlowExecutionListener.fireResumed(fetchedExecution);
 
                 try {
                     OutputStream logger = new FileOutputStream(getLogFile(), true);
@@ -969,7 +996,10 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
                 copyLogs();
                 logsToCopy.put(node.getId(), 0L);
             }
-            node.addAction(new TimingAction());
+
+            if (node.getPersistentAction(TimingAction.class) == null) {
+                node.addAction(new TimingAction());
+            }
 
             logNodeMessage(node);
             if (node instanceof FlowEndNode) {
@@ -1021,6 +1051,23 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
                 ((WorkflowRun)copy).checkouts(null).addAll(((WorkflowRun)original).checkouts(null));
             }
         }
+    }
 
+    @Override
+    public synchronized void save() throws IOException {
+
+        if(BulkChange.contains(this))   return;
+        File loc = new File(getRootDir(),"build.xml");
+        XmlFile file = new XmlFile(XSTREAM,loc);
+
+        boolean isAtomic = true;
+
+        if (this.execution != null) {
+            FlowDurabilityHint hint = this.execution.getDurabilityHint();
+            isAtomic = hint.isAtomicWrite();
+        }
+
+        PipelineIOUtils.writeByXStream(this, loc, XSTREAM2, isAtomic);
+        SaveableListener.fireOnChange(this, file);
     }
 }
