@@ -70,6 +70,15 @@ public class PipelineTriggersJobProperty extends JobProperty<WorkflowJob> {
         }
     }
 
+    @SuppressWarnings("unused") // called by deserialization
+    protected Object readResolve() {
+        if (triggers == null) {
+            LOGGER.log(Level.WARNING, "triggers attribute was null, this shouldn't happen.");
+            this.triggers = new ArrayList<>();
+        }
+        return this;
+    }
+
     public void setTriggers(List<Trigger<?>> triggers) {
         this.triggers = new ArrayList<>(triggers);
     }
