@@ -24,29 +24,35 @@
 
 package org.jenkinsci.plugins.workflow.job;
 
-import hudson.model.BallColor;
-import hudson.model.Executor;
-import hudson.model.Item;
-import hudson.model.ParametersAction;
-import hudson.model.ParametersDefinitionProperty;
-import hudson.model.Result;
-import hudson.model.StringParameterDefinition;
-import hudson.model.StringParameterValue;
-import hudson.model.User;
+import com.gargoylesoftware.htmlunit.WebResponse;
+import hudson.AbortException;
+import hudson.Extension;
+import hudson.model.*;
+import hudson.model.listeners.RunListener;
 import hudson.model.queue.QueueTaskFuture;
 import hudson.security.ACL;
 import hudson.security.Permission;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Set;
+import java.util.TreeSet;
 import java.util.concurrent.TimeUnit;
+
+import hudson.slaves.EnvironmentVariablesNodeProperty;
+import hudson.slaves.NodeProperty;
+import hudson.slaves.NodePropertyDescriptor;
+import hudson.util.DescribableList;
 import jenkins.model.CauseOfInterruption;
 import jenkins.model.InterruptedBuildAction;
 import jenkins.model.Jenkins;
+import net.sf.json.JSONArray;
+import net.sf.json.JSONObject;
 import org.apache.commons.io.FileUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.jenkinsci.plugins.scriptsecurity.scripts.ScriptApproval;
 import org.jenkinsci.plugins.workflow.cps.CpsFlowDefinition;
 import org.jenkinsci.plugins.workflow.cps.CpsFlowExecution;
@@ -62,13 +68,18 @@ import org.junit.Test;
 import org.jvnet.hudson.test.BuildWatcher;
 import org.jvnet.hudson.test.Issue;
 import org.jvnet.hudson.test.JenkinsRule;
+import org.jvnet.hudson.test.LoggerRule;
 import org.jvnet.hudson.test.MockAuthorizationStrategy;
 import org.jvnet.hudson.test.recipes.LocalData;
+import org.xml.sax.SAXException;
+
+import javax.annotation.Nonnull;
 
 public class WorkflowRunTest {
 
     @ClassRule public static BuildWatcher buildWatcher = new BuildWatcher();
     @Rule public JenkinsRule r = new JenkinsRule();
+    @Rule public LoggerRule logging = new LoggerRule();
 
     @Test public void basics() throws Exception {
         WorkflowJob p = r.jenkins.createProject(WorkflowJob.class, "p");
@@ -81,7 +92,7 @@ public class WorkflowRunTest {
         WorkflowRun b2 = r.assertBuildStatusSuccess(p.scheduleBuild2(0));
         assertEquals(b1, b2.getPreviousBuild());
         assertEquals(null, b1.getPreviousBuild());
-        r.assertLogContains("hello\n", b1);
+        r.assertLogContains("hello", b1);
     }
 
     @Issue("JENKINS-30910")
@@ -94,9 +105,26 @@ public class WorkflowRunTest {
         r.assertLogContains("param=value", r.assertBuildStatusSuccess(p.scheduleBuild2(0, new ParametersAction(new StringParameterValue("PARAM", "value")))));
     }
 
+    @Issue("JENKINS-46945")
+    @Test public void durationIsCalculated() throws Exception {
+        WorkflowJob duration = r.jenkins.createProject(WorkflowJob.class, "duration");
+        duration.setDefinition(new CpsFlowDefinition("echo \"duration should not be 0 in DurationRunListener\"",true));
+        r.assertBuildStatusSuccess(duration.scheduleBuild2(0));
+        assertNotEquals(0L, DurationRunListener.duration);
+    }
+
+    @Extension
+    public static final class DurationRunListener extends RunListener<Run> {
+        static long duration = 0L;
+        @Override
+        public void onCompleted(Run run, @Nonnull TaskListener listener) {
+            duration = run.getDuration();
+        }
+    }
+
     @Test public void funnyParameters() throws Exception {
         WorkflowJob p = r.jenkins.createProject(WorkflowJob.class, "p");
-        p.setDefinition(new CpsFlowDefinition("echo \"a.b=${env['a.b']}\"", true));
+        p.setDefinition(new CpsFlowDefinition("echo \"a.b=${params['a.b']}\"", true));
         p.addProperty(new ParametersDefinitionProperty(new StringParameterDefinition("a.b", null)));
         WorkflowRun b = r.assertBuildStatusSuccess(p.scheduleBuild2(0, new ParametersAction(new StringParameterValue("a.b", "v"))));
         r.assertLogContains("a.b=v", b);
@@ -142,6 +170,10 @@ public class WorkflowRunTest {
         assertFalse(b1.hasntStartedYet());
         assertColor(b1, BallColor.BLUE);
 
+        p.makeDisabled(true);
+        assertSame(BallColor.DISABLED, p.getIconColor());
+        p.makeDisabled(false);
+
         // get another one going
         q = p.scheduleBuild2(0);
         WorkflowRun b2 = q.getStartCondition().get();
@@ -150,6 +182,10 @@ public class WorkflowRunTest {
         // initial state should be blinking blue because the last one was blue
         assertFalse(b2.hasntStartedYet());
         assertColor(b2, BallColor.BLUE_ANIME);
+
+        p.makeDisabled(true);
+        assertSame(BallColor.DISABLED_ANIME, p.getIconColor());
+        p.makeDisabled(false);
 
         SemaphoreStep.waitForStart("wait/2", b2);
 
@@ -169,6 +205,8 @@ public class WorkflowRunTest {
         assertSame(color, b.getIconColor());
         assertSame(color, b.getParent().getIconColor());
     }
+
+
 
     @Test public void scriptApproval() throws Exception {
         r.jenkins.setSecurityRealm(r.createDummySecurityRealm());
@@ -254,9 +292,11 @@ public class WorkflowRunTest {
 
     @Test public void interruptWithResult() throws Exception {
         WorkflowJob p = r.jenkins.createProject(WorkflowJob.class, "p");
-        p.setDefinition(new CpsFlowDefinition("semaphore 'hang'"));
+        p.setDefinition(new CpsFlowDefinition("sleep 1; semaphore 'hang'", true));
         WorkflowRun b1 = p.scheduleBuild2(0).waitForStart();
+        Thread.sleep(500); // TODO sleeps should not be necessary but seems to randomly fail to receive interrupt otherwise
         SemaphoreStep.waitForStart("hang/1", b1);
+        Thread.sleep(500);
         Executor ex = b1.getExecutor();
         assertNotNull(ex);
         ex.interrupt(Result.NOT_BUILT, new CauseOfInterruption.UserInterruption("bob"));
@@ -264,16 +304,138 @@ public class WorkflowRunTest {
         InterruptedBuildAction iba = b1.getAction(InterruptedBuildAction.class);
         assertNotNull(iba);
         assertEquals(Collections.singletonList(new CauseOfInterruption.UserInterruption("bob")), iba.getCauses());
+        Thread.sleep(500);
         WorkflowRun b2 = p.scheduleBuild2(0).waitForStart();
         assertEquals(2, b2.getNumber());
+        Thread.sleep(500);
         SemaphoreStep.waitForStart("hang/2", b2);
+        Thread.sleep(500);
         ex = b2.getExecutor();
         assertNotNull(ex);
         ex.interrupt();
         r.assertBuildStatus(Result.ABORTED, r.waitForCompletion(b2));
         iba = b2.getAction(InterruptedBuildAction.class);
+        assertNull(iba);
+    }
+
+    @Issue("JENKINS-41276")
+    @Test public void interruptCause() throws Exception {
+        r.jenkins.setSecurityRealm(r.createDummySecurityRealm());
+        WorkflowJob p = r.jenkins.createProject(WorkflowJob.class, "p");
+        ScriptApproval.get().approveSignature("method org.jenkinsci.plugins.workflow.steps.FlowInterruptedException getCauses"); // TODO should probably be @Whitelisted
+        ScriptApproval.get().approveSignature("method jenkins.model.CauseOfInterruption$UserInterruption getUser"); // ditto
+        p.setDefinition(new CpsFlowDefinition("@NonCPS def users(e) {e.causes*.user}; try {semaphore 'wait'} catch (e) {echo(/users=${users(e)}/); throw e}", true));
+        final WorkflowRun b1 = p.scheduleBuild2(0).waitForStart();
+        SemaphoreStep.waitForStart("wait/1", b1);
+        ACL.impersonate(User.get("dev").impersonate(), new Runnable() {
+            @Override public void run() {
+                b1.getExecutor().doStop();
+            }
+        });
+        r.assertBuildStatus(Result.ABORTED, r.waitForCompletion(b1));
+        r.assertLogContains("users=[dev]", b1);
+        InterruptedBuildAction iba = b1.getAction(InterruptedBuildAction.class);
         assertNotNull(iba);
-        assertEquals(Collections.emptyList(), iba.getCauses());
+        assertEquals(Collections.singletonList(new CauseOfInterruption.UserInterruption("dev")), iba.getCauses());
+        String log = JenkinsRule.getLog(b1);
+        assertEquals(log, 1, StringUtils.countMatches(log, jenkins.model.Messages.CauseOfInterruption_ShortDescription("dev")));
+    }
+
+    @Test
+    @Issue("JENKINS-43396")
+    public void globalNodePropertiesInEnv() throws Exception {
+        DescribableList<NodeProperty<?>, NodePropertyDescriptor> original = r.jenkins.getGlobalNodeProperties();
+        EnvironmentVariablesNodeProperty envProp = new EnvironmentVariablesNodeProperty(
+                new EnvironmentVariablesNodeProperty.Entry("KEY", "VALUE"));
+
+        original.add(envProp);
+
+        WorkflowJob j = r.jenkins.createProject(WorkflowJob.class, "envVars");
+        j.setDefinition(new CpsFlowDefinition("echo \"KEY is ${env.KEY}\"", true));
+
+        WorkflowRun b = r.assertBuildStatusSuccess(j.scheduleBuild2(0));
+        r.assertLogContains("KEY is " + envProp.getEnvVars().get("KEY"), b);
+    }
+
+    @Test
+    @Issue("JENKINS-24141")
+    public void culprits() throws Exception {
+        WorkflowJob p = r.jenkins.createProject(WorkflowJob.class, "p");
+        p.setDefinition(new CpsFlowDefinition("import org.jvnet.hudson.test.FakeChangeLogSCM\n" +
+                "semaphore 'waitFirst'\n" +
+                "def testScm = new FakeChangeLogSCM()\n" +
+                "testScm.addChange().withAuthor(/alice$BUILD_NUMBER/)\n" +
+                "node {\n" +
+                "    checkout(testScm)\n" +
+                "    semaphore 'waitSecond'\n" +
+                "    def secondScm = new FakeChangeLogSCM()\n" +
+                "    secondScm.addChange().withAuthor(/bob$BUILD_NUMBER/)\n" +
+                "    checkout(secondScm)\n" +
+                "    semaphore 'waitThird'\n" +
+                "    def thirdScm = new FakeChangeLogSCM()\n" +
+                "    thirdScm.addChange().withAuthor(/charlie$BUILD_NUMBER/)\n" +
+                "    checkout(thirdScm)\n" +
+                "}\n", false));
+
+        WorkflowRun b1 = p.scheduleBuild2(0).waitForStart();
+
+        SemaphoreStep.waitForStart("waitFirst/1", b1);
+        assertTrue(b1.getCulpritIds().isEmpty());
+        SemaphoreStep.success("waitFirst/1", null);
+
+        SemaphoreStep.waitForStart("waitSecond/1", b1);
+        assertCulprits(b1, "alice1");
+        SemaphoreStep.success("waitSecond/1", null);
+
+        SemaphoreStep.waitForStart("waitThird/1", b1);
+        assertCulprits(b1, "alice1", "bob1");
+        SemaphoreStep.failure("waitThird/1", new AbortException());
+
+        r.assertBuildStatus(Result.FAILURE, r.waitForCompletion(b1));
+
+        WorkflowRun b2 = p.scheduleBuild2(0).waitForStart();
+
+        SemaphoreStep.waitForStart("waitFirst/2", b2);
+        assertCulprits(b2, "alice1", "bob1");
+        SemaphoreStep.success("waitFirst/2", null);
+
+        SemaphoreStep.waitForStart("waitSecond/2", b2);
+        assertCulprits(b2, "alice1", "bob1", "alice2");
+        SemaphoreStep.success("waitSecond/2", null);
+
+        SemaphoreStep.waitForStart("waitThird/2", b2);
+        assertCulprits(b2, "alice1", "bob1", "alice2", "bob2");
+        SemaphoreStep.success("waitThird/2", b2);
+
+        r.assertBuildStatusSuccess(r.waitForCompletion(b2));
+        assertCulprits(b2, "alice1", "bob1", "alice2", "bob2", "charlie2");
+    }
+
+    private void assertCulprits(WorkflowRun b, String... expectedIds) throws IOException, SAXException {
+        Set<String> actual = new TreeSet<>();
+        for (String u : b.getCulpritIds()) {
+            actual.add(u);
+        }
+        assertEquals(actual, new TreeSet<>(Arrays.asList(expectedIds)));
+
+        if (expectedIds.length > 0) {
+            JenkinsRule.WebClient wc = r.createWebClient();
+            WebResponse response = wc.goTo(b.getUrl() + "api/json?tree=culprits[id]", "application/json").getWebResponse();
+            JSONObject json = JSONObject.fromObject(response.getContentAsString());
+
+            Object culpritsArray = json.get("culprits");
+            assertNotNull(culpritsArray);
+            assertTrue(culpritsArray instanceof JSONArray);
+            Set<String> fromApi = new TreeSet<>();
+            for (Object o : ((JSONArray)culpritsArray).toArray()) {
+                assertTrue(o instanceof JSONObject);
+                Object id = ((JSONObject)o).get("id");
+                if (id instanceof String) {
+                    fromApi.add((String)id);
+                }
+            }
+            assertEquals(fromApi, new TreeSet<>(Arrays.asList(expectedIds)));
+        }
     }
 
 }

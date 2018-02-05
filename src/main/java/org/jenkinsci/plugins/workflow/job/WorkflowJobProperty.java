@@ -26,6 +26,7 @@ package org.jenkinsci.plugins.workflow.job;
 
 import hudson.model.JobProperty;
 import hudson.security.ACL;
+import javax.annotation.CheckForNull;
 import javax.annotation.Nonnull;
 
 /**
@@ -38,6 +39,14 @@ public abstract class WorkflowJobProperty extends JobProperty<WorkflowJob> {
      */
     public @Nonnull ACL decorateACL(@Nonnull ACL acl) {
         return acl;
+    }
+
+    /**
+     * Allows a property to control whether {@link WorkflowJob#isBuildable}.
+     * @return a value, or null to have no effect
+     */
+    public @CheckForNull Boolean isBuildable() {
+        return null;
     }
 
 }
