@@ -30,6 +30,7 @@ import hudson.ExtensionPoint;
 import hudson.model.BuildListener;
 import hudson.model.Run;
 import hudson.model.StreamBuildListener;
+import java.io.EOFException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;

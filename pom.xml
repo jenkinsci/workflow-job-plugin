@@ -66,7 +66,7 @@
         <java.level>8</java.level>
         <no-test-jar>false</no-test-jar>
         <workflow-support-plugin.version>2.19-SNAPSHOT</workflow-support-plugin.version> <!-- TODO pending https://github.com/jenkinsci/workflow-support-plugin/pull/15 -->
-        <scm-api-plugin.version>2.1.1</scm-api-plugin.version>
+        <scm-api-plugin.version>2.2.6</scm-api-plugin.version>
         <git-plugin.version>3.2.0</git-plugin.version>
     </properties>
     <dependencies>
@@ -101,7 +101,7 @@
         <dependency>
             <groupId>org.jenkins-ci.plugins</groupId>
             <artifactId>structs</artifactId>
-            <version>1.7</version>
+            <version>1.9</version>
             <scope>test</scope>
         </dependency>
         <dependency>

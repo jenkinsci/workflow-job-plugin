@@ -109,7 +109,9 @@ public class NewNodeConsoleNote extends ConsoleNote<WorkflowRun> {
                 if (node != null) {
                     LabelAction a = node.getAction(LabelAction.class);
                     if (a != null) {
-                        startTag.append("\" label=\"").append(Util.escape(a.getDisplayName())); // TODO is there some better way to escape for attribute values?
+                        String displayName = a.getDisplayName();
+                        assert displayName != null;
+                        startTag.append("\" label=\"").append(Util.escape(displayName)); // TODO is there some better way to escape for attribute values?
                     }
                 }
             } catch (IOException x) {
