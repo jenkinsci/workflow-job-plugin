@@ -71,7 +71,6 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.io.PrintStream;
-import java.nio.charset.Charset;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Date;
@@ -250,7 +249,8 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
         try {
             onStartBuilding();
             OutputStream logger = new FileOutputStream(getLogFile());
-            listener = new StreamBuildListener(logger, Charset.defaultCharset());
+            charset = "UTF-8"; // cannot override getCharset, and various Run methods do not call it anyway
+            listener = new StreamBuildListener(logger, getCharset());
             listener.started(getCauses());
             Authentication auth = Jenkins.getAuthentication();
             if (!auth.equals(ACL.SYSTEM)) {
@@ -648,7 +648,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
 
                 try {
                     OutputStream logger = new FileOutputStream(getLogFile(), true);
-                    listener = new StreamBuildListener(logger, Charset.defaultCharset());
+                    listener = new StreamBuildListener(logger, getCharset());
                     listener.getLogger().println("Resuming build at " + new Date() + " after Jenkins restart");
                 } catch (IOException x) {
                     LOGGER.log(Level.WARNING, null, x);
