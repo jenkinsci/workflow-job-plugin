@@ -43,8 +43,10 @@ import hudson.XmlFile;
 import hudson.console.AnnotatedLargeText;
 import hudson.console.LineTransformationOutputStream;
 import hudson.console.ModelHyperlinkNote;
+import hudson.model.Computer;
 import hudson.model.Executor;
 import hudson.model.Item;
+import hudson.model.Node;
 import hudson.model.ParameterValue;
 import hudson.model.ParametersAction;
 import hudson.model.Queue;
@@ -438,11 +440,18 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
     }
 
     @Override public EnvVars getEnvironment(TaskListener listener) throws IOException, InterruptedException {
+        Computer c = Computer.currentComputer();
+        Node n = c==null ? null : c.getNode();
         EnvVars env = super.getEnvironment(listener);
 
         Jenkins instance = Jenkins.getInstance();
         if (instance != null) {
             for (NodeProperty nodeProperty : instance.getGlobalNodeProperties()) {
+                nodeProperty.buildEnvVars(env, listener);
+            }
+        }
+        if (n != null) {
+            for (NodeProperty nodeProperty: n.getNodeProperties()) {
                 nodeProperty.buildEnvVars(env, listener);
             }
         }
