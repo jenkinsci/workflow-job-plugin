@@ -602,7 +602,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
             }
         }
 
-        // Fall back to looking for an enclosing parallel branch... but using more efficient APIs and avoiding a stack overflows
+        // Fall back to looking for an enclosing parallel branch... but using more efficient APIs and avoiding stack overflows
         output = Optional.absent();
         for (BlockStartNode myNode : node.iterateEnclosingBlocks()) {
             ThreadNameAction threadNameAction = myNode.getPersistentAction(ThreadNameAction.class);
