@@ -724,6 +724,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
             listener.closeQuietly();
         }
         logsToCopy = null;
+        branchNameCache = null;
         try {
             save();
         } catch (Exception x) {
