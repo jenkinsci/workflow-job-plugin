@@ -193,7 +193,9 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
      * It would also remove the need to null out {@link #execution} merely to force {@link #isInProgress} to be false
      * in the case of broken or hard-killed builds which lack a single head node.
      */
-    private transient AtomicBoolean completed;
+    private AtomicBoolean completed;
+
+    private transient Object logCopyGuard = new Object();
 
     /** map from node IDs to log positions from which we should copy text */
     private Map<String,Long> logsToCopy;
@@ -205,6 +207,13 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
 
     /** True when first started, false when running after a restart. */
     private transient boolean firstTime;
+
+    private synchronized Object getLogCopyGuard() {
+        if (logCopyGuard == null) {
+            logCopyGuard = new Object();
+        }
+        return logCopyGuard;
+    }
 
     public WorkflowRun(WorkflowJob job) throws IOException {
         super(job);
@@ -350,7 +359,11 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
         final AtomicReference<ScheduledFuture<?>> copyLogsTask = new AtomicReference<>();
         copyLogsTask.set(copyLogsExecutorService().scheduleAtFixedRate(new Runnable() {
             @Override public void run() {
-                synchronized (completed) {
+                synchronized (getLogCopyGuard()) {
+                    if (completed == null) {
+                        // Loading run, give it a moment.
+                        return;
+                    }
                     if (completed.get()) {
                         asynchronousExecution.completed(null);
                         copyLogsTask.get().cancel(false);
@@ -468,7 +481,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
         return isBuilding() && allowKill;
     }
 
-    @GuardedBy("completed")
+    @GuardedBy("logCopyGuard")
     private void copyLogs() {
         if (logsToCopy == null) { // finished
             return;
@@ -558,12 +571,12 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
         }
     }
 
-    @GuardedBy("completed")
+    @GuardedBy("logCopyGuard")
     private transient LoadingCache<FlowNode,Optional<String>> logPrefixCache;
     private @CheckForNull String getLogPrefix(FlowNode node) {
         // TODO could also use FlowScanningUtils.fetchEnclosingBlocks(node).filter(FlowScanningUtils.hasActionPredicate(ThreadNameAction.class)),
         // but this would not let us cache intermediate results
-        synchronized (completed) {
+        synchronized (getLogCopyGuard()) {
             if (logPrefixCache == null) {
                 logPrefixCache = CacheBuilder.newBuilder().weakKeys().build(new CacheLoader<FlowNode,Optional<String>>() {
                     @Override public @Nonnull Optional<String> load(FlowNode node) {
@@ -622,50 +635,52 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
     }
 
     @Override protected void onLoad() {
-        super.onLoad();
-        if (completed != null) {
-            throw new IllegalStateException("double onLoad of " + this);
-        }
-        FlowExecution fetchedExecution = execution;
-        if (fetchedExecution != null) {
-            try {
-                if (getParent().isResumeBlocked() && execution instanceof BlockableResume) {
-                    ((BlockableResume) execution).setResumeBlocked(true);
-                }
-                fetchedExecution.onLoad(new Owner(this));
-            } catch (Exception x) {
-                LOGGER.log(Level.WARNING, null, x);
-                execution = null; // probably too broken to use
-            }
-        }
-        fetchedExecution = execution;
-        if (fetchedExecution != null) {
-            fetchedExecution.addListener(new GraphL());
-            executionPromise.set(fetchedExecution);
-            if (!fetchedExecution.isComplete()) {
-                // we've been restarted while we were running. let's get the execution going again.
-                FlowExecutionListener.fireResumed(fetchedExecution);
+        synchronized (getLogCopyGuard()) {
+            super.onLoad();
 
+            // TODO might need to check for completed
+
+            FlowExecution fetchedExecution = execution;
+            if (fetchedExecution != null) {
                 try {
-                    OutputStream logger = new FileOutputStream(getLogFile(), true);
-                    listener = new StreamBuildListener(logger, Charset.defaultCharset());
-                    listener.getLogger().println("Resuming build at " + new Date() + " after Jenkins restart");
-                } catch (IOException x) {
-                    LOGGER.log(Level.WARNING, null, x);
-                    listener = new StreamBuildListener(new NullStream());
-                }
-                completed = new AtomicBoolean();
-                Timer.get().submit(new Runnable() { // JENKINS-31614
-                    @Override public void run() {
-                        Queue.getInstance().schedule(new AfterRestartTask(WorkflowRun.this), 0);
+                    if (getParent().isResumeBlocked() && execution instanceof BlockableResume) {
+                        ((BlockableResume) execution).setResumeBlocked(true);
                     }
-                });
+                    fetchedExecution.onLoad(new Owner(this));
+                } catch (Exception x) {
+                    LOGGER.log(Level.WARNING, null, x);
+                    execution = null; // probably too broken to use
+                }
             }
-        }
-        checkouts(null); // only for diagnostics
-        synchronized (LOADING_RUNS) {
-            LOADING_RUNS.remove(key()); // or could just make the value type be WeakReference<WorkflowRun>
-            LOADING_RUNS.notifyAll();
+            fetchedExecution = execution;
+            if (fetchedExecution != null) {
+                fetchedExecution.addListener(new GraphL());
+                executionPromise.set(fetchedExecution);
+                completed = new AtomicBoolean(fetchedExecution.isComplete());
+                if (!fetchedExecution.isComplete()) {
+                    // we've been restarted while we were running. let's get the execution going again.
+                    FlowExecutionListener.fireResumed(fetchedExecution);
+
+                    try {
+                        OutputStream logger = new FileOutputStream(getLogFile(), true);
+                        listener = new StreamBuildListener(logger, Charset.defaultCharset());
+                        listener.getLogger().println("Resuming build at " + new Date() + " after Jenkins restart");
+                    } catch (IOException x) {
+                        LOGGER.log(Level.WARNING, null, x);
+                        listener = new StreamBuildListener(new NullStream());
+                    }
+                    Timer.get().submit(new Runnable() { // JENKINS-31614
+                        @Override public void run() {
+                            Queue.getInstance().schedule(new AfterRestartTask(WorkflowRun.this), 0);
+                        }
+                    });
+                }
+            }
+            checkouts(null); // only for diagnostics
+            synchronized (LOADING_RUNS) {
+                LOADING_RUNS.remove(key()); // or could just make the value type be WeakReference<WorkflowRun>
+                LOADING_RUNS.notifyAll();
+            }
         }
     }
 
@@ -679,51 +694,53 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
 
     /** Handles normal build completion (including errors) but also handles the case that the flow did not even start correctly, for example due to an error in {@link FlowExecution#start}. */
     private void finish(@Nonnull Result r, @CheckForNull Throwable t) {
-        setResult(r);
-        duration = Math.max(0, System.currentTimeMillis() - getStartTimeInMillis());
-        LOGGER.log(Level.INFO, "{0} completed: {1}", new Object[] {toString(), getResult()});
-        if (listener == null) {
-            LOGGER.log(Level.WARNING, this + " failed to start", t);
-        } else {
-            RunListener.fireCompleted(WorkflowRun.this, listener);
-            if (t instanceof AbortException) {
-                listener.error(t.getMessage());
-            } else if (t instanceof FlowInterruptedException) {
-                ((FlowInterruptedException) t).handle(this, listener);
-            } else if (t != null) {
-                listener.getLogger().println(Functions.printThrowable(t).trim()); // TODO 2.43+ use Functions.printStackTrace
+        synchronized (getLogCopyGuard()) {
+            setResult(r);
+            duration = Math.max(0, System.currentTimeMillis() - getStartTimeInMillis());
+            LOGGER.log(Level.INFO, "{0} completed: {1}", new Object[]{toString(), getResult()});
+            if (listener == null) {
+                LOGGER.log(Level.WARNING, this + " failed to start", t);
+            } else {
+                RunListener.fireCompleted(WorkflowRun.this, listener);
+                if (t instanceof AbortException) {
+                    listener.error(t.getMessage());
+                } else if (t instanceof FlowInterruptedException) {
+                    ((FlowInterruptedException) t).handle(this, listener);
+                } else if (t != null) {
+                    listener.getLogger().println(Functions.printThrowable(t).trim()); // TODO 2.43+ use Functions.printStackTrace
+                }
+                listener.finished(getResult());
+                listener.closeQuietly();
             }
-            listener.finished(getResult());
-            listener.closeQuietly();
-        }
-        logsToCopy = null;
-        try {
-            save();
-        } catch (Exception x) {
-            LOGGER.log(Level.WARNING, "failed to save " + this, x);
-        }
-        Timer.get().submit(() -> {
+            logsToCopy = null;
             try {
-                getParent().logRotate();
+                save();
             } catch (Exception x) {
-                LOGGER.log(Level.WARNING, "failed to perform log rotation after " + this, x);
+                LOGGER.log(Level.WARNING, "failed to save " + this, x);
             }
-        });
-        onEndBuilding();
-        if (completed != null) {
-            synchronized (completed) {
+            Timer.get().submit(() -> {
+                try {
+                    getParent().logRotate();
+                } catch (Exception x) {
+                    LOGGER.log(Level.WARNING, "failed to perform log rotation after " + this, x);
+                }
+            });
+            onEndBuilding();
+            if (completed != null) {
                 completed.set(true);
+            } else {
+                completed = new AtomicBoolean(true);
             }
-        }
-        FlowExecutionList.get().unregister(new Owner(this));
-        try {
-            StashManager.maybeClearAll(this);
-        } catch (IOException x) {
-            LOGGER.log(Level.WARNING, "failed to clean up stashes from " + this, x);
-        }
-        FlowExecution exec = getExecution();
-        if (exec != null) {
-            FlowExecutionListener.fireCompleted(exec);
+            FlowExecutionList.get().unregister(new Owner(this));
+            try {
+                StashManager.maybeClearAll(this);
+            } catch (IOException x) {
+                LOGGER.log(Level.WARNING, "failed to clean up stashes from " + this, x);
+            }
+            FlowExecution exec = getExecution();
+            if (exec != null) {
+                FlowExecutionListener.fireCompleted(exec);
+            }
         }
     }
 
@@ -992,7 +1009,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
 
     private final class GraphL implements GraphListener {
         @Override public void onNewHead(FlowNode node) {
-            synchronized (completed) {
+            synchronized (getLogCopyGuard()) {
                 copyLogs();
                 logsToCopy.put(node.getId(), 0L);
             }
