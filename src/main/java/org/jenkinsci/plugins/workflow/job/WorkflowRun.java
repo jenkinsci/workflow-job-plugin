@@ -1022,10 +1022,12 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
             if (node instanceof FlowEndNode) {
                 finish(((FlowEndNode) node).getResult(), execution != null ? execution.getCauseOfFailure() : null);
             } else {
-                try {
-                    save();
-                } catch (IOException x) {
-                    LOGGER.log(Level.WARNING, null, x);
+                if (execution != null && execution.getDurabilityHint().isPersistWithEveryStep()) {
+                    try {
+                        save();
+                    } catch (IOException x) {
+                        LOGGER.log(Level.WARNING, null, x);
+                    }
                 }
             }
         }
