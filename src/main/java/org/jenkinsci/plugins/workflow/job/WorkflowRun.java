@@ -696,51 +696,53 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
     private void finish(@Nonnull Result r, @CheckForNull Throwable t) {
         synchronized (getLogCopyGuard()) {
             setResult(r);
-            duration = Math.max(0, System.currentTimeMillis() - getStartTimeInMillis());
-            LOGGER.log(Level.INFO, "{0} completed: {1}", new Object[]{toString(), getResult()});
-            if (listener == null) {
-                LOGGER.log(Level.WARNING, this + " failed to start", t);
-            } else {
-                RunListener.fireCompleted(WorkflowRun.this, listener);
-                if (t instanceof AbortException) {
-                    listener.error(t.getMessage());
-                } else if (t instanceof FlowInterruptedException) {
-                    ((FlowInterruptedException) t).handle(this, listener);
-                } else if (t != null) {
-                    listener.getLogger().println(Functions.printThrowable(t).trim()); // TODO 2.43+ use Functions.printStackTrace
-                }
-                listener.finished(getResult());
-                listener.closeQuietly();
-            }
-            logsToCopy = null;
-            try {
-                save();
-            } catch (Exception x) {
-                LOGGER.log(Level.WARNING, "failed to save " + this, x);
-            }
-            Timer.get().submit(() -> {
-                try {
-                    getParent().logRotate();
-                } catch (Exception x) {
-                    LOGGER.log(Level.WARNING, "failed to perform log rotation after " + this, x);
-                }
-            });
-            onEndBuilding();
             if (completed != null) {
                 completed.set(true);
             } else {
                 completed = new AtomicBoolean(true);
             }
-            FlowExecutionList.get().unregister(new Owner(this));
+            duration = Math.max(0, System.currentTimeMillis() - getStartTimeInMillis());
+        }
+
+        LOGGER.log(Level.INFO, "{0} completed: {1}", new Object[]{toString(), getResult()});
+        if (listener == null) {
+            LOGGER.log(Level.WARNING, this + " failed to start", t);
+        } else {
+            RunListener.fireCompleted(WorkflowRun.this, listener);
+            if (t instanceof AbortException) {
+                listener.error(t.getMessage());
+            } else if (t instanceof FlowInterruptedException) {
+                ((FlowInterruptedException) t).handle(this, listener);
+            } else if (t != null) {
+                Functions.printStackTrace(t, listener.getLogger());
+            }
+            listener.finished(getResult());
+            listener.closeQuietly();
+        }
+        logsToCopy = null;
+        try {
+            save();
+        } catch (Exception x) {
+            LOGGER.log(Level.WARNING, "failed to save " + this, x);
+        }
+        Timer.get().submit(() -> {
             try {
-                StashManager.maybeClearAll(this);
-            } catch (IOException x) {
-                LOGGER.log(Level.WARNING, "failed to clean up stashes from " + this, x);
+                getParent().logRotate();
+            } catch (Exception x) {
+                LOGGER.log(Level.WARNING, "failed to perform log rotation after " + this, x);
             }
-            FlowExecution exec = getExecution();
-            if (exec != null) {
-                FlowExecutionListener.fireCompleted(exec);
-            }
+        });
+        onEndBuilding();
+
+        FlowExecutionList.get().unregister(new Owner(this));
+        try {
+            StashManager.maybeClearAll(this);
+        } catch (IOException x) {
+            LOGGER.log(Level.WARNING, "failed to clean up stashes from " + this, x);
+        }
+        FlowExecution exec = getExecution();
+        if (exec != null) {
+            FlowExecutionListener.fireCompleted(exec);
         }
     }
 
