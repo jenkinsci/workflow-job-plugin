@@ -292,12 +292,15 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
                 listener.getLogger().println("Running in Durability level: "+DurabilityHintProvider.suggestedFor(this.project));
             }
 
-            FlowExecutionList.get().register(owner);
-            newExecution.addListener(new GraphL());
-            completed = new AtomicBoolean();
-            logsToCopy = new ConcurrentSkipListMap<>();
-            executionLoaded = true;
-            execution = newExecution;
+            synchronized (getLogCopyGuard()) {  // Technically safe but it makes FindBugs happy
+                FlowExecutionList.get().register(owner);
+                newExecution.addListener(new GraphL());
+                completed = new AtomicBoolean();
+                logsToCopy = new ConcurrentSkipListMap<>();
+                executionLoaded = true;
+                execution = newExecution;
+            }
+
             newExecution.start();
             executionPromise.set(newExecution);
             FlowExecutionListener.fireRunning(execution);
@@ -644,28 +647,37 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
 
                 if (execution != null && (completed == null || !completed.get())) {
                     FlowExecution fetchedExecution = getExecution();  // Triggers execution.onLoad so we can resume running if not done
-                    fetchedExecution.addListener(new GraphL());
-                    executionPromise.set(fetchedExecution);
+                    if (fetchedExecution != null) {
+                        fetchedExecution.addListener(new GraphL());
+                        executionPromise.set(fetchedExecution);
 
-                    completed = new AtomicBoolean(fetchedExecution.isComplete());
-                    if (!completed.get()) {
-                        // we've been restarted while we were running. let's get the execution going again.
-                        FlowExecutionListener.fireResumed(fetchedExecution);
-
-                        try {
-                            OutputStream logger = new FileOutputStream(getLogFile(), true);
-                            listener = new StreamBuildListener(logger, Charset.defaultCharset());
-                            listener.getLogger().println("Resuming build at " + new Date() + " after Jenkins restart");
-                        } catch (IOException x) {
-                            LOGGER.log(Level.WARNING, null, x);
-                            listener = new StreamBuildListener(new NullStream());
+                        if (completed == null) {
+                            completed = new AtomicBoolean(fetchedExecution.isComplete());
+                        } else {
+                            completed.set(fetchedExecution.isComplete());
                         }
-                        Timer.get().submit(new Runnable() { // JENKINS-31614
-                            @Override
-                            public void run() {
-                                Queue.getInstance().schedule(new AfterRestartTask(WorkflowRun.this), 0);
+
+                        if (!completed.get()) {
+                            // we've been restarted while we were running. let's get the execution going again.
+                            FlowExecutionListener.fireResumed(fetchedExecution);
+
+                            try {
+                                OutputStream logger = new FileOutputStream(getLogFile(), true);
+                                listener = new StreamBuildListener(logger, Charset.defaultCharset());
+                                listener.getLogger().println("Resuming build at " + new Date() + " after Jenkins restart");
+                            } catch (IOException x) {
+                                LOGGER.log(Level.WARNING, null, x);
+                                listener = new StreamBuildListener(new NullStream());
                             }
-                        });
+                            Timer.get().submit(new Runnable() { // JENKINS-31614
+                                @Override
+                                public void run() {
+                                    Queue.getInstance().schedule(new AfterRestartTask(WorkflowRun.this), 0);
+                                }
+                            });
+                        } else { // Error when calling execution.onLoad
+                            // FIXME need a way to handle executionPromise, completed state, etc correctly!
+                        }
                     }
                 }
                 if (completedStateNotPersisted && completed.get()) {
@@ -744,7 +756,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
         } catch (IOException x) {
             LOGGER.log(Level.WARNING, "failed to clean up stashes from " + this, x);
         }
-        FlowExecution exec = getExecution();
+        FlowExecution exec = execution;
         if (exec != null) {
             FlowExecutionListener.fireCompleted(exec);
         }
