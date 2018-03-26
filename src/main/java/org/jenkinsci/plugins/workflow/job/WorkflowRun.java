@@ -635,47 +635,51 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
     }
 
     @Override protected void onLoad() {
-        synchronized (getLogCopyGuard()) {
-            super.onLoad();
+        try {
+            synchronized (getLogCopyGuard()) {
+                super.onLoad();
 
-            // TODO might need to check for completed
+                // TODO might need to check for completed to verify if we should onLoad the execution and resume it.
 
-            FlowExecution fetchedExecution = execution;
-            if (fetchedExecution != null) {
-                try {
-                    if (getParent().isResumeBlocked() && execution instanceof BlockableResume) {
-                        ((BlockableResume) execution).setResumeBlocked(true);
-                    }
-                    fetchedExecution.onLoad(new Owner(this));
-                } catch (Exception x) {
-                    LOGGER.log(Level.WARNING, null, x);
-                    execution = null; // probably too broken to use
-                }
-            }
-            fetchedExecution = execution;
-            if (fetchedExecution != null) {
-                fetchedExecution.addListener(new GraphL());
-                executionPromise.set(fetchedExecution);
-                completed = new AtomicBoolean(fetchedExecution.isComplete());
-                if (!fetchedExecution.isComplete()) {
-                    // we've been restarted while we were running. let's get the execution going again.
-                    FlowExecutionListener.fireResumed(fetchedExecution);
-
+                FlowExecution fetchedExecution = execution;
+                if (fetchedExecution != null) {
                     try {
-                        OutputStream logger = new FileOutputStream(getLogFile(), true);
-                        listener = new StreamBuildListener(logger, Charset.defaultCharset());
-                        listener.getLogger().println("Resuming build at " + new Date() + " after Jenkins restart");
-                    } catch (IOException x) {
-                        LOGGER.log(Level.WARNING, null, x);
-                        listener = new StreamBuildListener(new NullStream());
-                    }
-                    Timer.get().submit(new Runnable() { // JENKINS-31614
-                        @Override public void run() {
-                            Queue.getInstance().schedule(new AfterRestartTask(WorkflowRun.this), 0);
+                        if (getParent().isResumeBlocked() && execution instanceof BlockableResume) {
+                            ((BlockableResume) execution).setResumeBlocked(true);
                         }
-                    });
+                        fetchedExecution.onLoad(new Owner(this));
+                    } catch (Exception x) {
+                        LOGGER.log(Level.WARNING, null, x);
+                        execution = null; // probably too broken to use
+                    }
+                }
+                fetchedExecution = execution;
+                if (fetchedExecution != null) {
+                    fetchedExecution.addListener(new GraphL());
+                    executionPromise.set(fetchedExecution);
+                    completed = new AtomicBoolean(fetchedExecution.isComplete());
+                    if (!fetchedExecution.isComplete()) {
+                        // we've been restarted while we were running. let's get the execution going again.
+                        FlowExecutionListener.fireResumed(fetchedExecution);
+
+                        try {
+                            OutputStream logger = new FileOutputStream(getLogFile(), true);
+                            listener = new StreamBuildListener(logger, Charset.defaultCharset());
+                            listener.getLogger().println("Resuming build at " + new Date() + " after Jenkins restart");
+                        } catch (IOException x) {
+                            LOGGER.log(Level.WARNING, null, x);
+                            listener = new StreamBuildListener(new NullStream());
+                        }
+                        Timer.get().submit(new Runnable() { // JENKINS-31614
+                            @Override
+                            public void run() {
+                                Queue.getInstance().schedule(new AfterRestartTask(WorkflowRun.this), 0);
+                            }
+                        });
+                    }
                 }
             }
+        } finally {  // Ensure the run is ALWAYS removed from loading even if something failed, so threads awaken.
             checkouts(null); // only for diagnostics
             synchronized (LOADING_RUNS) {
                 LOADING_RUNS.remove(key()); // or could just make the value type be WeakReference<WorkflowRun>
@@ -704,37 +708,40 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
             duration = Math.max(0, System.currentTimeMillis() - getStartTimeInMillis());
         }
 
-        LOGGER.log(Level.INFO, "{0} completed: {1}", new Object[]{toString(), getResult()});
-        if (listener == null) {
-            LOGGER.log(Level.WARNING, this + " failed to start", t);
-        } else {
-            RunListener.fireCompleted(WorkflowRun.this, listener);
-            if (t instanceof AbortException) {
-                listener.error(t.getMessage());
-            } else if (t instanceof FlowInterruptedException) {
-                ((FlowInterruptedException) t).handle(this, listener);
-            } else if (t != null) {
-                Functions.printStackTrace(t, listener.getLogger());
-            }
-            listener.finished(getResult());
-            listener.closeQuietly();
-        }
-        logsToCopy = null;
         try {
-            save();
-        } catch (Exception x) {
-            LOGGER.log(Level.WARNING, "failed to save " + this, x);
-        }
-        Timer.get().submit(() -> {
-            try {
-                getParent().logRotate();
-            } catch (Exception x) {
-                LOGGER.log(Level.WARNING, "failed to perform log rotation after " + this, x);
+            LOGGER.log(Level.INFO, "{0} completed: {1}", new Object[]{toString(), getResult()});
+            if (listener == null) {
+                LOGGER.log(Level.WARNING, this + " failed to start", t);
+            } else {
+                RunListener.fireCompleted(WorkflowRun.this, listener);
+                if (t instanceof AbortException) {
+                    listener.error(t.getMessage());
+                } else if (t instanceof FlowInterruptedException) {
+                    ((FlowInterruptedException) t).handle(this, listener);
+                } else if (t != null) {
+                    Functions.printStackTrace(t, listener.getLogger());
+                }
+                listener.finished(getResult());
+                listener.closeQuietly();
             }
-        });
-        onEndBuilding();
+            logsToCopy = null;
+            try {
+                save();
+            } catch (Exception x) {
+                LOGGER.log(Level.WARNING, "failed to save " + this, x);
+            }
+            Timer.get().submit(() -> {
+                try {
+                    getParent().logRotate();
+                } catch (Exception x) {
+                    LOGGER.log(Level.WARNING, "failed to perform log rotation after " + this, x);
+                }
+            });
+            onEndBuilding();
+        } finally {  // Ensure this is ALWAYS removed from FlowExecutionList
+            FlowExecutionList.get().unregister(new Owner(this));
+        }
 
-        FlowExecutionList.get().unregister(new Owner(this));
         try {
             StashManager.maybeClearAll(this);
         } catch (IOException x) {
