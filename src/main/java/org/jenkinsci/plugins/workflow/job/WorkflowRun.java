@@ -171,6 +171,9 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
 
     private transient boolean allowKill;
 
+    /** Controls whether or not our execution has been initialized via its {@link FlowExecution#onLoad(FlowExecutionOwner)} method yet if.*/
+    private transient boolean executionLoaded = false;
+
     /**
      * Cumulative list of people who contributed to the build problem.
      *
@@ -186,11 +189,9 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
 
     /**
      * Flag for whether or not the build has completed somehow.
-     * Non-null soon after the build starts or is reloaded from disk.
-     * Recomputed in {@link #onLoad} based on {@link FlowExecution#isComplete}.
-     * TODO may be better to make this a persistent field.
-     * That would allow the execution of a completed build to be loaded on demand (JENKINS-45585), reducing overhead for some operations.
-     * It would also remove the need to null out {@link #execution} merely to force {@link #isInProgress} to be false
+     * This was previously a transient field, so we may need to recompute in {@link #onLoad} based on {@link FlowExecution#isComplete}.
+     *
+     * TODO Finish off JENKINS-45585 bits by removing the need to null out {@link #execution} merely to force {@link #isInProgress} to be false
      * in the case of broken or hard-killed builds which lack a single head node.
      */
     private AtomicBoolean completed;
@@ -295,6 +296,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
             newExecution.addListener(new GraphL());
             completed = new AtomicBoolean();
             logsToCopy = new ConcurrentSkipListMap<>();
+            executionLoaded = true;
             execution = newExecution;
             newExecution.start();
             executionPromise.set(newExecution);
@@ -636,29 +638,17 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
 
     @Override protected void onLoad() {
         try {
-            synchronized (getLogCopyGuard()) {
+            synchronized (getLogCopyGuard()) {  // CHECKME: Deadlock risks here - copyLogGuard and locks on Run
+                boolean completedStateNotPersisted = completed == null;
                 super.onLoad();
 
-                // TODO might need to check for completed to verify if we should onLoad the execution and resume it.
-
-                FlowExecution fetchedExecution = execution;
-                if (fetchedExecution != null) {
-                    try {
-                        if (getParent().isResumeBlocked() && execution instanceof BlockableResume) {
-                            ((BlockableResume) execution).setResumeBlocked(true);
-                        }
-                        fetchedExecution.onLoad(new Owner(this));
-                    } catch (Exception x) {
-                        LOGGER.log(Level.WARNING, null, x);
-                        execution = null; // probably too broken to use
-                    }
-                }
-                fetchedExecution = execution;
-                if (fetchedExecution != null) {
+                if (execution != null && (completed == null || !completed.get())) {
+                    FlowExecution fetchedExecution = getExecution();  // Triggers execution.onLoad so we can resume running if not done
                     fetchedExecution.addListener(new GraphL());
                     executionPromise.set(fetchedExecution);
+
                     completed = new AtomicBoolean(fetchedExecution.isComplete());
-                    if (!fetchedExecution.isComplete()) {
+                    if (!completed.get()) {
                         // we've been restarted while we were running. let's get the execution going again.
                         FlowExecutionListener.fireResumed(fetchedExecution);
 
@@ -676,6 +666,13 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
                                 Queue.getInstance().schedule(new AfterRestartTask(WorkflowRun.this), 0);
                             }
                         });
+                    }
+                }
+                if (completedStateNotPersisted && completed.get()) {
+                    try {
+                        save();
+                    } catch (Exception ex) {
+                        LOGGER.log(Level.WARNING, "Error while saving build to update completed flag", ex);
                     }
                 }
             }
@@ -759,11 +756,28 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
     }
 
     /**
-     * Gets the associated execution state.
+     * Gets the associated execution state, and do a more expensive loading operation if not initialized.
      * @return non-null after the flow has started, even after finished (but may be null temporarily when about to start, or if starting failed)
      */
-    public @CheckForNull FlowExecution getExecution() {
-        return execution;
+    public synchronized @CheckForNull FlowExecution getExecution() {
+        if (executionLoaded || execution == null) {
+            return execution;
+        } else {  // Try to lazy-load execution
+            FlowExecution fetchedExecution = execution;
+            try {
+                if (getParent().isResumeBlocked() && fetchedExecution instanceof BlockableResume) {
+                    ((BlockableResume) fetchedExecution).setResumeBlocked(true);
+                }
+                fetchedExecution.onLoad(new Owner(this));
+                executionLoaded = true;
+                return fetchedExecution;
+            } catch (Exception x) {
+                LOGGER.log(Level.WARNING, null, x);
+                execution = null; // probably too broken to use
+                executionLoaded = true;
+                return null;
+            }
+        }
     }
 
     /**
@@ -789,6 +803,11 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
 
     @Exported
     @Override protected boolean isInProgress() {
+        if (completed != null && completed.get()) {  // Has a persisted completion state
+            return false;
+        }
+
+        // This may seem gratuitous but we MUST to check the execution in case 'completed' has not been set yet
         return execution != null && !execution.isComplete() && (completed == null || !completed.get());
     }
 
