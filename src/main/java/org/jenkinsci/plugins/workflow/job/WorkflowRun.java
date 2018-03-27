@@ -651,12 +651,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
                         fetchedExecution.addListener(new GraphL());
                         executionPromise.set(fetchedExecution);
 
-                        if (completed == null) {
-                            completed = new AtomicBoolean(fetchedExecution.isComplete());
-                        } else {
-                            completed.set(fetchedExecution.isComplete());
-                        }
-
+                        completed = new AtomicBoolean(fetchedExecution.isComplete());
                         if (!completed.get()) {
                             // we've been restarted while we were running. let's get the execution going again.
                             FlowExecutionListener.fireResumed(fetchedExecution);
@@ -675,8 +670,6 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
                                     Queue.getInstance().schedule(new AfterRestartTask(WorkflowRun.this), 0);
                                 }
                             });
-                        } else { // Error when calling execution.onLoad
-                            // FIXME need a way to handle executionPromise, completed state, etc correctly!
                         }
                     }
                 }
