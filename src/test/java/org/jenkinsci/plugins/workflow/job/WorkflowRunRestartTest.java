@@ -74,8 +74,11 @@ public class WorkflowRunRestartTest {
             assertTrue(p.isDisabled());
             WorkflowRun b = p.getBuildByNumber(1);
             assertTrue(b.isBuilding());
+            assertTrue(b.executionLoaded);
+            assertFalse(b.completed.get());
             SemaphoreStep.success("wait/1", null);
             r.assertBuildStatusSuccess(r.waitForCompletion(b));
+            assertTrue(b.completed.get());
         });
     }
 
@@ -93,8 +96,44 @@ public class WorkflowRunRestartTest {
             assertTrue(p.isResumeBlocked());
             WorkflowRun b = p.getBuildByNumber(1);
             r.waitForCompletion(b);
+            assertFalse(b.executionLoaded);
+            assertTrue(b.completed.get());
             assertFalse(b.isBuilding());
             assertEquals(Result.ABORTED, b.getResult());
+            FlowExecution fe = b.getExecution();
+            assertTrue(b.executionLoaded);
+            assertNotNull(fe.getOwner());
+        });
+    }
+
+    @Issue("JENKINS-45585")  // Verifies execution lazy-load
+    @Test public void lazyLoadExecution() {
+        story.thenWithHardShutdown(r -> {
+            WorkflowJob p = r.jenkins.createProject(WorkflowJob.class, "p");
+            p.setDefinition(new CpsFlowDefinition("echo 'dosomething'", true));
+            r.buildAndAssertSuccess(p);
+            WorkflowRun run = p.getLastBuild();
+            assertTrue(run.executionLoaded);
+            assertTrue(run.completed.get());
+            assertNotNull(run.getExecution().getOwner());
+
+            // Just verify we don't somehow trigger onLoad and mangle something in the future
+            FlowExecution fe = run.getExecution();
+            assertTrue(run.executionLoaded);
+            assertNotNull(run.getExecution().getOwner());
+        });
+        story.then(r -> {
+            WorkflowJob p = r.jenkins.getItemByFullName("p", WorkflowJob.class);
+            WorkflowRun b = p.getBuildByNumber(1);
+            assertNull(b.execution.getOwner());
+            assertFalse(b.executionLoaded);
+            assertTrue(b.completed.get());
+            assertFalse(b.isBuilding());
+
+            // Trigger lazy-load of execution
+            FlowExecution fe = b.getExecution();
+            assertNotNull(b.execution.getOwner());
+            assertTrue(b.executionLoaded);
         });
     }
 
@@ -124,6 +163,7 @@ public class WorkflowRunRestartTest {
             WorkflowJob p = r.jenkins.getItemByFullName("p", WorkflowJob.class);
             WorkflowRun b = p.getBuildByNumber(1);
             assertFalse(b.isBuilding());
+            assertFalse(b.executionLoaded);
         });
     }
 

@@ -68,6 +68,7 @@
         <workflow-support-plugin.version>2.17</workflow-support-plugin.version>
         <scm-api-plugin.version>2.1.1</scm-api-plugin.version>
         <git-plugin.version>3.2.0</git-plugin.version>
+        <jenkins-test-harness.version>2.33</jenkins-test-harness.version>
     </properties>
     <dependencies>
         <dependency>

@@ -152,8 +152,8 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
         }
     }
 
-    /** null until started, or after serious failures or hard kill */
-    private @CheckForNull FlowExecution execution;
+    /** Null until started, or after serious failures or hard kill. */
+    @CheckForNull FlowExecution execution; // Not private for test use only
 
     /**
      * {@link Future} that yields {@link #execution}, when it is fully configured and ready to be exposed.
@@ -172,7 +172,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
     private transient boolean allowKill;
 
     /** Controls whether or not our execution has been initialized via its {@link FlowExecution#onLoad(FlowExecutionOwner)} method yet if.*/
-    private transient boolean executionLoaded = false;
+    transient boolean executionLoaded = false;  // NonPrivate for tests
 
     /**
      * Cumulative list of people who contributed to the build problem.
@@ -190,11 +190,8 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
     /**
      * Flag for whether or not the build has completed somehow.
      * This was previously a transient field, so we may need to recompute in {@link #onLoad} based on {@link FlowExecution#isComplete}.
-     *
-     * TODO Finish off JENKINS-45585 bits by removing the need to null out {@link #execution} merely to force {@link #isInProgress} to be false
-     * in the case of broken or hard-killed builds which lack a single head node.
      */
-    private AtomicBoolean completed;
+    AtomicBoolean completed;  // Non-private for testing
 
     private transient Object logCopyGuard = new Object();
 
