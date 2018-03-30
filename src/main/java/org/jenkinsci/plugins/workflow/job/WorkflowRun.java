@@ -656,7 +656,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
                 boolean completedStateNotPersisted = completed == null;
                 super.onLoad();
 
-                // TODO See if we can simply this, especially around interactions with 'completed'.
+                // TODO See if we can simplify this, especially around interactions with 'completed'.
 
                 if (execution != null && (completed == null || !completed.get())) {
                     FlowExecution fetchedExecution = getExecution();  // Triggers execution.onLoad so we can resume running if not done
