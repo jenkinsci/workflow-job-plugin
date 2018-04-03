@@ -304,7 +304,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
             if (!loggedHintOverride) {  // Avoid double-logging
                 myListener.getLogger().println("Running in Durability level: "+DurabilityHintProvider.suggestedFor(this.project));
             }
-
+            save();  // Save before we add to the FlowExecutionList, to ensure we never have a run with a null build.
             synchronized (getLogCopyGuard()) {  // Technically safe but it makes FindBugs happy
                 FlowExecutionList.get().register(owner);
                 newExecution.addListener(new GraphL());
@@ -569,7 +569,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
         }
         if (modified) {
             try {
-                if (this.execution != null && this.execution.getDurabilityHint().isPersistWithEveryStep()) {
+                if (this.execution == null || this.execution.getDurabilityHint().isPersistWithEveryStep()) {
                     save();
                 }
             } catch (IOException x) {
