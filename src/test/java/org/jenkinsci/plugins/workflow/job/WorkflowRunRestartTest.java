@@ -79,6 +79,7 @@ public class WorkflowRunRestartTest {
             SemaphoreStep.success("wait/1", null);
             r.assertBuildStatusSuccess(r.waitForCompletion(b));
             assertTrue(b.completed.get());
+            assertNull(b.logsToCopy);
         });
     }
 
@@ -103,6 +104,7 @@ public class WorkflowRunRestartTest {
             FlowExecution fe = b.getExecution();
             assertTrue(b.executionLoaded);
             assertNotNull(fe.getOwner());
+            assertNull(b.logsToCopy);
         });
     }
 
@@ -164,6 +166,7 @@ public class WorkflowRunRestartTest {
             WorkflowRun b = p.getBuildByNumber(1);
             assertFalse(b.isBuilding());
             assertFalse(b.executionLoaded);
+            assertNull(b.logsToCopy);
         });
     }
 
@@ -194,6 +197,8 @@ public class WorkflowRunRestartTest {
             r.waitForMessage("Hard kill!", b);
             r.waitForCompletion(b);
             r.assertBuildStatus(Result.ABORTED, b);
+            assertNull(b.logsToCopy);
+            assertTrue(b.completed.get());
         });
     }
 

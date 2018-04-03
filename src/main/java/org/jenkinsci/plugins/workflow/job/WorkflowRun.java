@@ -196,7 +196,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
     private transient Object logCopyGuard = new Object();
 
     /** map from node IDs to log positions from which we should copy text */
-    Map<String,Long> logsToCopy;
+    Map<String,Long> logsToCopy;  // Exposed for testing
 
     /** JENKINS-26761: supposed to always be set but sometimes is not. Access only through {@link #checkouts(TaskListener)}. */
     private @CheckForNull List<SCMCheckout> checkouts;
@@ -213,7 +213,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
         return logCopyGuard;
     }
 
-    /** Avoids creating new instances, analogous to {@link TaskListener} but as full StreamBuildListener. */
+    /** Avoids creating new instances, analogous to {@link TaskListener#NULL} but as full StreamBuildListener. */
     static final StreamBuildListener NULL_LISTENER = new StreamBuildListener(new NullStream());
 
     /** Used internally to ensure listener has been initialized correctly. */
