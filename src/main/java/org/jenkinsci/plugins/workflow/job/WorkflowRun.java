@@ -89,7 +89,6 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -139,7 +138,7 @@ import org.kohsuke.stapler.export.Exported;
 import org.kohsuke.stapler.interceptor.RequirePOST;
 
 @SuppressWarnings("SynchronizeOnNonFinalField")
-@SuppressFBWarnings(value="JLM_JSR166_UTILCONCURRENT_MONITORENTER", justification="completed is an unusual usage")
+@SuppressFBWarnings(value="RC_REF_COMPARISON_BAD_PRACTICE_BOOLEAN", justification="We need to appropriately handle null completion states from legacy builds.")
 public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements FlowExecutionOwner.Executable, LazyBuildMixIn.LazyLoadingRun<WorkflowJob,WorkflowRun>, RunWithSCM<WorkflowJob,WorkflowRun> {
 
     private static final Logger LOGGER = Logger.getLogger(WorkflowRun.class.getName());
@@ -171,7 +170,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
 
     private transient boolean allowKill;
 
-    /** Controls whether or not our execution has been initialized via its {@link FlowExecution#onLoad(FlowExecutionOwner)} method yet if.*/
+    /** Controls whether or not our execution has been initialized via its {@link FlowExecution#onLoad(FlowExecutionOwner)} method yet.*/
     transient boolean executionLoaded = false;  // NonPrivate for tests
 
     /**
@@ -191,7 +190,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
      * Flag for whether or not the build has completed somehow.
      * This was previously a transient field, so we may need to recompute in {@link #onLoad} based on {@link FlowExecution#isComplete}.
      */
-    AtomicBoolean completed;  // Non-private for testing
+    Boolean completed;  // Non-private for testing
 
     private transient Object logCopyGuard = new Object();
 
@@ -308,7 +307,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
             synchronized (getLogCopyGuard()) {  // Technically safe but it makes FindBugs happy
                 FlowExecutionList.get().register(owner);
                 newExecution.addListener(new GraphL());
-                completed = new AtomicBoolean();
+                completed = Boolean.FALSE;
                 logsToCopy = new ConcurrentSkipListMap<>();
                 executionLoaded = true;
                 execution = newExecution;
@@ -382,7 +381,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
                         // Loading run, give it a moment.
                         return;
                     }
-                    if (completed.get()) {
+                    if (completed) {
                         asynchronousExecution.completed(null);
                         copyLogsTask.get().cancel(false);
                         return;
@@ -658,7 +657,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
 
                 // TODO See if we can simplify this, especially around interactions with 'completed'.
 
-                if (execution != null && (completed == null || !completed.get())) {
+                if (execution != null && completed != Boolean.TRUE) {
                     FlowExecution fetchedExecution = getExecution();  // Triggers execution.onLoad so we can resume running if not done
 
                     if (fetchedExecution != null) {
@@ -666,32 +665,23 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
                         executionPromise.set(fetchedExecution);
 
                         if (completed == null) {
-                            completed = new AtomicBoolean(fetchedExecution.isComplete());
+                            completed = Boolean.valueOf(fetchedExecution.isComplete());
                         }
 
-                        if (!completed.get()) {
+                        if (!completed == Boolean.TRUE) {
                             // we've been restarted while we were running. let's get the execution going again.
                             FlowExecutionListener.fireResumed(fetchedExecution);
 
                             getListener().getLogger().println("Resuming build at " + new Date() + " after Jenkins restart");
-                            Timer.get().submit(new Runnable() { // JENKINS-31614
-                                @Override
-                                public void run() {
-                                    Queue.getInstance().schedule(new AfterRestartTask(WorkflowRun.this), 0);
-                                }
-                            });
+                            Timer.get().submit(() -> Queue.getInstance().schedule(new AfterRestartTask(WorkflowRun.this), 0)); // JENKINS-31614
                         }
                     } else {   // Execution nulled due to a critical failure, explicitly mark completed
-                        if (completed == null) {
-                            completed = new AtomicBoolean(true);
-                        } else {
-                            completed.set(true);
-                        }
+                        completed = Boolean.TRUE;
                     }
                 } else if (execution == null) {
-                    completed = new AtomicBoolean(true);
+                    completed = Boolean.TRUE;
                 }
-                if (completedStateNotPersisted && completed.get()) {
+                if (completedStateNotPersisted && completed) {
                     try {
                         save();
                     } catch (Exception ex) {
@@ -720,18 +710,13 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
     private void finish(@Nonnull Result r, @CheckForNull Throwable t) {
         synchronized (getLogCopyGuard()) {
             setResult(r);
-            if (completed != null) {
-                completed.set(true);
-            } else {
-                completed = new AtomicBoolean(true);
-            }
+            completed = Boolean.TRUE;
             duration = Math.max(0, System.currentTimeMillis() - getStartTimeInMillis());
         }
 
         try {
             LOGGER.log(Level.INFO, "{0} completed: {1}", new Object[]{toString(), getResult()});
             if (listener == null) {
-                // Can we actually rely on this, now that we use an initializing getter?
                 LOGGER.log(Level.WARNING, this + " failed to start", t);
             } else {
                 RunListener.fireCompleted(WorkflowRun.this, getListener());
@@ -827,12 +812,12 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
 
     @Exported
     @Override protected boolean isInProgress() {
-        if (completed != null && completed.get()) {  // Has a persisted completion state
+        if (completed == Boolean.TRUE) {  // Has a persisted completion state
             return false;
         }
 
         // This may seem gratuitous but we MUST to check the execution in case 'completed' has not been set yet
-        return execution != null && !execution.isComplete() && (completed == null || !completed.get());
+        return execution != null && !execution.isComplete() && (completed != Boolean.TRUE);  // Note: note completed can be null so can't just check for == false
     }
 
     @Override public boolean isLogUpdated() {
