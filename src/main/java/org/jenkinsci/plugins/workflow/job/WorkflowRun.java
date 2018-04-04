@@ -688,6 +688,8 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
                             completed.set(true);
                         }
                     }
+                } else if (execution == null) {
+                    completed = new AtomicBoolean(true);
                 }
                 if (completedStateNotPersisted && completed.get()) {
                     try {
