@@ -217,6 +217,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
 
     /** Used internally to ensure listener has been initialized correctly. */
     StreamBuildListener getListener() {
+        // Un-synchronized to prevent deadlocks (combination of run and logCopyGuard) until the log-handling rewrite removes the log copying
         if (listener == null) {
             try {
                 OutputStream logger = new FileOutputStream(getLogFile(), true);
@@ -457,7 +458,9 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
         if (!isBuilding() || /* probably redundant, but just to be sure */ execution == null) {
             return;
         }
-        getListener().getLogger().println("Hard kill!");
+        synchronized (getLogCopyGuard()) {
+            getListener().getLogger().println("Hard kill!");
+        }
         execution = null; // ensures isInProgress returns false
         FlowInterruptedException suddenDeath = new FlowInterruptedException(Result.ABORTED);
         finish(Result.ABORTED, suddenDeath);
@@ -708,7 +711,9 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
 
     /** Handles normal build completion (including errors) but also handles the case that the flow did not even start correctly, for example due to an error in {@link FlowExecution#start}. */
     private void finish(@Nonnull Result r, @CheckForNull Throwable t) {
+        boolean nullListener = false;
         synchronized (getLogCopyGuard()) {
+            nullListener = listener == null;
             setResult(r);
             completed = Boolean.TRUE;
             duration = Math.max(0, System.currentTimeMillis() - getStartTimeInMillis());
@@ -716,7 +721,8 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
 
         try {
             LOGGER.log(Level.INFO, "{0} completed: {1}", new Object[]{toString(), getResult()});
-            if (listener == null) {
+            if (nullListener) {
+                // Never even made it to running, either failed when fresh-started or resumed -- otherwise getListener would have run
                 LOGGER.log(Level.WARNING, this + " failed to start", t);
             } else {
                 RunListener.fireCompleted(WorkflowRun.this, getListener());
