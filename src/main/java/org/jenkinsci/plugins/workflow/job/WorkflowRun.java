@@ -272,12 +272,17 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
 
             boolean loggedHintOverride = false;
             if (getParent().isResumeBlocked()) {
-                if (newExecution instanceof BlockableResume) {
-                    ((BlockableResume) newExecution).setResumeBlocked(true);
+
+            }
+            if (newExecution instanceof BlockableResume) {
+                boolean blockResume = getParent().isResumeBlocked();
+                ((BlockableResume) newExecution).setResumeBlocked(blockResume);
+                if (blockResume) {
                     listener.getLogger().println("Resume disabled by user, switching to high-performance, low-durability mode.");
                     loggedHintOverride = true;
                 }
             }
+
             if (!loggedHintOverride) {  // Avoid double-logging
                 listener.getLogger().println("Running in Durability level: "+DurabilityHintProvider.suggestedFor(this.project));
             }
@@ -629,8 +634,12 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
         FlowExecution fetchedExecution = execution;
         if (fetchedExecution != null) {
             try {
-                if (getParent().isResumeBlocked() && execution instanceof BlockableResume) {
-                    ((BlockableResume) execution).setResumeBlocked(true);
+                if (execution instanceof BlockableResume) {
+                    BlockableResume blockableExecution = (BlockableResume)execution;
+                    boolean parentBlocked = getParent().isResumeBlocked();
+                    if (parentBlocked != blockableExecution.isResumeBlocked()) {  // Avoids issues with WF-CPS versions before JENKINS-49961 patch
+                        blockableExecution.setResumeBlocked(parentBlocked);
+                    }
                 }
                 fetchedExecution.onLoad(new Owner(this));
             } catch (Exception x) {
