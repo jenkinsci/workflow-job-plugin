@@ -46,8 +46,9 @@ public class WorkflowRunConsoleNote extends ConsoleNote<Run<?, ?>> {
      * CSS color selector.
      */
     private static final String TEXT_COLOR = "9A9999";
+    private static final String CLASS_NAME = "pipeline-annotated";
 
-    private static final String START_NOTE = "<span style=\"color:#"+ TEXT_COLOR +"\">";
+    private static final String START_NOTE = "<span class=\""+ CLASS_NAME +"\" style=\"color:#"+ TEXT_COLOR +"\">";
     private static final String END_NOTE = "</span>";
 
     @Override

@@ -66,6 +66,7 @@ import hudson.util.NamingThreadFactory;
 import hudson.util.NullStream;
 import hudson.util.PersistedList;
 import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
@@ -87,7 +88,6 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -138,7 +138,7 @@ import org.kohsuke.stapler.export.Exported;
 import org.kohsuke.stapler.interceptor.RequirePOST;
 
 @SuppressWarnings("SynchronizeOnNonFinalField")
-@SuppressFBWarnings(value="JLM_JSR166_UTILCONCURRENT_MONITORENTER", justification="completed is an unusual usage")
+@SuppressFBWarnings(value="RC_REF_COMPARISON_BAD_PRACTICE_BOOLEAN", justification="We need to appropriately handle null completion states from legacy builds.")
 public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements FlowExecutionOwner.Executable, LazyBuildMixIn.LazyLoadingRun<WorkflowJob,WorkflowRun>, RunWithSCM<WorkflowJob,WorkflowRun> {
 
     private static final Logger LOGGER = Logger.getLogger(WorkflowRun.class.getName());
@@ -151,8 +151,8 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
         }
     }
 
-    /** null until started, or after serious failures or hard kill */
-    private @CheckForNull FlowExecution execution;
+    /** Null until started, or after serious failures or hard kill. */
+    @CheckForNull FlowExecution execution; // Not private for test use only
 
     /**
      * {@link Future} that yields {@link #execution}, when it is fully configured and ready to be exposed.
@@ -170,6 +170,9 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
 
     private transient boolean allowKill;
 
+    /** Controls whether or not our execution has been initialized via its {@link FlowExecution#onLoad(FlowExecutionOwner)} method yet.*/
+    transient boolean executionLoaded = false;  // NonPrivate for tests
+
     /**
      * Cumulative list of people who contributed to the build problem.
      *
@@ -185,17 +188,14 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
 
     /**
      * Flag for whether or not the build has completed somehow.
-     * Non-null soon after the build starts or is reloaded from disk.
-     * Recomputed in {@link #onLoad} based on {@link FlowExecution#isComplete}.
-     * TODO may be better to make this a persistent field.
-     * That would allow the execution of a completed build to be loaded on demand (JENKINS-45585), reducing overhead for some operations.
-     * It would also remove the need to null out {@link #execution} merely to force {@link #isInProgress} to be false
-     * in the case of broken or hard-killed builds which lack a single head node.
+     * This was previously a transient field, so we may need to recompute in {@link #onLoad} based on {@link FlowExecution#isComplete}.
      */
-    private transient AtomicBoolean completed;
+    Boolean completed;  // Non-private for testing
+
+    private transient Object logCopyGuard = new Object();
 
     /** map from node IDs to log positions from which we should copy text */
-    private Map<String,Long> logsToCopy;
+    Map<String,Long> logsToCopy;  // Exposed for testing
 
     /** JENKINS-26761: supposed to always be set but sometimes is not. Access only through {@link #checkouts(TaskListener)}. */
     private @CheckForNull List<SCMCheckout> checkouts;
@@ -204,6 +204,32 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
 
     /** True when first started, false when running after a restart. */
     private transient boolean firstTime;
+
+    private synchronized Object getLogCopyGuard() {
+        if (logCopyGuard == null) {
+            logCopyGuard = new Object();
+        }
+        return logCopyGuard;
+    }
+
+    /** Avoids creating new instances, analogous to {@link TaskListener#NULL} but as full StreamBuildListener. */
+    static final StreamBuildListener NULL_LISTENER = new StreamBuildListener(new NullStream());
+
+    /** Used internally to ensure listener has been initialized correctly. */
+    StreamBuildListener getListener() {
+        // Un-synchronized to prevent deadlocks (combination of run and logCopyGuard) until the log-handling rewrite removes the log copying
+        // Note that in portions where multithreaded access is possible we are already synchronizing on logCopyGuard
+        if (listener == null) {
+            try {
+                OutputStream logger = new FileOutputStream(getLogFile(), true);
+                listener = new StreamBuildListener(logger, Charset.defaultCharset());
+            } catch (FileNotFoundException fnf) {
+                LOGGER.log(Level.WARNING, "Error trying to open build log file for writing, output will be lost: "+getLogFile(), fnf);
+                return NULL_LISTENER;
+            }
+        }
+        return listener;
+    }
 
     public WorkflowRun(WorkflowJob job) throws IOException {
         super(job);
@@ -248,44 +274,48 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
         }
         try {
             onStartBuilding();
-            OutputStream logger = new FileOutputStream(getLogFile());
-            listener = new StreamBuildListener(logger, Charset.defaultCharset());
-            listener.started(getCauses());
+            StreamBuildListener myListener = getListener();
+            myListener.started(getCauses());
             Authentication auth = Jenkins.getAuthentication();
             if (!auth.equals(ACL.SYSTEM)) {
                 String name = auth.getName();
                 if (!auth.equals(Jenkins.ANONYMOUS)) {
                     name = ModelHyperlinkNote.encodeTo(User.get(name));
                 }
-                listener.getLogger().println(hudson.model.Messages.Run_running_as_(name));
+                myListener.getLogger().println(hudson.model.Messages.Run_running_as_(name));
             }
-            RunListener.fireStarted(this, listener);
-            updateSymlinks(listener);
+            RunListener.fireStarted(this, myListener);
+            updateSymlinks(myListener);
             FlowDefinition definition = getParent().getDefinition();
             if (definition == null) {
                 throw new AbortException("No flow definition, cannot run");
             }
 
             Owner owner = new Owner(this);
-            FlowExecution newExecution = definition.create(owner, listener, getAllActions());
+            FlowExecution newExecution = definition.create(owner, myListener, getAllActions());
 
             boolean loggedHintOverride = false;
-            if (getParent().isResumeBlocked()) {
-                if (newExecution instanceof BlockableResume) {
-                    ((BlockableResume) newExecution).setResumeBlocked(true);
+            if (newExecution instanceof BlockableResume) {
+                boolean blockResume = getParent().isResumeBlocked();
+                ((BlockableResume) newExecution).setResumeBlocked(blockResume);
+                if (blockResume) {
                     listener.getLogger().println("Resume disabled by user, switching to high-performance, low-durability mode.");
                     loggedHintOverride = true;
                 }
             }
             if (!loggedHintOverride) {  // Avoid double-logging
-                listener.getLogger().println("Running in Durability level: "+DurabilityHintProvider.suggestedFor(this.project));
+                myListener.getLogger().println("Running in Durability level: "+DurabilityHintProvider.suggestedFor(this.project));
+            }
+            save();  // Save before we add to the FlowExecutionList, to ensure we never have a run with a null build.
+            synchronized (getLogCopyGuard()) {  // Technically safe but it makes FindBugs happy
+                FlowExecutionList.get().register(owner);
+                newExecution.addListener(new GraphL());
+                completed = Boolean.FALSE;
+                logsToCopy = new ConcurrentSkipListMap<>();
+                executionLoaded = true;
+                execution = newExecution;
             }
 
-            FlowExecutionList.get().register(owner);
-            newExecution.addListener(new GraphL());
-            completed = new AtomicBoolean();
-            logsToCopy = new ConcurrentSkipListMap<>();
-            execution = newExecution;
             newExecution.start();
             executionPromise.set(newExecution);
             FlowExecutionListener.fireRunning(execution);
@@ -334,7 +364,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
                         } catch (Exception x) {
                             LOGGER.log(Level.WARNING, null, x);
                         }
-                        executor.recordCauseOfInterruption(WorkflowRun.this, listener);
+                        executor.recordCauseOfInterruption(WorkflowRun.this, getListener());
                         printLater(StopState.TERM, "Click here to forcibly terminate running steps");
                     }
                 });
@@ -349,8 +379,12 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
         final AtomicReference<ScheduledFuture<?>> copyLogsTask = new AtomicReference<>();
         copyLogsTask.set(copyLogsExecutorService().scheduleAtFixedRate(new Runnable() {
             @Override public void run() {
-                synchronized (completed) {
-                    if (completed.get()) {
+                synchronized (getLogCopyGuard()) {
+                    if (completed == null) {
+                        // Loading run, give it a moment.
+                        return;
+                    }
+                    if (completed) {
                         asynchronousExecution.completed(null);
                         copyLogsTask.get().cancel(false);
                         return;
@@ -359,8 +393,8 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
                     if (jenkins == null || jenkins.isTerminating()) {
                         LOGGER.log(Level.FINE, "shutting down, breaking waitForCompletion on {0}", this);
                         // Stop writing content, in case a new set of objects gets loaded after in-VM restart and starts writing to the same file:
-                        listener.closeQuietly();
-                        listener = new StreamBuildListener(new NullStream());
+                        getListener().closeQuietly();
+                        listener = NULL_LISTENER;
                         return;
                     }
                     try (WithThreadName naming = new WithThreadName(" (" + WorkflowRun.this + ")")) {
@@ -386,7 +420,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
                         allowKill = true;
                         break;
                 }
-                listener.getLogger().println(POSTHyperlinkNote.encodeTo("/" + getUrl() + state.url(), message));
+                getListener().getLogger().println(POSTHyperlinkNote.encodeTo("/" + getUrl() + state.url(), message));
             }
         }, 15, TimeUnit.SECONDS);
     }
@@ -407,7 +441,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
                     try {
                         FlowNode n = context.get(FlowNode.class);
                         if (n != null) {
-                            listener.getLogger().println("Terminating " + n.getDisplayFunctionName());
+                            getListener().getLogger().println("Terminating " + n.getDisplayFunctionName());
                         }
                     } catch (Exception x) {
                         LOGGER.log(Level.FINE, null, x);
@@ -426,8 +460,8 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
         if (!isBuilding() || /* probably redundant, but just to be sure */ execution == null) {
             return;
         }
-        if (listener != null) {
-            listener.getLogger().println("Hard kill!");
+        synchronized (getLogCopyGuard()) {
+            getListener().getLogger().println("Hard kill!");
         }
         execution = null; // ensures isInProgress returns false
         FlowInterruptedException suddenDeath = new FlowInterruptedException(Result.ABORTED);
@@ -467,7 +501,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
         return isBuilding() && allowKill;
     }
 
-    @GuardedBy("completed")
+    @GuardedBy("logCopyGuard")
     private void copyLogs() {
         if (logsToCopy == null) { // finished
             return;
@@ -505,9 +539,9 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
 
                     String prefix = getBranchName(node);
                     if (prefix != null) {
-                        logger = new LogLinePrefixOutputFilter(listener.getLogger(), "[" + prefix + "] ");
+                        logger = new LogLinePrefixOutputFilter(getListener().getLogger(), "[" + prefix + "] ");
                     } else {
-                        logger = listener.getLogger();
+                        logger = getListener().getLogger();
                     }
 
                     try {
@@ -539,7 +573,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
         }
         if (modified) {
             try {
-                if (this.execution != null && this.execution.getDurabilityHint().isPersistWithEveryStep()) {
+                if (this.execution == null || this.execution.getDurabilityHint().isPersistWithEveryStep()) {
                     save();
                 }
             } catch (IOException x) {
@@ -557,11 +591,11 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
         }
     }
 
-    @GuardedBy("completed")
+    @GuardedBy("logCopyGuard")
     private transient Cache<FlowNode,Optional<String>> branchNameCache;  // TODO Consider making this a top-level FlowNode API
 
     private Cache<FlowNode, Optional<String>> getBranchNameCache() {
-        synchronized (completed) {
+        synchronized (getLogCopyGuard()) {
             if (branchNameCache == null) {
                 branchNameCache = CacheBuilder.newBuilder().weakKeys().build();
             }
@@ -649,50 +683,51 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
     }
 
     @Override protected void onLoad() {
-        super.onLoad();
-        if (completed != null) {
-            throw new IllegalStateException("double onLoad of " + this);
-        }
-        FlowExecution fetchedExecution = execution;
-        if (fetchedExecution != null) {
-            try {
-                if (getParent().isResumeBlocked() && execution instanceof BlockableResume) {
-                    ((BlockableResume) execution).setResumeBlocked(true);
-                }
-                fetchedExecution.onLoad(new Owner(this));
-            } catch (Exception x) {
-                LOGGER.log(Level.WARNING, null, x);
-                execution = null; // probably too broken to use
-            }
-        }
-        fetchedExecution = execution;
-        if (fetchedExecution != null) {
-            fetchedExecution.addListener(new GraphL());
-            executionPromise.set(fetchedExecution);
-            if (!fetchedExecution.isComplete()) {
-                // we've been restarted while we were running. let's get the execution going again.
-                FlowExecutionListener.fireResumed(fetchedExecution);
+        try {
+            synchronized (getLogCopyGuard()) {  // CHECKME: Deadlock risks here - copyLogGuard and locks on Run
+                boolean completedStateNotPersisted = completed == null;
+                super.onLoad();
 
-                try {
-                    OutputStream logger = new FileOutputStream(getLogFile(), true);
-                    listener = new StreamBuildListener(logger, Charset.defaultCharset());
-                    listener.getLogger().println("Resuming build at " + new Date() + " after Jenkins restart");
-                } catch (IOException x) {
-                    LOGGER.log(Level.WARNING, null, x);
-                    listener = new StreamBuildListener(new NullStream());
-                }
-                completed = new AtomicBoolean();
-                Timer.get().submit(new Runnable() { // JENKINS-31614
-                    @Override public void run() {
-                        Queue.getInstance().schedule(new AfterRestartTask(WorkflowRun.this), 0);
+                // TODO See if we can simplify this, especially around interactions with 'completed'.
+
+                if (execution != null && completed != Boolean.TRUE) {
+                    FlowExecution fetchedExecution = getExecution();  // Triggers execution.onLoad so we can resume running if not done
+
+                    if (fetchedExecution != null) {
+                        fetchedExecution.addListener(new GraphL());
+                        executionPromise.set(fetchedExecution);
+
+                        if (completed == null) {
+                            completed = Boolean.valueOf(fetchedExecution.isComplete());
+                        }
+
+                        if (!completed == Boolean.TRUE) {
+                            // we've been restarted while we were running. let's get the execution going again.
+                            FlowExecutionListener.fireResumed(fetchedExecution);
+
+                            getListener().getLogger().println("Resuming build at " + new Date() + " after Jenkins restart");
+                            Timer.get().submit(() -> Queue.getInstance().schedule(new AfterRestartTask(WorkflowRun.this), 0)); // JENKINS-31614
+                        }
+                    } else {   // Execution nulled due to a critical failure, explicitly mark completed
+                        completed = Boolean.TRUE;
                     }
-                });
+                } else if (execution == null) {
+                    completed = Boolean.TRUE;
+                }
+                if (completedStateNotPersisted && completed) {
+                    try {
+                        save();
+                    } catch (Exception ex) {
+                        LOGGER.log(Level.WARNING, "Error while saving build to update completed flag", ex);
+                    }
+                }
             }
-        }
-        checkouts(null); // only for diagnostics
-        synchronized (LOADING_RUNS) {
-            LOADING_RUNS.remove(key()); // or could just make the value type be WeakReference<WorkflowRun>
-            LOADING_RUNS.notifyAll();
+        } finally {  // Ensure the run is ALWAYS removed from loading even if something failed, so threads awaken.
+            checkouts(null); // only for diagnostics
+            synchronized (LOADING_RUNS) {
+                LOADING_RUNS.remove(key()); // or could just make the value type be WeakReference<WorkflowRun>
+                LOADING_RUNS.notifyAll();
+            }
         }
     }
 
@@ -706,50 +741,56 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
 
     /** Handles normal build completion (including errors) but also handles the case that the flow did not even start correctly, for example due to an error in {@link FlowExecution#start}. */
     private void finish(@Nonnull Result r, @CheckForNull Throwable t) {
-        setResult(r);
-        duration = Math.max(0, System.currentTimeMillis() - getStartTimeInMillis());
-        LOGGER.log(Level.INFO, "{0} completed: {1}", new Object[] {toString(), getResult()});
-        if (listener == null) {
-            LOGGER.log(Level.WARNING, this + " failed to start", t);
-        } else {
-            RunListener.fireCompleted(WorkflowRun.this, listener);
-            if (t instanceof AbortException) {
-                listener.error(t.getMessage());
-            } else if (t instanceof FlowInterruptedException) {
-                ((FlowInterruptedException) t).handle(this, listener);
-            } else if (t != null) {
-                listener.getLogger().println(Functions.printThrowable(t).trim()); // TODO 2.43+ use Functions.printStackTrace
-            }
-            listener.finished(getResult());
-            listener.closeQuietly();
+        boolean nullListener = false;
+        synchronized (getLogCopyGuard()) {
+            nullListener = listener == null;
+            setResult(r);
+            completed = Boolean.TRUE;
+            duration = Math.max(0, System.currentTimeMillis() - getStartTimeInMillis());
         }
         logsToCopy = null;
         branchNameCache = null;
         try {
-            save();
-        } catch (Exception x) {
-            LOGGER.log(Level.WARNING, "failed to save " + this, x);
-        }
-        Timer.get().submit(() -> {
+            LOGGER.log(Level.INFO, "{0} completed: {1}", new Object[]{toString(), getResult()});
+            if (nullListener) {
+                // Never even made it to running, either failed when fresh-started or resumed -- otherwise getListener would have run
+                LOGGER.log(Level.WARNING, this + " failed to start", t);
+            } else {
+                RunListener.fireCompleted(WorkflowRun.this, getListener());
+                if (t instanceof AbortException) {
+                    getListener().error(t.getMessage());
+                } else if (t instanceof FlowInterruptedException) {
+                    ((FlowInterruptedException) t).handle(this, getListener());
+                } else if (t != null) {
+                    Functions.printStackTrace(t, getListener().getLogger());
+                }
+                getListener().finished(getResult());
+                getListener().closeQuietly();
+            }
+            logsToCopy = null;
             try {
-                getParent().logRotate();
+                save();
             } catch (Exception x) {
-                LOGGER.log(Level.WARNING, "failed to perform log rotation after " + this, x);
+                LOGGER.log(Level.WARNING, "failed to save " + this, x);
             }
-        });
-        onEndBuilding();
-        if (completed != null) {
-            synchronized (completed) {
-                completed.set(true);
-            }
+            Timer.get().submit(() -> {
+                try {
+                    getParent().logRotate();
+                } catch (Exception x) {
+                    LOGGER.log(Level.WARNING, "failed to perform log rotation after " + this, x);
+                }
+            });
+            onEndBuilding();
+        } finally {  // Ensure this is ALWAYS removed from FlowExecutionList
+            FlowExecutionList.get().unregister(new Owner(this));
         }
-        FlowExecutionList.get().unregister(new Owner(this));
+
         try {
             StashManager.maybeClearAll(this);
         } catch (IOException x) {
             LOGGER.log(Level.WARNING, "failed to clean up stashes from " + this, x);
         }
-        FlowExecution exec = getExecution();
+        FlowExecution exec = execution;
         if (exec != null) {
             FlowExecutionListener.fireCompleted(exec);
         }
@@ -761,11 +802,32 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
     }
 
     /**
-     * Gets the associated execution state.
+     * Gets the associated execution state, and do a more expensive loading operation if not initialized.
      * @return non-null after the flow has started, even after finished (but may be null temporarily when about to start, or if starting failed)
      */
-    public @CheckForNull FlowExecution getExecution() {
-        return execution;
+    public synchronized @CheckForNull FlowExecution getExecution() {
+        if (executionLoaded || execution == null) {
+            return execution;
+        } else {  // Try to lazy-load execution
+            FlowExecution fetchedExecution = execution;
+            try {
+                if (fetchedExecution instanceof BlockableResume) {
+                    BlockableResume blockableExecution = (BlockableResume)execution;
+                    boolean parentBlocked = getParent().isResumeBlocked();
+                    if (parentBlocked != blockableExecution.isResumeBlocked()) {  // Avoids issues with WF-CPS versions before JENKINS-49961 patch
+                        blockableExecution.setResumeBlocked(parentBlocked);
+                    }
+                }
+                fetchedExecution.onLoad(new Owner(this));
+                executionLoaded = true;
+                return fetchedExecution;
+            } catch (Exception x) {
+                LOGGER.log(Level.WARNING, null, x);
+                execution = null; // probably too broken to use
+                executionLoaded = true;
+                return null;
+            }
+        }
     }
 
     /**
@@ -791,7 +853,12 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
 
     @Exported
     @Override protected boolean isInProgress() {
-        return execution != null && !execution.isComplete() && (completed == null || !completed.get());
+        if (completed == Boolean.TRUE) {  // Has a persisted completion state
+            return false;
+        }
+
+        // This may seem gratuitous but we MUST to check the execution in case 'completed' has not been set yet
+        return execution != null && !execution.isComplete() && (completed != Boolean.TRUE);  // Note: note completed can be null so can't just check for == false
     }
 
     @Override public boolean isLogUpdated() {
@@ -989,14 +1056,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
             return run().getUrl();
         }
         @Override public TaskListener getListener() throws IOException {
-            StreamBuildListener l = run().listener;
-            if (l != null) {
-                return l;
-            } else {
-                // Seems to happen at least once during resume, but anyway TryRepeatedly will call this method again, rather than caching the result.
-                LOGGER.log(Level.FINE, "No listener yet for {0}", this);
-                return TaskListener.NULL;
-            }
+            return run().getListener();
         }
         @Override public String toString() {
             return "Owner[" + key() + ":" + run + "]";
@@ -1020,7 +1080,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
 
     private final class GraphL implements GraphListener {
         @Override public void onNewHead(FlowNode node) {
-            synchronized (completed) {
+            synchronized (getLogCopyGuard()) {
                 copyLogs();
                 logsToCopy.put(node.getId(), 0L);
             }
@@ -1033,17 +1093,19 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
             if (node instanceof FlowEndNode) {
                 finish(((FlowEndNode) node).getResult(), execution != null ? execution.getCauseOfFailure() : null);
             } else {
-                try {
-                    save();
-                } catch (IOException x) {
-                    LOGGER.log(Level.WARNING, null, x);
+                if (execution != null && execution.getDurabilityHint().isPersistWithEveryStep()) {
+                    try {
+                        save();
+                    } catch (IOException x) {
+                        LOGGER.log(Level.WARNING, null, x);
+                    }
                 }
             }
         }
     }
 
     private void logNodeMessage(FlowNode node) {
-        WorkflowConsoleLogger wfLogger = new WorkflowConsoleLogger(listener);
+        WorkflowConsoleLogger wfLogger = new WorkflowConsoleLogger(getListener());
         String prefix = getBranchName(node);
         if (prefix != null) {
             wfLogger.log(String.format("[%s] %s", prefix, node.getDisplayFunctionName()));
