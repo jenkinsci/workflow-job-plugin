@@ -25,9 +25,8 @@
 package org.jenkinsci.plugins.workflow.job;
 
 import com.google.common.base.Optional;
+import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
-import com.google.common.cache.CacheLoader;
-import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -120,6 +119,7 @@ import org.jenkinsci.plugins.workflow.flow.FlowExecutionOwner;
 import org.jenkinsci.plugins.workflow.flow.GraphListener;
 import org.jenkinsci.plugins.workflow.flow.StashManager;
 import org.jenkinsci.plugins.workflow.graph.BlockEndNode;
+import org.jenkinsci.plugins.workflow.graph.BlockStartNode;
 import org.jenkinsci.plugins.workflow.graph.FlowEndNode;
 import org.jenkinsci.plugins.workflow.graph.FlowNode;
 import org.jenkinsci.plugins.workflow.job.console.WorkflowConsoleLogger;
@@ -537,7 +537,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
                     long old = entry.getValue();
                     OutputStream logger;
 
-                    String prefix = getLogPrefix(node);
+                    String prefix = getBranchName(node);
                     if (prefix != null) {
                         logger = new LogLinePrefixOutputFilter(getListener().getLogger(), "[" + prefix + "] ");
                     } else {
@@ -592,33 +592,61 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
     }
 
     @GuardedBy("logCopyGuard")
-    private transient LoadingCache<FlowNode,Optional<String>> logPrefixCache;
-    private @CheckForNull String getLogPrefix(FlowNode node) {
-        // TODO could also use FlowScanningUtils.fetchEnclosingBlocks(node).filter(FlowScanningUtils.hasActionPredicate(ThreadNameAction.class)),
-        // but this would not let us cache intermediate results
+    private transient Cache<FlowNode,Optional<String>> branchNameCache;  // TODO Consider making this a top-level FlowNode API
+
+    private Cache<FlowNode, Optional<String>> getBranchNameCache() {
         synchronized (getLogCopyGuard()) {
-            if (logPrefixCache == null) {
-                logPrefixCache = CacheBuilder.newBuilder().weakKeys().build(new CacheLoader<FlowNode,Optional<String>>() {
-                    @Override public @Nonnull Optional<String> load(FlowNode node) {
-                        if (node instanceof BlockEndNode) {
-                            return Optional.fromNullable(getLogPrefix(((BlockEndNode) node).getStartNode()));
-                        }
-                        ThreadNameAction threadNameAction = node.getAction(ThreadNameAction.class);
-                        if (threadNameAction != null) {
-                            return Optional.of(threadNameAction.getThreadName());
-                        }
-                        for (FlowNode parent : node.getParents()) {
-                            String prefix = getLogPrefix(parent);
-                            if (prefix != null) {
-                                return Optional.of(prefix);
-                            }
-                        }
-                        return Optional.absent();
-                    }
-                });
+            if (branchNameCache == null) {
+                branchNameCache = CacheBuilder.newBuilder().weakKeys().build();
             }
-            return logPrefixCache.getUnchecked(node).orNull();
+            return branchNameCache;
         }
+    }
+
+    private @CheckForNull String getBranchName(FlowNode node) {
+        Cache<FlowNode, Optional<String>> cache = getBranchNameCache();
+
+        Optional<String> output = cache.getIfPresent(node);
+        if (output != null) {
+            return output.orNull();
+        }
+
+        // We must explicitly check for the current node being the start/end of a parallel branch
+        if (node instanceof BlockEndNode) {
+            output = Optional.fromNullable(getBranchName(((BlockEndNode) node).getStartNode()));
+            cache.put(node, output);
+            return output.orNull();
+        } else if (node instanceof BlockStartNode) { // And of course this node might be the start of a parallel branch
+            ThreadNameAction threadNameAction = node.getPersistentAction(ThreadNameAction.class);
+            if (threadNameAction != null) {
+                String name = threadNameAction.getThreadName();
+                cache.put(node, Optional.of(name));
+                return name;
+            }
+        }
+
+        // Check parent which will USUALLY result in a cache hit, but improve performance and avoid a stack overflow by not doing recursion
+        List<FlowNode> parents = node.getParents();
+        if (!parents.isEmpty()) {
+            FlowNode parent = parents.get(0);
+            output = cache.getIfPresent(parent);
+            if (output != null) {
+                cache.put(node, output);
+                return output.orNull();
+            }
+        }
+
+        // Fall back to looking for an enclosing parallel branch... but using more efficient APIs and avoiding stack overflows
+        output = Optional.absent();
+        for (BlockStartNode myNode : node.iterateEnclosingBlocks()) {
+            ThreadNameAction threadNameAction = myNode.getPersistentAction(ThreadNameAction.class);
+            if (threadNameAction != null) {
+                output = Optional.of(threadNameAction.getThreadName());
+                break;
+            }
+        }
+        cache.put(node, output);
+        return output.orNull();
     }
 
     private static final class LogLinePrefixOutputFilter extends LineTransformationOutputStream {
@@ -720,7 +748,8 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
             completed = Boolean.TRUE;
             duration = Math.max(0, System.currentTimeMillis() - getStartTimeInMillis());
         }
-
+        logsToCopy = null;
+        branchNameCache = null;
         try {
             LOGGER.log(Level.INFO, "{0} completed: {1}", new Object[]{toString(), getResult()});
             if (nullListener) {
@@ -1077,7 +1106,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
 
     private void logNodeMessage(FlowNode node) {
         WorkflowConsoleLogger wfLogger = new WorkflowConsoleLogger(getListener());
-        String prefix = getLogPrefix(node);
+        String prefix = getBranchName(node);
         if (prefix != null) {
             wfLogger.log(String.format("[%s] %s", prefix, node.getDisplayFunctionName()));
         } else {
