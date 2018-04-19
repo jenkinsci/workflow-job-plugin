@@ -157,6 +157,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
     /**
      * {@link Future} that yields {@link #execution}, when it is fully configured and ready to be exposed.
      */
+    @CheckForNull
     private transient SettableFuture<FlowExecution> executionPromise = SettableFuture.create();
 
     private transient final LazyBuildMixIn.RunMixIn<WorkflowJob,WorkflowRun> runMixIn = new LazyBuildMixIn.RunMixIn<WorkflowJob,WorkflowRun>() {
@@ -315,16 +316,21 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
                 executionLoaded = true;
                 execution = newExecution;
             }
-
-            newExecution.start();
-            executionPromise.set(newExecution);
-            FlowExecutionListener.fireRunning(execution);
+            SettableFuture<FlowExecution> exec = getSettableExecutionPromise();
+            if (!exec.isDone()) {
+                exec.set(newExecution);
+            }
+            newExecution.start();  // We should probably have the promise set before beginning, no?
+            FlowExecutionListener.fireRunning(newExecution);
 
         } catch (Throwable x) {
             execution = null; // ensures isInProgress returns false
             finish(Result.FAILURE, x);
             try {
-                executionPromise.setException(x);
+                SettableFuture<FlowExecution> exec = getSettableExecutionPromise();
+                if (!exec.isDone()) {
+                    exec.setException(x);
+                }
             } catch (Error e) {
                 if (e != x) { // cf. CpsThread.runNextChunk
                     throw e;
@@ -466,7 +472,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
         execution = null; // ensures isInProgress returns false
         FlowInterruptedException suddenDeath = new FlowInterruptedException(Result.ABORTED);
         finish(Result.ABORTED, suddenDeath);
-        executionPromise.setException(suddenDeath);
+        getSettableExecutionPromise().setException(suddenDeath);
         // TODO CpsFlowExecution.onProgramEnd does some cleanup which we cannot access here; perhaps need a FlowExecution.halt(Throwable) API?
     }
 
@@ -695,7 +701,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
 
                     if (fetchedExecution != null) {
                         fetchedExecution.addListener(new GraphL());
-                        executionPromise.set(fetchedExecution);
+                        getSettableExecutionPromise().set(fetchedExecution);
 
                         if (completed == null) {
                             completed = Boolean.valueOf(fetchedExecution.isComplete());
@@ -819,6 +825,10 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
                     }
                 }
                 fetchedExecution.onLoad(new Owner(this));
+                SettableFuture<FlowExecution> settablePromise = getSettableExecutionPromise();
+                if (!settablePromise.isDone()) {
+                    settablePromise.set(fetchedExecution);
+                }
                 executionLoaded = true;
                 return fetchedExecution;
             } catch (Exception x) {
@@ -834,8 +844,20 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
      * Allows the caller to block on {@link FlowExecution}, which gets created relatively quickly
      * after the build gets going.
      */
+    @Nonnull
     public ListenableFuture<FlowExecution> getExecutionPromise() {
-        return executionPromise;
+        return getSettableExecutionPromise();
+    }
+
+    /** Initializes and returns the executionPromise to avoid null risk */
+    @Nonnull
+    private SettableFuture<FlowExecution> getSettableExecutionPromise() {
+        synchronized(this) {
+            if (executionPromise == null) {
+                executionPromise = SettableFuture.create();
+            }
+            return executionPromise;
+        }
     }
 
     @Override public FlowExecutionOwner asFlowExecutionOwner() {
@@ -1015,6 +1037,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
             }
             return run;
         }
+
         @Override public FlowExecution get() throws IOException {
             WorkflowRun r = run();
             synchronized (LOADING_RUNS) {
@@ -1028,7 +1051,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
                     }
                 }
             }
-            FlowExecution exec = r.execution;
+            FlowExecution exec = r.getExecution();
             if (exec != null) {
                 return exec;
             } else {
@@ -1037,9 +1060,11 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
         }
         @Override public FlowExecution getOrNull() {
             try {
-                ListenableFuture<FlowExecution> promise = run().getExecutionPromise();
+                WorkflowRun run = run();
+                ListenableFuture<FlowExecution> promise = run.getExecutionPromise();
                 if (promise.isDone()) {
-                    return promise.get();
+                    // Weird, I know, but this ensures we trigger the onLoad for the execution via the lazy-load mechanism
+                    return run.getExecution();
                 }
             } catch (Exception x) {
                 LOGGER.log(/* not important */Level.FINE, null, x);
