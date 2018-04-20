@@ -110,7 +110,7 @@ public class WorkflowRunRestartTest {
         });
     }
 
-    @Issue("JENKINS-45585")  // Verifies execution lazy-load
+    @Issue({"JENKINS-45585", "JENKINS-50784"})  // Verifies execution lazy-load
     @Test public void lazyLoadExecution() {
         story.thenWithHardShutdown(r -> {
             WorkflowJob p = r.jenkins.createProject(WorkflowJob.class, "p");
@@ -130,15 +130,26 @@ public class WorkflowRunRestartTest {
         story.then(r -> {
             WorkflowJob p = r.jenkins.getItemByFullName("p", WorkflowJob.class);
             WorkflowRun b = p.getBuildByNumber(1);
+            assertNotNull(b.asFlowExecutionOwner());
             assertNull(b.execution.getOwner());
             assertFalse(b.executionLoaded);
             assertTrue(b.completed);
             assertFalse(b.isBuilding());
+            assertNull(b.asFlowExecutionOwner().getOrNull());
 
             // Trigger lazy-load of execution
             FlowExecution fe = b.getExecution();
             assertNotNull(b.execution.getOwner());
             assertTrue(b.executionLoaded);
+            assertNotNull(b.asFlowExecutionOwner().getOrNull());
+            assertNotNull(b.asFlowExecutionOwner().get());
+        });
+        story.then( r-> {  // Verify that the FlowExecutionOwner can trigger lazy-load correctly
+            WorkflowJob p = r.jenkins.getItemByFullName("p", WorkflowJob.class);
+            WorkflowRun b = p.getBuildByNumber(1);
+            assertNotNull(b.asFlowExecutionOwner().get());
+            assertTrue(b.executionLoaded);
+            assertNotNull(b.asFlowExecutionOwner().getOrNull());
         });
     }
 
