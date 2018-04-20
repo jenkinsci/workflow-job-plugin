@@ -47,7 +47,6 @@ import hudson.model.JobProperty;
 import hudson.model.Label;
 import hudson.model.Node;
 import hudson.model.Queue;
-import hudson.model.ResourceList;
 import hudson.model.Run;
 import hudson.model.RunMap;
 import hudson.model.TaskListener;
@@ -62,6 +61,7 @@ import hudson.scm.SCM;
 import hudson.scm.SCMRevisionState;
 import hudson.search.SearchIndexBuilder;
 import hudson.security.ACL;
+import hudson.security.Permission;
 import hudson.slaves.WorkspaceList;
 import hudson.triggers.SCMTrigger;
 import hudson.triggers.Trigger;
@@ -89,9 +89,11 @@ import jenkins.model.lazy.LazyBuildMixIn;
 import jenkins.triggers.SCMTriggerItem;
 import net.sf.json.JSONObject;
 import org.acegisecurity.Authentication;
+import org.jenkinsci.plugins.workflow.flow.BlockableResume;
 import org.jenkinsci.plugins.workflow.flow.FlowDefinition;
 import org.jenkinsci.plugins.workflow.flow.FlowDefinitionDescriptor;
 import org.jenkinsci.plugins.workflow.job.properties.DisableConcurrentBuildsJobProperty;
+import org.jenkinsci.plugins.workflow.job.properties.DisableResumeJobProperty;
 import org.jenkinsci.plugins.workflow.job.properties.PipelineTriggersJobProperty;
 import org.kohsuke.accmod.Restricted;
 import org.kohsuke.accmod.restrictions.DoNotUse;
@@ -101,7 +103,7 @@ import org.kohsuke.stapler.StaplerResponse;
 import org.kohsuke.stapler.export.Exported;
 
 @SuppressWarnings({"unchecked", "rawtypes"})
-public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements LazyBuildMixIn.LazyLoadingJob<WorkflowJob,WorkflowRun>, ParameterizedJobMixIn.ParameterizedJob<WorkflowJob, WorkflowRun>, TopLevelItem, Queue.FlyweightTask, SCMTriggerItem {
+public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements LazyBuildMixIn.LazyLoadingJob<WorkflowJob,WorkflowRun>, ParameterizedJobMixIn.ParameterizedJob<WorkflowJob, WorkflowRun>, TopLevelItem, Queue.FlyweightTask, SCMTriggerItem, BlockableResume {
 
     private static final Logger LOGGER = Logger.getLogger(WorkflowJob.class.getName());
 
@@ -114,6 +116,7 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements L
     private transient LazyBuildMixIn<WorkflowJob,WorkflowRun> buildMixIn;
     /** @deprecated replaced by {@link DisableConcurrentBuildsJobProperty} */
     private @CheckForNull Boolean concurrentBuild;
+
     /**
      * Map from {@link SCM#getKey} to last version we encountered during polling.
      * TODO is it important to persist this? {@link hudson.model.AbstractProject#pollingBaseline} is not persisted.
@@ -185,8 +188,9 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements L
         } else {
             quietPeriod = null;
         }
-
         makeDisabled(json.optBoolean("disable"));
+        getTriggersJobProperty().stopTriggers();
+        getTriggersJobProperty().startTriggers(Items.currentlyUpdatingByXml());
     }
 
 
@@ -298,10 +302,12 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements L
         save();
     }
 
+    // TODO delete after baseline has https://github.com/jenkinsci/jenkins/pull/3099
     @Override public boolean isBuildBlocked() {
         return getCauseOfBlockage() != null;
     }
 
+    // TODO delete after baseline has https://github.com/jenkinsci/jenkins/pull/3099
     @Deprecated
     @Override public String getWhyBlocked() {
         CauseOfBlockage c = getCauseOfBlockage();
@@ -321,6 +327,32 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements L
     @Exported
     @Override public boolean isConcurrentBuild() {
         return getProperty(DisableConcurrentBuildsJobProperty.class) == null;
+    }
+
+    @Exported
+    public boolean isResumeBlocked() {
+        return getProperty(DisableResumeJobProperty.class) != null;
+    }
+
+    public void setResumeBlocked(boolean resumeBlocked)  {
+        try {
+            boolean previousState = isResumeBlocked();
+            if (resumeBlocked != previousState) {
+                BulkChange bc = new BulkChange(this);
+                try {
+                    removeProperty(DisableResumeJobProperty.class);
+                    if (resumeBlocked) {
+                        addProperty(new DisableResumeJobProperty());
+                    }
+                    bc.commit();
+                } finally {
+                    bc.abort();
+                }
+            }
+        } catch (IOException ioe) {
+            LOGGER.log(Level.WARNING, "Error persisting resume property statue", ioe);
+        }
+
     }
 
     public void setConcurrentBuild(boolean b) throws IOException {
@@ -363,6 +395,12 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements L
         return hasPermission(CANCEL);
     }
 
+    /**
+     * @deprecated Just use {@link #CANCEL}.
+     */
+    @Deprecated
+    public static final Permission ABORT = CANCEL;
+    
     @Override public Collection<? extends SubTask> getSubTasks() {
         // TODO mostly copied from AbstractProject, except SubTaskContributor is not available:
         List<SubTask> subTasks = new ArrayList<>();
@@ -371,14 +409,6 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements L
             subTasks.addAll(p.getSubTasks());
         }
         return subTasks;
-    }
-
-    @Override public Authentication getDefaultAuthentication() {
-        return ACL.SYSTEM;
-    }
-
-    @Override public Authentication getDefaultAuthentication(Queue.Item item) {
-        return getDefaultAuthentication();
     }
 
     @SuppressFBWarnings(value="RCN_REDUNDANT_NULLCHECK_OF_NONNULL_VALUE", justification="TODO 1.653+ switch to Jenkins.getInstanceOrNull")
@@ -394,16 +424,8 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements L
         return Jenkins.getInstance();
     }
 
-    @Override public Queue.Task getOwnerTask() {
-        return this;
-    }
-
     @Override public Object getSameNodeConstraint() {
         return this;
-    }
-
-    @Override public ResourceList getResourceList() {
-        return ResourceList.EMPTY;
     }
 
     @Override public String getPronoun() {
@@ -699,6 +721,8 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements L
         public Collection<FlowDefinitionDescriptor> getDefinitionDescriptors(WorkflowJob context) {
             return DescriptorVisibilityFilter.apply(context, ExtensionList.lookup(FlowDefinitionDescriptor.class));
         }
+
+
 
     }
 

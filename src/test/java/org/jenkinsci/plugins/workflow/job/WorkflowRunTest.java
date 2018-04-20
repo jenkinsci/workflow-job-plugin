@@ -24,37 +24,33 @@
 
 package org.jenkinsci.plugins.workflow.job;
 
-import com.google.common.collect.ImmutableSet;
+import com.gargoylesoftware.htmlunit.WebResponse;
 import hudson.AbortException;
-import hudson.model.BallColor;
-import hudson.model.Executor;
-import hudson.model.Item;
-import hudson.model.ParametersAction;
-import hudson.model.ParametersDefinitionProperty;
-import hudson.model.Result;
-import hudson.model.StringParameterDefinition;
-import hudson.model.StringParameterValue;
-import hudson.model.User;
+import hudson.Extension;
+import hudson.model.*;
+import hudson.model.listeners.RunListener;
 import hudson.model.queue.QueueTaskFuture;
 import hudson.security.ACL;
 import hudson.security.Permission;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Set;
+import java.util.TreeSet;
 import java.util.concurrent.TimeUnit;
 
 import hudson.slaves.EnvironmentVariablesNodeProperty;
 import hudson.slaves.NodeProperty;
 import hudson.slaves.NodePropertyDescriptor;
 import hudson.util.DescribableList;
-import java.lang.ref.WeakReference;
-import java.util.logging.Level;
 import jenkins.model.CauseOfInterruption;
 import jenkins.model.InterruptedBuildAction;
 import jenkins.model.Jenkins;
+import net.sf.json.JSONArray;
+import net.sf.json.JSONObject;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.jenkinsci.plugins.scriptsecurity.scripts.ScriptApproval;
@@ -73,9 +69,11 @@ import org.jvnet.hudson.test.BuildWatcher;
 import org.jvnet.hudson.test.Issue;
 import org.jvnet.hudson.test.JenkinsRule;
 import org.jvnet.hudson.test.LoggerRule;
-import org.jvnet.hudson.test.MemoryAssert;
 import org.jvnet.hudson.test.MockAuthorizationStrategy;
 import org.jvnet.hudson.test.recipes.LocalData;
+import org.xml.sax.SAXException;
+
+import javax.annotation.Nonnull;
 
 public class WorkflowRunTest {
 
@@ -90,6 +88,8 @@ public class WorkflowRunTest {
         assertFalse(b1.isBuilding());
         assertFalse(b1.isInProgress());
         assertFalse(b1.isLogUpdated());
+        assertTrue(b1.completed);
+        assertTrue(b1.executionLoaded);
         assertTrue(b1.getDuration() > 0);
         WorkflowRun b2 = r.assertBuildStatusSuccess(p.scheduleBuild2(0));
         assertEquals(b1, b2.getPreviousBuild());
@@ -105,6 +105,23 @@ public class WorkflowRunTest {
         r.assertLogContains("param=value", r.assertBuildStatusSuccess(p.scheduleBuild2(0, new ParametersAction(new StringParameterValue("PARAM", "value")))));
         p.setDefinition(new CpsFlowDefinition("echo \"param=${env.PARAM}\"",true));
         r.assertLogContains("param=value", r.assertBuildStatusSuccess(p.scheduleBuild2(0, new ParametersAction(new StringParameterValue("PARAM", "value")))));
+    }
+
+    @Issue("JENKINS-46945")
+    @Test public void durationIsCalculated() throws Exception {
+        WorkflowJob duration = r.jenkins.createProject(WorkflowJob.class, "duration");
+        duration.setDefinition(new CpsFlowDefinition("echo \"duration should not be 0 in DurationRunListener\"",true));
+        r.assertBuildStatusSuccess(duration.scheduleBuild2(0));
+        assertNotEquals(0L, DurationRunListener.duration);
+    }
+
+    @Extension
+    public static final class DurationRunListener extends RunListener<Run> {
+        static long duration = 0L;
+        @Override
+        public void onCompleted(Run run, @Nonnull TaskListener listener) {
+            duration = run.getDuration();
+        }
     }
 
     @Test public void funnyParameters() throws Exception {
@@ -191,17 +208,7 @@ public class WorkflowRunTest {
         assertSame(color, b.getParent().getIconColor());
     }
 
-    @Test public void cleanup() throws Exception {
-        logging.record("", Level.INFO).capture(256); // like WebAppMain would do, if in a real instance rather than JenkinsRule
-        WorkflowJob p = r.jenkins.createProject(WorkflowJob.class, "p");
-        p.setDefinition(new CpsFlowDefinition("", true));
-        WorkflowRun b1 = r.buildAndAssertSuccess(p);
-        WeakReference<WorkflowRun> b1r = new WeakReference<>(b1);
-        b1.delete();
-        b1 = null;
-        r.jenkins.getQueue().clearLeftItems(); // so we do not need to wait 5m
-        MemoryAssert.assertGC(b1r, false);
-    }
+
 
     @Test public void scriptApproval() throws Exception {
         r.jenkins.setSecurityRealm(r.createDummySecurityRealm());
@@ -254,6 +261,8 @@ public class WorkflowRunTest {
         WorkflowRun b = p.getLastBuild();
         assertNotNull(b);
         r.assertBuildStatusSuccess(r.waitForCompletion(b));
+        assertTrue(b.executionLoaded);
+        assertTrue(b.completed);
     }
 
     @Issue("JENKINS-29571")
@@ -406,11 +415,11 @@ public class WorkflowRunTest {
         SemaphoreStep.success("waitFirst/1", null);
 
         SemaphoreStep.waitForStart("waitSecond/1", b1);
-        assertEquals(ImmutableSet.of("alice1"), b1.getCulpritIds());
+        assertCulprits(b1, "alice1");
         SemaphoreStep.success("waitSecond/1", null);
 
         SemaphoreStep.waitForStart("waitThird/1", b1);
-        assertEquals(ImmutableSet.of("alice1", "bob1"), b1.getCulpritIds());
+        assertCulprits(b1, "alice1", "bob1");
         SemaphoreStep.failure("waitThird/1", new AbortException());
 
         r.assertBuildStatus(Result.FAILURE, r.waitForCompletion(b1));
@@ -418,18 +427,46 @@ public class WorkflowRunTest {
         WorkflowRun b2 = p.scheduleBuild2(0).waitForStart();
 
         SemaphoreStep.waitForStart("waitFirst/2", b2);
-        assertEquals(ImmutableSet.of("alice1", "bob1"), b2.getCulpritIds());
+        assertCulprits(b2, "alice1", "bob1");
         SemaphoreStep.success("waitFirst/2", null);
 
         SemaphoreStep.waitForStart("waitSecond/2", b2);
-        assertEquals(ImmutableSet.of("alice1", "bob1", "alice2"), b2.getCulpritIds());
+        assertCulprits(b2, "alice1", "bob1", "alice2");
         SemaphoreStep.success("waitSecond/2", null);
 
         SemaphoreStep.waitForStart("waitThird/2", b2);
-        assertEquals(ImmutableSet.of("alice1", "bob1", "alice2", "bob2"), b2.getCulpritIds());
+        assertCulprits(b2, "alice1", "bob1", "alice2", "bob2");
         SemaphoreStep.success("waitThird/2", b2);
 
         r.assertBuildStatusSuccess(r.waitForCompletion(b2));
-        assertEquals(ImmutableSet.of("alice1", "bob1", "alice2", "bob2", "charlie2"), b2.getCulpritIds());
+        assertCulprits(b2, "alice1", "bob1", "alice2", "bob2", "charlie2");
     }
+
+    private void assertCulprits(WorkflowRun b, String... expectedIds) throws IOException, SAXException {
+        Set<String> actual = new TreeSet<>();
+        for (String u : b.getCulpritIds()) {
+            actual.add(u);
+        }
+        assertEquals(actual, new TreeSet<>(Arrays.asList(expectedIds)));
+
+        if (expectedIds.length > 0) {
+            JenkinsRule.WebClient wc = r.createWebClient();
+            WebResponse response = wc.goTo(b.getUrl() + "api/json?tree=culprits[id]", "application/json").getWebResponse();
+            JSONObject json = JSONObject.fromObject(response.getContentAsString());
+
+            Object culpritsArray = json.get("culprits");
+            assertNotNull(culpritsArray);
+            assertTrue(culpritsArray instanceof JSONArray);
+            Set<String> fromApi = new TreeSet<>();
+            for (Object o : ((JSONArray)culpritsArray).toArray()) {
+                assertTrue(o instanceof JSONObject);
+                Object id = ((JSONObject)o).get("id");
+                if (id instanceof String) {
+                    fromApi.add((String)id);
+                }
+            }
+            assertEquals(fromApi, new TreeSet<>(Arrays.asList(expectedIds)));
+        }
+    }
+
 }

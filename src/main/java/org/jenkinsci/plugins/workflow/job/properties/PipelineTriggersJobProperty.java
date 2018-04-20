@@ -70,8 +70,17 @@ public class PipelineTriggersJobProperty extends JobProperty<WorkflowJob> {
         }
     }
 
+    @SuppressWarnings("unused") // called by deserialization
+    protected Object readResolve() {
+        if (triggers == null) {
+            LOGGER.log(Level.WARNING, "triggers attribute was null, this shouldn't happen.");
+            this.triggers = new ArrayList<>();
+        }
+        return this;
+    }
+
     public void setTriggers(List<Trigger<?>> triggers) {
-        this.triggers = triggers;
+        this.triggers = new ArrayList<>(triggers);
     }
 
     public List<Trigger<?>> getTriggers() {
@@ -186,6 +195,13 @@ public class PipelineTriggersJobProperty extends JobProperty<WorkflowJob> {
         public String getDisplayName() {
             return "Build triggers";
         }
+
+        @Override
+        public JobProperty<?> newInstance(StaplerRequest req, JSONObject formData) throws FormException {
+            PipelineTriggersJobProperty prop = (PipelineTriggersJobProperty) super.newInstance(req, formData);
+            return prop.triggers.isEmpty() ? null : prop;
+        }
+
     }
 
     @Extension
