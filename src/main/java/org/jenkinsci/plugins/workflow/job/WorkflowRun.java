@@ -691,8 +691,18 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
     @Override protected void onLoad() {
         try {
             synchronized (getLogCopyGuard()) {  // CHECKME: Deadlock risks here - copyLogGuard and locks on Run
-                boolean completedStateNotPersisted = completed == null;
+                if (executionLoaded) {
+                    LOGGER.log(Level.WARNING, "Double onLoad of build "+this);
+                    return;
+                }
+                boolean needsToPersist = completed == null;
                 super.onLoad();
+
+                if (completed == Boolean.TRUE && result == null) {
+                    LOGGER.log(Level.FINE, "Completed build with no result set, defaulting to failure for"+this);
+                    setResult(Result.FAILURE);
+                    needsToPersist = true;
+                }
 
                 // TODO See if we can simplify this, especially around interactions with 'completed'.
 
@@ -720,7 +730,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
                 } else if (execution == null) {
                     completed = Boolean.TRUE;
                 }
-                if (completedStateNotPersisted && completed) {
+                if (needsToPersist && completed) {
                     try {
                         save();
                     } catch (Exception ex) {
