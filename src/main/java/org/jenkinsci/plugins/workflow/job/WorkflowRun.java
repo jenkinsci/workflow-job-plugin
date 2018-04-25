@@ -832,9 +832,17 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
                 executionLoaded = true;
                 return fetchedExecution;
             } catch (Exception x) {
+                if (result == null) {
+                    setResult(Result.FAILURE);
+                }
                 LOGGER.log(Level.WARNING, null, x);
                 execution = null; // probably too broken to use
                 executionLoaded = true;
+                try {
+                    save();  // Ensure we do not try to load again
+                } catch (IOException ioe) {
+                    LOGGER.log(Level.WARNING, "Error saving build to record irrecoverable FlowExecution");
+                }
                 return null;
             }
         }
