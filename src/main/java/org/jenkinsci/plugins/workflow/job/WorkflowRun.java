@@ -710,9 +710,6 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
                     FlowExecution fetchedExecution = getExecution();  // Triggers execution.onLoad so we can resume running if not done
 
                     if (fetchedExecution != null) {
-                        fetchedExecution.addListener(new GraphL());
-                        getSettableExecutionPromise().set(fetchedExecution);
-
                         if (completed == null) {
                             completed = Boolean.valueOf(fetchedExecution.isComplete());
                         }
@@ -819,6 +816,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
 
     /**
      * Gets the associated execution state, and do a more expensive loading operation if not initialized.
+     * Performs all the needed initialization for the execution pre-loading too -- sets the executionPromise, adds Listener, calls onLoad on it etc.
      * @return non-null after the flow has started, even after finished (but may be null temporarily when about to start, or if starting failed)
      */
     public synchronized @CheckForNull FlowExecution getExecution() {
@@ -834,6 +832,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
                         blockableExecution.setResumeBlocked(parentBlocked);
                     }
                 }
+                fetchedExecution.addListener(new GraphL());
                 fetchedExecution.onLoad(new Owner(this));
                 SettableFuture<FlowExecution> settablePromise = getSettableExecutionPromise();
                 if (!settablePromise.isDone()) {
