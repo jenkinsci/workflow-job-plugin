@@ -894,10 +894,12 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
     @Override protected boolean isInProgress() {
         if (completed == Boolean.TRUE) {  // Has a persisted completion state
             return false;
+        } else {
+            // This may seem gratuitous but we MUST to check the execution in case 'completed' has not been set yet
+            // thus avoiding some (rare but possible) race conditions
+            FlowExecution exec = getExecution();
+            return exec != null && !exec.isComplete();
         }
-
-        // This may seem gratuitous but we MUST to check the execution in case 'completed' has not been set yet
-        return execution != null && !execution.isComplete() && (completed != Boolean.TRUE);  // Note: note completed can be null so can't just check for == false
     }
 
     @Override public boolean isLogUpdated() {
