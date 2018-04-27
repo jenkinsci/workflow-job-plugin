@@ -832,7 +832,10 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
                         blockableExecution.setResumeBlocked(parentBlocked);
                     }
                 }
-                fetchedExecution.addListener(new GraphL());
+                if (this.completed != Boolean.TRUE) {
+                    // Don't attach listeners for completed builds in case we do some work to create placeholder nodes
+                    fetchedExecution.addListener(new GraphL());
+                }
                 fetchedExecution.onLoad(new Owner(this));
                 SettableFuture<FlowExecution> settablePromise = getSettableExecutionPromise();
                 if (!settablePromise.isDone()) {
@@ -844,7 +847,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
                 if (result == null) {
                     setResult(Result.FAILURE);
                 }
-                LOGGER.log(Level.WARNING, null, x);
+                LOGGER.log(Level.WARNING, "Nulling out FlowExecution due to error in build "+this.getFullDisplayName(), x);
                 execution = null; // probably too broken to use
                 executionLoaded = true;
                 try {
