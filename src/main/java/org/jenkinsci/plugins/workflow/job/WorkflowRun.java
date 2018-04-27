@@ -1126,6 +1126,11 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
         @Override public void onNewHead(FlowNode node) {
             synchronized (getLogCopyGuard()) {
                 copyLogs();
+                if (logsToCopy == null) {
+                    // Only happens when a FINISHED build loses FlowNodeStorage and we have to create placeholder nodes
+                    //  after the build is nominally completed.
+                    logsToCopy = new HashMap<String, Long>(3);
+                }
                 logsToCopy.put(node.getId(), 0L);
             }
 
