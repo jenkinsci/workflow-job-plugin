@@ -832,11 +832,18 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
                         blockableExecution.setResumeBlocked(parentBlocked);
                     }
                 }
+                GraphListener finishListener = null;
                 if (this.completed != Boolean.TRUE) {
-                    // Don't attach listeners for completed builds in case we do some work to create placeholder nodes
-                    fetchedExecution.addListener(new GraphL());
+                    finishListener = new FailOnLoadListener();
+                    fetchedExecution.addListener(finishListener);  // So we can still ensure build finishes if onLoad generates a FlowEndNode
                 }
                 fetchedExecution.onLoad(new Owner(this));
+                if (this.completed != Boolean.TRUE) {
+                    // Defer the normal listener to ensure onLoad can complete before finish() is called since that may
+                    // need the build to be loaded and can result in loading loops otherwise.
+                    fetchedExecution.removeListener(finishListener);
+                    fetchedExecution.addListener(new GraphL());
+                }
                 SettableFuture<FlowExecution> settablePromise = getSettableExecutionPromise();
                 if (!settablePromise.isDone()) {
                     settablePromise.set(fetchedExecution);
@@ -1123,6 +1130,30 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
             return job.hashCode() ^ id.hashCode();
         }
         private static final long serialVersionUID = 1;
+    }
+
+    /** Exists solely to handle cases where the build fails to load during onLoad and we need to trigger 'finish' but at a delay.
+     */
+    private final class FailOnLoadListener implements GraphListener {
+        @Override public void onNewHead(FlowNode node) {
+            if (node instanceof FlowEndNode) {
+                Thread finishThread = new Thread(new Runnable() {
+                    @Override
+                    public void run() {
+                        try {
+                            Thread.sleep(1000L);
+                        } catch (InterruptedException ie) {
+                            throw new RuntimeException(ie);
+                        }
+                        synchronized (getLogCopyGuard()) {
+                            finish(((FlowEndNode) node).getResult(), execution != null ? execution.getCauseOfFailure() : null);
+                        }
+                    }
+                });
+                finishThread.setName("Build delayed finish");
+                finishThread.start();
+            }
+        }
     }
 
     private final class GraphL implements GraphListener {
