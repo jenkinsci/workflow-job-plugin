@@ -376,7 +376,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
                 });
             }
             @Override public boolean blocksRestart() {
-                return execution != null && execution.blocksRestart();
+                return execution != null && getExecution().blocksRestart();
             }
             @Override public boolean displayCell() {
                 return blocksRestart();
@@ -439,7 +439,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
             return;
         }
         final Throwable x = new FlowInterruptedException(Result.ABORTED);
-        Futures.addCallback(execution.getCurrentExecutions(/* cf. JENKINS-26148 */true), new FutureCallback<List<StepExecution>>() {
+        Futures.addCallback(getExecution().getCurrentExecutions(/* cf. JENKINS-26148 */true), new FutureCallback<List<StepExecution>>() {
             @Override public void onSuccess(List<StepExecution> l) {
                 for (StepExecution e : Iterators.reverse(l)) {
                     StepContext context = e.getContext();
@@ -523,7 +523,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
                 if (execution == null) {
                     return; // broken somehow
                 }
-                node = execution.getNode(id);
+                node = getExecution().getNode(id);
             } catch (IOException x) {
                 LOGGER.log(Level.WARNING, null, x);
                 logsToCopy.remove(id);
@@ -803,7 +803,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
         } catch (IOException x) {
             LOGGER.log(Level.WARNING, "failed to clean up stashes from " + this, x);
         }
-        FlowExecution exec = execution;
+        FlowExecution exec = getExecution();
         if (exec != null) {
             FlowExecutionListener.fireCompleted(exec);
         }
