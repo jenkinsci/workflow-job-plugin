@@ -138,7 +138,9 @@ import org.kohsuke.stapler.export.Exported;
 import org.kohsuke.stapler.interceptor.RequirePOST;
 
 @SuppressWarnings("SynchronizeOnNonFinalField")
-@SuppressFBWarnings(value="RC_REF_COMPARISON_BAD_PRACTICE_BOOLEAN", justification="We need to appropriately handle null completion states from legacy builds.")
+@SuppressFBWarnings(value={"RC_REF_COMPARISON_BAD_PRACTICE_BOOLEAN", "IS2_INCONSISTENT_SYNC"},
+        justification="For Boolean comparison, this is for deserializing handle null completion states from legacy builds" +
+                " and for the synchronization it's safe because the execution is only mutated in niche cases.")
 public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements FlowExecutionOwner.Executable, LazyBuildMixIn.LazyLoadingRun<WorkflowJob,WorkflowRun>, RunWithSCM<WorkflowJob,WorkflowRun> {
 
     private static final Logger LOGGER = Logger.getLogger(WorkflowRun.class.getName());
@@ -376,7 +378,8 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
                 });
             }
             @Override public boolean blocksRestart() {
-                return execution != null && getExecution().blocksRestart();
+                FlowExecution exec = getExecution();
+                return exec != null && exec.blocksRestart();
             }
             @Override public boolean displayCell() {
                 return blocksRestart();
@@ -439,7 +442,25 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
             return;
         }
         final Throwable x = new FlowInterruptedException(Result.ABORTED);
-        Futures.addCallback(getExecution().getCurrentExecutions(/* cf. JENKINS-26148 */true), new FutureCallback<List<StepExecution>>() {
+        FlowExecution exec = getExecution();
+        if (exec == null) { // Already dead, just make sure statuses reflect that.
+            synchronized (getLogCopyGuard()) {
+                boolean modified = false;
+                if (result == null) {
+                    setResult(Result.FAILURE);
+                    modified = true;
+                }
+                if (completed != Boolean.TRUE) {
+                    completed = true;
+                    modified = true;
+                }
+                if (modified) {
+                    saveWithoutFailing();
+                }
+                return;
+            }
+        }
+        Futures.addCallback(exec.getCurrentExecutions(/* cf. JENKINS-26148 */true), new FutureCallback<List<StepExecution>>() {
             @Override public void onSuccess(List<StepExecution> l) {
                 for (StepExecution e : Iterators.reverse(l)) {
                     StepContext context = e.getContext();
@@ -518,12 +539,16 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
         boolean modified = false;
         for (Map.Entry<String,Long> entry : logsToCopy.entrySet()) {
             String id = entry.getKey();
-            FlowNode node;
+            FlowNode node = null;
+            FlowExecution exec = getExecution();
             try {
-                if (execution == null) {
-                    return; // broken somehow
+                if (exec != null) {
+                    node = exec.getNode(id);
+                } else { // Remove the logs to copy - execution too broken to fetch nodes
+                    logsToCopy.remove(id);
+                    modified = true;
+                    continue;
                 }
-                node = getExecution().getNode(id);
             } catch (IOException x) {
                 LOGGER.log(Level.WARNING, null, x);
                 logsToCopy.remove(id);
@@ -578,12 +603,9 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
             }
         }
         if (modified) {
-            try {
-                if (this.execution == null || this.execution.getDurabilityHint().isPersistWithEveryStep()) {
-                    save();
-                }
-            } catch (IOException x) {
-                LOGGER.log(Level.WARNING, null, x);
+            FlowExecution exec = getExecution();
+            if (exec == null || exec.getDurabilityHint().isPersistWithEveryStep()) {
+                saveWithoutFailing();
             }
         }
     }
@@ -731,7 +753,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
                     try {
                         save();
                     } catch (Exception ex) {
-                        LOGGER.log(Level.WARNING, "Error while saving build to update completed flag", ex);
+                        LOGGER.log(Level.WARNING, "Error while saving build to update completed flag "+this, ex);
                     }
                 }
             }
@@ -781,11 +803,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
                 getListener().closeQuietly();
             }
             logsToCopy = null;
-            try {
-                save();
-            } catch (Exception x) {
-                LOGGER.log(Level.WARNING, "failed to save " + this, x);
-            }
+            saveWithoutFailing();
             Timer.get().submit(() -> {
                 try {
                     getParent().logRotate();
@@ -857,11 +875,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
                 LOGGER.log(Level.WARNING, "Nulling out FlowExecution due to error in build "+this.getFullDisplayName(), x);
                 execution = null; // probably too broken to use
                 executionLoaded = true;
-                try {
-                    save();  // Ensure we do not try to load again
-                } catch (IOException ioe) {
-                    LOGGER.log(Level.WARNING, "Error saving build to record irrecoverable FlowExecution");
-                }
+                saveWithoutFailing(); // Ensure we do not try to load again
                 return null;
             }
         }
@@ -1173,15 +1187,12 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
             }
 
             logNodeMessage(node);
+            FlowExecution exec = getExecution();
             if (node instanceof FlowEndNode) {
-                finish(((FlowEndNode) node).getResult(), execution != null ? execution.getCauseOfFailure() : null);
+                finish(((FlowEndNode) node).getResult(), exec != null ? exec.getCauseOfFailure() : null);
             } else {
-                if (execution != null && execution.getDurabilityHint().isPersistWithEveryStep()) {
-                    try {
-                        save();
-                    } catch (IOException x) {
-                        LOGGER.log(Level.WARNING, null, x);
-                    }
+                if (exec != null && exec.getDurabilityHint().isPersistWithEveryStep()) {
+                    saveWithoutFailing();
                 }
             }
         }
@@ -1223,6 +1234,15 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
             if (original instanceof WorkflowRun && copy instanceof WorkflowRun) {
                 ((WorkflowRun)copy).checkouts(null).addAll(((WorkflowRun)original).checkouts(null));
             }
+        }
+    }
+
+    /** Save the run but swallow and log any exception */
+    private void saveWithoutFailing() {
+        try {
+            save();
+        } catch (Exception x) {
+            LOGGER.log(Level.WARNING, "Failed to save " + this, x);
         }
     }
 
