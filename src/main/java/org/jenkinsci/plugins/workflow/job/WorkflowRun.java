@@ -541,18 +541,20 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
             logsToCopy = new ConcurrentSkipListMap<>(logsToCopy);
         }
         boolean modified = false;
+        FlowExecution exec = getExecution();
+
+        // Early-exit if build was hard-killed -- state will be so broken that we can't actually load nodes to copy logs
+        if (exec == null) {
+            logsToCopy.clear();
+            saveWithoutFailing();
+            return;
+        }
+
         for (Map.Entry<String,Long> entry : logsToCopy.entrySet()) {
             String id = entry.getKey();
-            FlowNode node = null;
-            FlowExecution exec = getExecution();
+            FlowNode node;
             try {
-                if (exec != null) {
-                    node = exec.getNode(id);
-                } else { // Remove the logs to copy - execution too broken to fetch nodes
-                    logsToCopy.remove(id);
-                    modified = true;
-                    continue;
-                }
+                node = exec.getNode(id);
             } catch (IOException x) {
                 LOGGER.log(Level.WARNING, null, x);
                 logsToCopy.remove(id);
@@ -606,11 +608,8 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
                 modified = true;
             }
         }
-        if (modified) {
-            FlowExecution exec = getExecution();
-            if (exec == null || exec.getDurabilityHint().isPersistWithEveryStep()) {
-                saveWithoutFailing();
-            }
+        if (modified && exec.getDurabilityHint().isPersistWithEveryStep()) {
+            saveWithoutFailing();
         }
     }
     private long writeRawLogTo(AnnotatedLargeText<?> text, long start, OutputStream out) throws IOException {
