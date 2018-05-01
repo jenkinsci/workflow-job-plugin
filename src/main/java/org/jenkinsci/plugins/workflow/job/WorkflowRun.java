@@ -724,7 +724,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
                 super.onLoad();
 
                 if (completed == Boolean.TRUE && result == null) {
-                    LOGGER.log(Level.FINE, "Completed build with no result set, defaulting to failure for"+this);
+                    LOGGER.log(Level.FINE, "Completed build with no result set, defaulting to failure for "+this);
                     setResult(Result.FAILURE);
                     needsToPersist = true;
                 }
@@ -875,7 +875,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
                 if (result == null) {
                     setResult(Result.FAILURE);
                 }
-                LOGGER.log(Level.WARNING, "Nulling out FlowExecution due to error in build "+this.getFullDisplayName(), x);
+                LOGGER.log(Level.WARNING, "Nulling out FlowExecution due to error in build "+this, x);
                 execution = null; // probably too broken to use
                 executionLoaded = true;
                 saveWithoutFailing(); // Ensure we do not try to load again
@@ -1154,21 +1154,11 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
     private final class FailOnLoadListener implements GraphListener {
         @Override public void onNewHead(FlowNode node) {
             if (node instanceof FlowEndNode) {
-                Thread finishThread = new Thread(new Runnable() {
-                    @Override
-                    public void run() {
-                        try {
-                            Thread.sleep(1000L);
-                        } catch (InterruptedException ie) {
-                            throw new RuntimeException(ie);
-                        }
-                        synchronized (getLogCopyGuard()) {
-                            finish(((FlowEndNode) node).getResult(), execution != null ? execution.getCauseOfFailure() : null);
-                        }
+                Timer.get().schedule(() -> {
+                    synchronized (getLogCopyGuard()) {
+                        finish(((FlowEndNode) node).getResult(), execution != null ? execution.getCauseOfFailure() : null);
                     }
-                });
-                finishThread.setName("Build delayed finish");
-                finishThread.start();
+                }, 1, TimeUnit.SECONDS);
             }
         }
     }
