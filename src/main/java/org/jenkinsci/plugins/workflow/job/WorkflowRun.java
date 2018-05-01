@@ -445,6 +445,8 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
         FlowExecution exec = getExecution();
         if (exec == null) { // Already dead, just make sure statuses reflect that.
             synchronized (getLogCopyGuard()) {
+                // Null execution means a hard-kill of the execution and build is by definition dead
+                // So we should make sure the result is set to failure if un-set and it's completed and then save.
                 boolean modified = false;
                 if (result == null) {
                     setResult(Result.FAILURE);
@@ -490,7 +492,9 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
         synchronized (getLogCopyGuard()) {
             getListener().getLogger().println("Hard kill!");
         }
-        execution = null; // ensures isInProgress returns false
+        synchronized (this) {
+            execution = null; // ensures isInProgress returns false
+        }
         FlowInterruptedException suddenDeath = new FlowInterruptedException(Result.ABORTED);
         finish(Result.ABORTED, suddenDeath);
         getSettableExecutionPromise().setException(suddenDeath);
