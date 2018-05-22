@@ -356,7 +356,8 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
                 }
                 Timer.get().submit(new Runnable() {
                     @Override public void run() {
-                        if (execution == null) {
+                        FlowExecution fetchedExecution = execution;
+                        if (fetchedExecution == null) {
                             return;
                         }
                         Executor executor = getExecutor();
@@ -366,7 +367,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
                         }
                         try {
                             Collection<CauseOfInterruption> causes = executor.getCausesOfInterruption();
-                            execution.interrupt(executor.abortResult(), causes.toArray(new CauseOfInterruption[causes.size()]));
+                            fetchedExecution.interrupt(executor.abortResult(), causes.toArray(new CauseOfInterruption[causes.size()]));
                         } catch (Exception x) {
                             LOGGER.log(Level.WARNING, null, x);
                         }
@@ -852,13 +853,13 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
             return execution;
         } else {  // Try to lazy-load execution
             synchronized (this) {  // Double-checked locking rendered safe by use of volatile field
-                if (executionLoaded || execution == null) {
-                    return execution;
+                FlowExecution fetchedExecution = execution;
+                if (executionLoaded || fetchedExecution == null) {
+                    return fetchedExecution;
                 }
-                    FlowExecution fetchedExecution = execution;
                 try {
                     if (fetchedExecution instanceof BlockableResume) {
-                        BlockableResume blockableExecution = (BlockableResume) execution;
+                        BlockableResume blockableExecution = (BlockableResume) fetchedExecution;
                         boolean parentBlocked = getParent().isResumeBlocked();
                         if (parentBlocked != blockableExecution.isResumeBlocked()) {  // Avoids issues with WF-CPS versions before JENKINS-49961 patch
                             blockableExecution.setResumeBlocked(parentBlocked);
@@ -1260,8 +1261,9 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
 
         boolean isAtomic = true;
 
-        if (this.execution != null) {
-            FlowDurabilityHint hint = this.execution.getDurabilityHint();
+        FlowExecution fetchedExecution = this.execution;  // Avoid triggering loading unless we need to
+        if (fetchedExecution != null) {
+            FlowDurabilityHint hint = fetchedExecution.getDurabilityHint();
             isAtomic = hint.isAtomicWrite();
         }
 
