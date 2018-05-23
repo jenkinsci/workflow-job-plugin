@@ -194,6 +194,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
      */
     Boolean completed;  // Non-private for testing
 
+    /** Protects the access to logsToCopy, completed, and branchNameCache that are used in the logCopy process */
     private transient Object logCopyGuard = new Object();
 
     /** map from node IDs to log positions from which we should copy text */
@@ -207,6 +208,10 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
     /** True when first started, false when running after a restart. */
     private transient boolean firstTime;
 
+    /** Obtain our guard object for log copying, lazily initializing if needed.
+     *  Note: to avoid deadlocks, when nesting locks we ALWAYS need to lock on the logCopyGuard first, THEN the WorkflowRun.
+     *  Synchronizing this helps ensure that fields are not mutated during a {@link #save()} operation, since that locks on the Run.
+     */
     private synchronized Object getLogCopyGuard() {
         if (logCopyGuard == null) {
             logCopyGuard = new Object();
@@ -716,20 +721,14 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
 
         // super.reload() forces result to be FAILURE, so working around that
         new XmlFile(XSTREAM,new File(getRootDir(),"build.xml")).unmarshal(this);
-        if (logCopyGuard == null) {
-            logCopyGuard = new Object();
-        }
     }
 
     @Override protected void onLoad() {
         try {
-            synchronized (getLogCopyGuard()) {  // CHECKME: Deadlock risks here - copyLogGuard and locks on Run
+            synchronized (getLogCopyGuard()) {
                 if (executionLoaded) {
                     LOGGER.log(Level.WARNING, "Double onLoad of build "+this);
                     return;
-                }
-                if (logCopyGuard == null) {
-                    logCopyGuard = new Object();
                 }
                 boolean needsToPersist = completed == null;
                 super.onLoad();
