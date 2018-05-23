@@ -138,9 +138,8 @@ import org.kohsuke.stapler.export.Exported;
 import org.kohsuke.stapler.interceptor.RequirePOST;
 
 @SuppressWarnings("SynchronizeOnNonFinalField")
-@SuppressFBWarnings(value={"RC_REF_COMPARISON_BAD_PRACTICE_BOOLEAN", "IS2_INCONSISTENT_SYNC"},
-        justification="For Boolean comparison, this is for deserializing handle null completion states from legacy builds" +
-                " and for the synchronization it's safe because the execution is only mutated in niche cases.")
+@SuppressFBWarnings(value={"RC_REF_COMPARISON_BAD_PRACTICE_BOOLEAN"},
+        justification="For Boolean comparison, this is for deserializing handle null completion states from legacy builds")
 public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements FlowExecutionOwner.Executable, LazyBuildMixIn.LazyLoadingRun<WorkflowJob,WorkflowRun>, RunWithSCM<WorkflowJob,WorkflowRun> {
 
     private static final Logger LOGGER = Logger.getLogger(WorkflowRun.class.getName());
@@ -208,7 +207,10 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
     /** True when first started, false when running after a restart. */
     private transient boolean firstTime;
 
-    private Object getLogCopyGuard() {
+    private synchronized Object getLogCopyGuard() {
+        if (logCopyGuard == null) {
+            logCopyGuard = new Object();
+        }
         return logCopyGuard;
     }
 
@@ -1254,21 +1256,22 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
     }
 
     @Override
-    public synchronized void save() throws IOException {
+    public void save() throws IOException {
 
         if(BulkChange.contains(this))   return;
         File loc = new File(getRootDir(),"build.xml");
         XmlFile file = new XmlFile(XSTREAM,loc);
 
         boolean isAtomic = true;
-
         FlowExecution fetchedExecution = this.execution;  // Avoid triggering loading unless we need to
         if (fetchedExecution != null) {
             FlowDurabilityHint hint = fetchedExecution.getDurabilityHint();
             isAtomic = hint.isAtomicWrite();
         }
 
-        PipelineIOUtils.writeByXStream(this, loc, XSTREAM2, isAtomic);
-        SaveableListener.fireOnChange(this, file);
+        synchronized (this) {
+            PipelineIOUtils.writeByXStream(this, loc, XSTREAM2, isAtomic);
+            SaveableListener.fireOnChange(this, file);
+        }
     }
 }
