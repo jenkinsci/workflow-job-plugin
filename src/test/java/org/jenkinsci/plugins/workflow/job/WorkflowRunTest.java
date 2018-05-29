@@ -90,6 +90,8 @@ public class WorkflowRunTest {
         assertFalse(b1.isBuilding());
         assertFalse(b1.isInProgress());
         assertFalse(b1.isLogUpdated());
+        assertTrue(b1.completed);
+        assertTrue(b1.executionLoaded);
         assertTrue(b1.getDuration() > 0);
         WorkflowRun b2 = r.assertBuildStatusSuccess(p.scheduleBuild2(0));
         assertEquals(b1, b2.getPreviousBuild());
@@ -261,6 +263,8 @@ public class WorkflowRunTest {
         WorkflowRun b = p.getLastBuild();
         assertNotNull(b);
         r.assertBuildStatusSuccess(r.waitForCompletion(b));
+        assertTrue(b.executionLoaded);
+        assertTrue(b.completed);
     }
 
     @Issue("JENKINS-29571")
