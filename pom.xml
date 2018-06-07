@@ -28,15 +28,15 @@
     <parent>
         <groupId>org.jenkins-ci.plugins</groupId>
         <artifactId>plugin</artifactId>
-        <version>3.4</version>
+        <version>3.14</version>
         <relativePath />
     </parent>
     <groupId>org.jenkins-ci.plugins.workflow</groupId>
     <artifactId>workflow-job</artifactId>
-    <version>2.18-SNAPSHOT</version>
+    <version>${revision}${changelist}</version>
     <packaging>hpi</packaging>
     <name>Pipeline: Job</name>
-    <url>https://wiki.jenkins-ci.org/display/JENKINS/Pipeline+Job+Plugin</url>
+    <url>https://wiki.jenkins.io/display/JENKINS/Pipeline+Job+Plugin</url>
     <licenses>
         <license>
             <name>MIT License</name>
@@ -47,8 +47,8 @@
         <connection>scm:git:git://github.com/jenkinsci/${project.artifactId}-plugin.git</connection>
         <developerConnection>scm:git:git@github.com:jenkinsci/${project.artifactId}-plugin.git</developerConnection>
         <url>https://github.com/jenkinsci/${project.artifactId}-plugin</url>
-      <tag>HEAD</tag>
-  </scm>
+        <tag>${scmTag}</tag>
+    </scm>
     <repositories>
         <repository>
             <id>repo.jenkins-ci.org</id>
@@ -62,12 +62,15 @@
         </pluginRepository>
     </pluginRepositories>
     <properties>
+        <revision>2.22</revision>
+        <changelist>-SNAPSHOT</changelist>
         <jenkins.version>2.73.3</jenkins.version>
         <java.level>8</java.level>
         <no-test-jar>false</no-test-jar>
-        <workflow-support-plugin.version>2.19-20180209.204154-1</workflow-support-plugin.version> <!-- TODO https://github.com/jenkinsci/workflow-support-plugin/pull/56 -->
+        <workflow-support-plugin.version>2.19-rc287.918f5958551d</workflow-support-plugin.version> <!-- TODO https://github.com/jenkinsci/workflow-support-plugin/pull/56 -->
         <scm-api-plugin.version>2.2.6</scm-api-plugin.version>
         <git-plugin.version>3.2.0</git-plugin.version>
+        <jenkins-test-harness.version>2.33</jenkins-test-harness.version>
     </properties>
     <dependencies>
         <dependency>
