@@ -285,7 +285,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
                 if (!auth.equals(Jenkins.ANONYMOUS)) {
                     name = ModelHyperlinkNote.encodeTo(User.get(name));
                 }
-                myListener.getLogger().println(hudson.model.Messages.Run_running_as_(name));
+                myListener.getLogger().println(/* hudson.model.Messages.Run_running_as_(name) */ "Running as " + name);
             }
             RunListener.fireStarted(this, myListener);
             updateSymlinks(myListener);
