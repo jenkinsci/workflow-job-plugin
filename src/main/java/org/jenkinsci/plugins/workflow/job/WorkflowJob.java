@@ -196,8 +196,10 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements L
 
     @Override public void addProperty(JobProperty jobProp) throws IOException {
         super.addProperty(jobProp);
-        getTriggersJobProperty().stopTriggers();
-        getTriggersJobProperty().startTriggers(Items.currentlyUpdatingByXml());
+        if (jobProp instanceof PipelineTriggersJobProperty) {
+            getTriggersJobProperty().stopTriggers();
+            getTriggersJobProperty().startTriggers(Items.currentlyUpdatingByXml());
+        }
     }
 
     @Override public boolean isBuildable() {

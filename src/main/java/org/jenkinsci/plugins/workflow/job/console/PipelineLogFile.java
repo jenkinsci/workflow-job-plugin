@@ -24,7 +24,6 @@
 
 package org.jenkinsci.plugins.workflow.job.console;
 
-import com.google.common.annotations.Beta;
 import hudson.ExtensionList;
 import hudson.ExtensionPoint;
 import hudson.model.BuildListener;
@@ -35,7 +34,6 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.nio.charset.StandardCharsets;
 import javax.annotation.CheckForNull;
 import javax.annotation.Nonnull;
 import org.apache.commons.io.IOUtils;
@@ -43,12 +41,13 @@ import org.jenkinsci.plugins.workflow.flow.FlowExecutionOwner;
 import org.jenkinsci.plugins.workflow.job.WorkflowRun;
 import org.jenkinsci.plugins.workflow.support.actions.LessAbstractTaskListener;
 import org.kohsuke.accmod.Restricted;
+import org.kohsuke.accmod.restrictions.Beta;
 import org.kohsuke.accmod.restrictions.NoExternalUse;
 
 /**
  * Means of replacing the {@link FlowExecutionOwner#getListener} and {@link FlowExecutionOwner#getLog} for a {@link WorkflowRun}.
  */
-@Beta // likely to be replaced by a core API
+@Restricted(Beta.class) // likely to be replaced by a core API
 public abstract class PipelineLogFile implements ExtensionPoint {
 
     /**
@@ -78,7 +77,7 @@ public abstract class PipelineLogFile implements ExtensionPoint {
         }
         OutputStream logger = new FileOutputStream(b._getLogFile(), true);
         // TODO JENKINS-30777 decorate with ConsoleLogFilter.all()
-        return new StreamBuildListener(logger, StandardCharsets.UTF_8);
+        return new StreamBuildListener(logger, b.getCharset());
     }
 
     @Restricted(NoExternalUse.class) // API for call from WorkflowRun
