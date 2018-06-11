@@ -33,7 +33,6 @@ import hudson.console.ConsoleAnnotationOutputStream;
 import hudson.console.ConsoleAnnotator;
 import hudson.remoting.ClassFilter;
 import hudson.remoting.ObjectInputStreamEx;
-import hudson.util.TimeUnit2;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -41,6 +40,7 @@ import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.io.Writer;
 import static java.lang.Math.abs;
+import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.crypto.Cipher;
@@ -138,7 +138,7 @@ public class PipelineLargeText extends AnnotatedLargeText<WorkflowRun> {
                         Jenkins.getActiveInstance().pluginManager.uberClassLoader,
                         ClassFilter.DEFAULT)) {
                     long timestamp = ois.readLong();
-                    if (TimeUnit2.HOURS.toMillis(1) > abs(System.currentTimeMillis() - timestamp)) {
+                    if (TimeUnit.HOURS.toMillis(1) > abs(System.currentTimeMillis() - timestamp)) {
                         @SuppressWarnings("unchecked") ConsoleAnnotator<WorkflowRun> annotator = (ConsoleAnnotator) ois.readObject();
                         return annotator;
                     }
