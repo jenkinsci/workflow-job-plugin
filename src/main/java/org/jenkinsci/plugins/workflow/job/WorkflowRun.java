@@ -605,7 +605,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
                     }
                 }
             }
-            saveWithoutFailing();
+            saveWithoutFailing(); // TODO useless if we are inside a BulkChange
             Timer.get().submit(() -> {
                 try {
                     getParent().logRotate();
@@ -616,13 +616,6 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
             onEndBuilding();
         } finally {  // Ensure this is ALWAYS removed from FlowExecutionList
             FlowExecutionList.get().unregister(new Owner(this));
-        }
-        Executor executor = getExecutor();
-        if (executor != null) {
-            AsynchronousExecution asynchronousExecution = executor.getAsynchronousExecution();
-            if (asynchronousExecution != null) {
-                asynchronousExecution.completed(null);
-            }
         }
         try {
             StashManager.maybeClearAll(this);
@@ -1129,5 +1122,14 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
 
         PipelineIOUtils.writeByXStream(this, loc, XSTREAM2, isAtomic);
         SaveableListener.fireOnChange(this, file);
+        if (completed == Boolean.TRUE) {
+            Executor executor = getExecutor();
+            if (executor != null) {
+                AsynchronousExecution asynchronousExecution = executor.getAsynchronousExecution();
+                if (asynchronousExecution != null) {
+                    asynchronousExecution.completed(null);
+                }
+            }
+        }
     }
 }
