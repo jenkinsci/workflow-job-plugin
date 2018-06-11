@@ -64,7 +64,7 @@
     <properties>
         <revision>2.22</revision>
         <changelist>-SNAPSHOT</changelist>
-        <jenkins.version>2.73.3</jenkins.version>
+        <jenkins.version>2.121.1</jenkins.version>
         <java.level>8</java.level>
         <no-test-jar>false</no-test-jar>
         <workflow-support-plugin.version>2.19-rc254.98b83d2c6e7e</workflow-support-plugin.version> <!-- TODO https://github.com/jenkinsci/workflow-support-plugin/pull/15 -->
