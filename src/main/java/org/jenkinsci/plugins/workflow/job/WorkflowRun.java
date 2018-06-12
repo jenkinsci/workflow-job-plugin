@@ -450,7 +450,6 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
         final Throwable x = new FlowInterruptedException(Result.ABORTED);
         FlowExecution exec = getExecution();
         if (exec == null) { // Already dead, just make sure statuses reflect that.
-            // FIXME do we need to synchronize on the WorkflowRun too?
             synchronized (getLogCopyGuard()) {
                 // Null execution means a hard-kill of the execution and build is by definition dead
                 // So we should make sure the result is set to failure if un-set and it's completed and then save.
