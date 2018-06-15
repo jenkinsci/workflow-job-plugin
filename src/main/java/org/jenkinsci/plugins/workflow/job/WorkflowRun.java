@@ -136,9 +136,8 @@ import org.kohsuke.stapler.export.Exported;
 import org.kohsuke.stapler.interceptor.RequirePOST;
 
 @SuppressWarnings("SynchronizeOnNonFinalField")
-@SuppressFBWarnings(value={"RC_REF_COMPARISON_BAD_PRACTICE_BOOLEAN", "IS2_INCONSISTENT_SYNC"},
-        justification="For Boolean comparison, this is for deserializing handle null completion states from legacy builds" +
-                " and for the synchronization it's safe because the execution is only mutated in niche cases.")
+@SuppressFBWarnings(value={"RC_REF_COMPARISON_BAD_PRACTICE_BOOLEAN"},
+        justification="For Boolean comparison, this is for deserializing handle null completion states from legacy builds")
 public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements FlowExecutionOwner.Executable, LazyBuildMixIn.LazyLoadingRun<WorkflowJob,WorkflowRun>, RunWithSCM<WorkflowJob,WorkflowRun> {
 
     private static final Logger LOGGER = Logger.getLogger(WorkflowRun.class.getName());
@@ -152,7 +151,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
     }
 
     /** Null until started, or after serious failures or hard kill. */
-    @CheckForNull FlowExecution execution; // Not private for test use only
+    @CheckForNull volatile FlowExecution execution; // Not private for test use only
 
     /**
      * {@link Future} that yields {@link #execution}, when it is fully configured and ready to be exposed.
@@ -172,7 +171,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
     private transient boolean allowKill;
 
     /** Controls whether or not our execution has been initialized via its {@link FlowExecution#onLoad(FlowExecutionOwner)} method yet.*/
-    transient boolean executionLoaded = false;  // NonPrivate for tests
+    volatile transient boolean executionLoaded = false;  // NonPrivate for tests
 
     /**
      * Cumulative list of people who contributed to the build problem.
@@ -193,6 +192,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
      */
     Boolean completed;  // Non-private for testing
 
+    /** Protects the access to logsToCopy, completed, and branchNameCache that are used in the logCopy process */
     private transient Object logCopyGuard = new Object();
 
     /** JENKINS-26761: supposed to always be set but sometimes is not. Access only through {@link #checkouts(TaskListener)}. */
@@ -203,6 +203,10 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
     /** True when first started, false when running after a restart. */
     private transient boolean firstTime;
 
+    /** Obtain our guard object for log copying, lazily initializing if needed.
+     *  Note: to avoid deadlocks, when nesting locks we ALWAYS need to lock on the logCopyGuard first, THEN the WorkflowRun.
+     *  Synchronizing this helps ensure that fields are not mutated during a {@link #save()} operation, since that locks on the Run.
+     */
     private synchronized Object getLogCopyGuard() { // TODO no longer used for log copying, so rename
         if (logCopyGuard == null) {
             logCopyGuard = new Object();
@@ -323,6 +327,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
 
         } catch (Throwable x) {
             execution = null; // ensures isInProgress returns false
+            executionLoaded = true;
             finish(Result.FAILURE, x);
             try {
                 SettableFuture<FlowExecution> exec = getSettableExecutionPromise();
@@ -347,7 +352,8 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
                 }
                 Timer.get().submit(new Runnable() {
                     @Override public void run() {
-                        if (execution == null) {
+                        FlowExecution fetchedExecution = execution;
+                        if (fetchedExecution == null) {
                             return;
                         }
                         Executor executor = getExecutor();
@@ -357,7 +363,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
                         }
                         try {
                             Collection<CauseOfInterruption> causes = executor.getCausesOfInterruption();
-                            execution.interrupt(executor.abortResult(), causes.toArray(new CauseOfInterruption[causes.size()]));
+                            fetchedExecution.interrupt(executor.abortResult(), causes.toArray(new CauseOfInterruption[causes.size()]));
                         } catch (Exception x) {
                             LOGGER.log(Level.WARNING, null, x);
                         }
@@ -455,6 +461,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
         }
         synchronized (this) {
             execution = null; // ensures isInProgress returns false
+            executionLoaded = true;
         }
         FlowInterruptedException suddenDeath = new FlowInterruptedException(Result.ABORTED);
         finish(Result.ABORTED, suddenDeath);
@@ -511,7 +518,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
 
     @Override protected void onLoad() {
         try {
-            synchronized (getLogCopyGuard()) {  // CHECKME: Deadlock risks here - copyLogGuard and locks on Run
+            synchronized (getLogCopyGuard()) {
                 if (executionLoaded) {
                     LOGGER.log(Level.WARNING, "Double onLoad of build "+this);
                     return;
@@ -617,6 +624,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
         } finally {  // Ensure this is ALWAYS removed from FlowExecutionList
             FlowExecutionList.get().unregister(new Owner(this));
         }
+
         try {
             StashManager.maybeClearAll(this);
         } catch (IOException x) {
@@ -638,47 +646,52 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
      * Performs all the needed initialization for the execution pre-loading too -- sets the executionPromise, adds Listener, calls onLoad on it etc.
      * @return non-null after the flow has started, even after finished (but may be null temporarily when about to start, or if starting failed)
      */
-    public synchronized @CheckForNull FlowExecution getExecution() {
-        if (executionLoaded || execution == null) {
+    public @CheckForNull FlowExecution getExecution() {
+        if (executionLoaded || execution == null) {  // Avoids highly-contended synchronization on run
             return execution;
         } else {  // Try to lazy-load execution
-            FlowExecution fetchedExecution = execution;
-            try {
-                if (fetchedExecution instanceof BlockableResume) {
-                    BlockableResume blockableExecution = (BlockableResume)execution;
-                    boolean parentBlocked = getParent().isResumeBlocked();
-                    if (parentBlocked != blockableExecution.isResumeBlocked()) {  // Avoids issues with WF-CPS versions before JENKINS-49961 patch
-                        blockableExecution.setResumeBlocked(parentBlocked);
+            synchronized (this) {  // Double-checked locking rendered safe by use of volatile field
+                FlowExecution fetchedExecution = execution;
+                if (executionLoaded || fetchedExecution == null) {
+                    return fetchedExecution;
+                }
+                try {
+                    if (fetchedExecution instanceof BlockableResume) {
+                        BlockableResume blockableExecution = (BlockableResume) fetchedExecution;
+                        boolean parentBlocked = getParent().isResumeBlocked();
+                        if (parentBlocked != blockableExecution.isResumeBlocked()) {  // Avoids issues with WF-CPS versions before JENKINS-49961 patch
+                            blockableExecution.setResumeBlocked(parentBlocked);
+                        }
                     }
+                    GraphListener finishListener = null;
+                    if (this.completed != Boolean.TRUE) {
+                        finishListener = new FailOnLoadListener();
+                        fetchedExecution.addListener(finishListener);  // So we can still ensure build finishes if onLoad generates a FlowEndNode
+                    }
+                    fetchedExecution.onLoad(new Owner(this));
+                    if (this.completed != Boolean.TRUE) {
+                        // Defer the normal listener to ensure onLoad can complete before finish() is called since that may
+                        // need the build to be loaded and can result in loading loops otherwise.
+                        fetchedExecution.removeListener(finishListener);
+                        fetchedExecution.addListener(new GraphL());
+                        fetchedExecution.addListener(new NodePrintListener());
+                    }
+                    SettableFuture<FlowExecution> settablePromise = getSettableExecutionPromise();
+                    if (!settablePromise.isDone()) {
+                        settablePromise.set(fetchedExecution);
+                    }
+                    executionLoaded = true;
+                    return fetchedExecution;
+                } catch (Exception x) {
+                    if (result == null) {
+                        setResult(Result.FAILURE);
+                    }
+                    LOGGER.log(Level.WARNING, "Nulling out FlowExecution due to error in build " + this, x);
+                    execution = null; // probably too broken to use
+                    executionLoaded = true;
+                    saveWithoutFailing(); // Ensure we do not try to load again
+                    return null;
                 }
-                GraphListener finishListener = null;
-                if (this.completed != Boolean.TRUE) {
-                    finishListener = new FailOnLoadListener();
-                    fetchedExecution.addListener(finishListener);  // So we can still ensure build finishes if onLoad generates a FlowEndNode
-                }
-                fetchedExecution.onLoad(new Owner(this));
-                if (this.completed != Boolean.TRUE) {
-                    // Defer the normal listener to ensure onLoad can complete before finish() is called since that may
-                    // need the build to be loaded and can result in loading loops otherwise.
-                    fetchedExecution.removeListener(finishListener);
-                    fetchedExecution.addListener(new GraphL());
-                    fetchedExecution.addListener(new NodePrintListener());
-                }
-                SettableFuture<FlowExecution> settablePromise = getSettableExecutionPromise();
-                if (!settablePromise.isDone()) {
-                    settablePromise.set(fetchedExecution);
-                }
-                executionLoaded = true;
-                return fetchedExecution;
-            } catch (Exception x) {
-                if (result == null) {
-                    setResult(Result.FAILURE);
-                }
-                LOGGER.log(Level.WARNING, "Nulling out FlowExecution due to error in build "+this, x);
-                execution = null; // probably too broken to use
-                executionLoaded = true;
-                saveWithoutFailing(); // Ensure we do not try to load again
-                return null;
             }
         }
     }
@@ -1107,27 +1120,29 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
     }
 
     @Override
-    public synchronized void save() throws IOException {
+    public void save() throws IOException {
 
         if(BulkChange.contains(this))   return;
         File loc = new File(getRootDir(),"build.xml");
         XmlFile file = new XmlFile(XSTREAM,loc);
 
         boolean isAtomic = true;
-
-        if (this.execution != null) {
-            FlowDurabilityHint hint = this.execution.getDurabilityHint();
+        FlowExecution fetchedExecution = this.execution;  // Avoid triggering loading unless we need to
+        if (fetchedExecution != null) {
+            FlowDurabilityHint hint = fetchedExecution.getDurabilityHint();
             isAtomic = hint.isAtomicWrite();
         }
 
-        PipelineIOUtils.writeByXStream(this, loc, XSTREAM2, isAtomic);
-        SaveableListener.fireOnChange(this, file);
-        if (completed == Boolean.TRUE) {
-            Executor executor = getExecutor();
-            if (executor != null) {
-                AsynchronousExecution asynchronousExecution = executor.getAsynchronousExecution();
-                if (asynchronousExecution != null) {
-                    asynchronousExecution.completed(null);
+        synchronized (this) {
+            PipelineIOUtils.writeByXStream(this, loc, XSTREAM2, isAtomic);
+            SaveableListener.fireOnChange(this, file);
+            if (Boolean.TRUE.equals(completed)) {
+                Executor executor = getExecutor();
+                if (executor != null) {
+                    AsynchronousExecution asynchronousExecution = executor.getAsynchronousExecution();
+                    if (asynchronousExecution != null) {
+                        asynchronousExecution.completed(null);
+                    }
                 }
             }
         }
