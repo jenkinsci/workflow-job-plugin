@@ -69,6 +69,7 @@ import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.ObjectInputStream;
 import java.io.OutputStream;
 import java.io.PrintStream;
 import java.nio.charset.Charset;
@@ -197,6 +198,15 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
 
     private transient Object logCopyGuard = new Object();
 
+    /**
+     * When deserializing, ensure that {@link #logCopyGuard} is initialized.
+     */
+    private void readObject(ObjectInputStream stream)
+            throws IOException, ClassNotFoundException {
+        stream.defaultReadObject();
+        logCopyGuard = new Object();
+    }
+
     /** map from node IDs to log positions from which we should copy text */
     Map<String,Long> logsToCopy;  // Exposed for testing
 
@@ -208,10 +218,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
     /** True when first started, false when running after a restart. */
     private transient boolean firstTime;
 
-    private synchronized Object getLogCopyGuard() {
-        if (logCopyGuard == null) {
-            logCopyGuard = new Object();
-        }
+    private Object getLogCopyGuard() {
         return logCopyGuard;
     }
 
