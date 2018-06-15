@@ -33,6 +33,7 @@ import hudson.console.ConsoleAnnotator;
 import hudson.console.ConsoleNote;
 import hudson.model.TaskListener;
 import java.io.IOException;
+import java.io.PrintStream;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.annotation.CheckForNull;
@@ -69,12 +70,15 @@ public class NewNodeConsoleNote extends ConsoleNote<WorkflowRun> {
     private static final String CONSOLE_NOTE_PREFIX = "[Pipeline] ";
 
     public static void print(FlowNode node, TaskListener listener) {
-        try {
-            listener.annotate(new NewNodeConsoleNote(node));
-        } catch (IOException x) {
-            // never mind
+        PrintStream logger = listener.getLogger();
+        synchronized (logger) {
+            try {
+                listener.annotate(new NewNodeConsoleNote(node));
+            } catch (IOException x) {
+                // never mind
+            }
+            logger.println(CONSOLE_NOTE_PREFIX + node.getDisplayFunctionName());
         }
-        listener.getLogger().println(CONSOLE_NOTE_PREFIX + node.getDisplayFunctionName());
     }
 
     private final @Nonnull String id;
