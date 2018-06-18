@@ -941,8 +941,8 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
         @Override public TaskListener getListener() throws IOException {
             return run().getListener();
         }
-        @Override public InputStream getLog(long start) throws IOException {
-            return PipelineLogFile.log(run(), start);
+        @Override public InputStream getLog(long start, boolean complete) throws IOException {
+            return PipelineLogFile.log(run(), start, complete);
         }
         @Override public String toString() {
             return "Owner[" + key() + ":" + run + "]";

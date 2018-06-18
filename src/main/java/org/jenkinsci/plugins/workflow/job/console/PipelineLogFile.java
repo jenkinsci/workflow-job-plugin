@@ -61,10 +61,12 @@ public abstract class PipelineLogFile implements ExtensionPoint {
      * Provides an alternate way of retrieving output from a build.
      * @param b a build which may or may not be completed
      * @param start the start position to begin reading from (normally 0); if past the end, the stream should just return EOF immediately; if you can do no better, try {@link IOUtils#skipFully(InputStream, long)}
+     * @param complete if true, we claim to be serving the complete log for a build or step,
+     *                  so implementations should be sure to retrieve final log lines
      * @return a log input stream, or null to fall back to the next implementation or the default using {@link Run#getLogInputStream}
      * @throws EOFException if the start position is larger than the log size (or you may simply return EOF immediately when read)
      */
-    protected abstract @CheckForNull InputStream logFor(@Nonnull WorkflowRun b, long start) throws IOException;
+    protected abstract @CheckForNull InputStream logFor(@Nonnull WorkflowRun b, long start, boolean complete) throws IOException;
 
     @Restricted(NoExternalUse.class) // API for call from WorkflowRun
     public static @Nonnull BuildListener listener(@Nonnull WorkflowRun b) throws IOException, InterruptedException {
@@ -80,9 +82,9 @@ public abstract class PipelineLogFile implements ExtensionPoint {
     }
 
     @Restricted(NoExternalUse.class) // API for call from WorkflowRun
-    public static @Nonnull InputStream log(@Nonnull WorkflowRun b, long start) throws IOException {
+    public static @Nonnull InputStream log(@Nonnull WorkflowRun b, long start, boolean complete) throws IOException {
         for (PipelineLogFile impl : ExtensionList.lookup(PipelineLogFile.class)) {
-            InputStream is = impl.logFor(b, start);
+            InputStream is = impl.logFor(b, start, complete);
             if (is != null) {
                 return is;
             }
