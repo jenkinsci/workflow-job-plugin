@@ -48,11 +48,11 @@ import org.jenkinsci.plugins.workflow.cps.CpsFlowDefinition;
 import org.jenkinsci.plugins.workflow.graph.FlowNode;
 import org.jenkinsci.plugins.workflow.graphanalysis.DepthFirstScanner;
 import org.jenkinsci.plugins.workflow.graphanalysis.FlowScanningUtils;
+import org.jenkinsci.plugins.workflow.log.StreamLogStorage;
 import org.jenkinsci.plugins.workflow.steps.AbstractStepDescriptorImpl;
 import org.jenkinsci.plugins.workflow.steps.AbstractStepImpl;
 import org.jenkinsci.plugins.workflow.steps.AbstractSynchronousStepExecution;
 import org.jenkinsci.plugins.workflow.steps.StepContextParameter;
-import org.jenkinsci.plugins.workflow.support.actions.AnnotatedLogAction;
 import static org.junit.Assert.*;
 import static org.junit.Assume.*;
 import org.junit.Rule;
@@ -63,7 +63,7 @@ import org.jvnet.hudson.test.TestExtension;
 import org.kohsuke.stapler.DataBoundConstructor;
 
 @Issue("JENKINS-38381")
-public class PipelineLargeTextTest {
+public class StreamLogStorageIntegrationTest {
 
     @Rule public JenkinsRule r = new JenkinsRule();
 
@@ -95,7 +95,7 @@ public class PipelineLargeTextTest {
         assertThat(page.getUrl() + " looks OK as text:\n" + html, page.getDocumentElement().getTextContent(), containsString(plainText));
         String absUrl = r.contextPath + "/" + url;
         assertNotNull("found " + absUrl + " in:\n" + html, page.getAnchorByHref(absUrl));
-        assertThat(html, not(containsString(AnnotatedLogAction.NODE_ID_SEP)));
+        assertThat(html, not(containsString(StreamLogStorage.NODE_ID_SEP)));
     }
     public static class HyperlinkingStep extends AbstractStepImpl {
         @DataBoundConstructor public HyperlinkingStep() {}
@@ -156,7 +156,7 @@ public class PipelineLargeTextTest {
         // Per node:
         FlowNode echo = b.getExecution().getCurrentHeads().get(0).getParents().get(0);
         assertEquals("echo", echo.getDisplayFunctionName());
-        String prefix = echo.getId() + AnnotatedLogAction.NODE_ID_SEP;
+        String prefix = echo.getId() + StreamLogStorage.NODE_ID_SEP;
         String rawLog = FileUtils.readFileToString(new File(b.getRootDir(), "log"));
         assertThat(rawLog, containsString(prefix + "0\n"));
         assertThat(rawLog, containsString(prefix + "999999\n"));

@@ -28,7 +28,6 @@ import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
-import com.jcraft.jzlib.GZIPInputStream;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import hudson.AbortException;
 import hudson.BulkChange;
@@ -66,16 +65,11 @@ import java.io.BufferedReader;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
-import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.Reader;
-import java.nio.channels.Channels;
-import java.nio.channels.FileChannel;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Date;
@@ -101,7 +95,6 @@ import jenkins.scm.RunWithSCM;
 import jenkins.security.NotReallyRoleSensitiveCallable;
 import jenkins.util.Timer;
 import org.acegisecurity.Authentication;
-import org.apache.commons.io.IOUtils;
 import org.jenkinsci.plugins.workflow.FilePathUtils;
 import org.jenkinsci.plugins.workflow.actions.TimingAction;
 import org.jenkinsci.plugins.workflow.flow.BlockableResume;
@@ -118,8 +111,7 @@ import org.jenkinsci.plugins.workflow.flow.StashManager;
 import org.jenkinsci.plugins.workflow.graph.FlowEndNode;
 import org.jenkinsci.plugins.workflow.graph.FlowNode;
 import org.jenkinsci.plugins.workflow.job.console.NewNodeConsoleNote;
-import org.jenkinsci.plugins.workflow.job.console.PipelineLargeText;
-import org.jenkinsci.plugins.workflow.job.console.PipelineLogFile;
+import org.jenkinsci.plugins.workflow.log.LogStorage;
 import org.jenkinsci.plugins.workflow.steps.FlowInterruptedException;
 import org.jenkinsci.plugins.workflow.steps.StepContext;
 import org.jenkinsci.plugins.workflow.steps.StepExecution;
@@ -129,7 +121,6 @@ import org.jenkinsci.plugins.workflow.support.concurrent.WithThreadName;
 import org.jenkinsci.plugins.workflow.support.steps.input.POSTHyperlinkNote;
 import org.kohsuke.accmod.Restricted;
 import org.kohsuke.accmod.restrictions.DoNotUse;
-import org.kohsuke.accmod.restrictions.NoExternalUse;
 import org.kohsuke.stapler.HttpResponse;
 import org.kohsuke.stapler.HttpResponses;
 import org.kohsuke.stapler.export.Exported;
@@ -224,7 +215,8 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
         if (listener == null) {
             try {
                 // TODO add a @Terminator to close the old listener in case a new set of objects gets loaded after in-VM restart and starts writing to the same file
-                listener = PipelineLogFile.listener(this);
+                // TODO JENKINS-30777 decorate with ConsoleLogFilter.all()
+                listener = LogStorage.of(asFlowExecutionOwner()).overallListener();
             } catch (IOException | InterruptedException x) {
                 LOGGER.log(Level.WARNING, "Error trying to open build log file for writing, output will be lost: " + getLogFile(), x);
                 return NULL_LISTENER;
@@ -941,9 +933,6 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
         @Override public TaskListener getListener() throws IOException {
             return run().getListener();
         }
-        @Override public InputStream getLog(long start, boolean complete) throws IOException {
-            return PipelineLogFile.log(run(), start, complete);
-        }
         @Override public String toString() {
             return "Owner[" + key() + ":" + run + "]";
         }
@@ -1006,20 +995,20 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
 
     @SuppressWarnings("rawtypes")
     @Override public AnnotatedLargeText getLogText() {
-        return new PipelineLargeText(this);
+        return LogStorage.of(asFlowExecutionOwner()).overallLog(this, !isLogUpdated());
     }
 
+    // TODO these methods should be better defined in Run itself to delegate to getLogText or getLogInputStream:
+
     @Override public InputStream getLogInputStream() throws IOException {
-        // TODO inefficient but currently AnnotatedLargeText.strip does not support transforming input streams
+        // Inefficient but probably rarely used anyway.
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
         getLogText().writeRawLogTo(0, baos);
         return new ByteArrayInputStream(baos.toByteArray());
     }
 
-    // TODO these methods should be better defined in Run itself to delegate to getLogInputStream:
-
     @Override public Reader getLogReader() throws IOException {
-        // TODO as above
+        // As above.
         return getLogText().readAll();
     }
 
@@ -1063,27 +1052,6 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
         } catch (IOException x) {
             throw new RuntimeException(x);
         }
-    }
-
-    @Restricted(NoExternalUse.class) // for use from PipelineLogFile
-    public File _getLogFile() {
-        return super.getLogFile();
-    }
-
-    @Restricted(NoExternalUse.class) // for use from PipelineLogFile
-    public InputStream _getLogInputStream(long start) throws IOException {
-        File logFile = _getLogFile();
-        if (logFile.exists()) {
-            if (logFile.getName().endsWith(".gz")) {
-                InputStream is = new GZIPInputStream(new FileInputStream(logFile));
-                IOUtils.skipFully(is, start);
-                return is;
-            } else {
-                return Channels.newInputStream(FileChannel.open(logFile.toPath(), StandardOpenOption.READ).position(start));
-            }
-        }
-        String message = "No such file: " + logFile;
-        return new ByteArrayInputStream(message.getBytes(StandardCharsets.UTF_8));
     }
 
     static void alias() {
