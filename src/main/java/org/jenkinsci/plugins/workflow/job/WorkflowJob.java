@@ -88,9 +88,12 @@ import jenkins.model.ParameterizedJobMixIn;
 import jenkins.model.lazy.LazyBuildMixIn;
 import jenkins.triggers.SCMTriggerItem;
 import net.sf.json.JSONObject;
+import org.acegisecurity.Authentication;
+import org.jenkinsci.plugins.workflow.flow.BlockableResume;
 import org.jenkinsci.plugins.workflow.flow.FlowDefinition;
 import org.jenkinsci.plugins.workflow.flow.FlowDefinitionDescriptor;
 import org.jenkinsci.plugins.workflow.job.properties.DisableConcurrentBuildsJobProperty;
+import org.jenkinsci.plugins.workflow.job.properties.DisableResumeJobProperty;
 import org.jenkinsci.plugins.workflow.job.properties.PipelineTriggersJobProperty;
 import org.kohsuke.accmod.Restricted;
 import org.kohsuke.accmod.restrictions.DoNotUse;
@@ -100,7 +103,7 @@ import org.kohsuke.stapler.StaplerResponse;
 import org.kohsuke.stapler.export.Exported;
 
 @SuppressWarnings({"unchecked", "rawtypes"})
-public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements LazyBuildMixIn.LazyLoadingJob<WorkflowJob,WorkflowRun>, ParameterizedJobMixIn.ParameterizedJob<WorkflowJob, WorkflowRun>, TopLevelItem, Queue.FlyweightTask, SCMTriggerItem {
+public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements LazyBuildMixIn.LazyLoadingJob<WorkflowJob,WorkflowRun>, ParameterizedJobMixIn.ParameterizedJob<WorkflowJob, WorkflowRun>, TopLevelItem, Queue.FlyweightTask, SCMTriggerItem, BlockableResume {
 
     private static final Logger LOGGER = Logger.getLogger(WorkflowJob.class.getName());
 
@@ -113,6 +116,7 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements L
     private transient LazyBuildMixIn<WorkflowJob,WorkflowRun> buildMixIn;
     /** @deprecated replaced by {@link DisableConcurrentBuildsJobProperty} */
     private @CheckForNull Boolean concurrentBuild;
+
     /**
      * Map from {@link SCM#getKey} to last version we encountered during polling.
      * TODO is it important to persist this? {@link hudson.model.AbstractProject#pollingBaseline} is not persisted.
@@ -192,8 +196,10 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements L
 
     @Override public void addProperty(JobProperty jobProp) throws IOException {
         super.addProperty(jobProp);
-        getTriggersJobProperty().stopTriggers();
-        getTriggersJobProperty().startTriggers(Items.currentlyUpdatingByXml());
+        if (jobProp instanceof PipelineTriggersJobProperty) {
+            getTriggersJobProperty().stopTriggers();
+            getTriggersJobProperty().startTriggers(Items.currentlyUpdatingByXml());
+        }
     }
 
     @Override public boolean isBuildable() {
@@ -321,6 +327,32 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements L
     @Exported
     @Override public boolean isConcurrentBuild() {
         return getProperty(DisableConcurrentBuildsJobProperty.class) == null;
+    }
+
+    @Exported
+    public boolean isResumeBlocked() {
+        return getProperty(DisableResumeJobProperty.class) != null;
+    }
+
+    public void setResumeBlocked(boolean resumeBlocked)  {
+        try {
+            boolean previousState = isResumeBlocked();
+            if (resumeBlocked != previousState) {
+                BulkChange bc = new BulkChange(this);
+                try {
+                    removeProperty(DisableResumeJobProperty.class);
+                    if (resumeBlocked) {
+                        addProperty(new DisableResumeJobProperty());
+                    }
+                    bc.commit();
+                } finally {
+                    bc.abort();
+                }
+            }
+        } catch (IOException ioe) {
+            LOGGER.log(Level.WARNING, "Error persisting resume property statue", ioe);
+        }
+
     }
 
     public void setConcurrentBuild(boolean b) throws IOException {
@@ -689,6 +721,8 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements L
         public Collection<FlowDefinitionDescriptor> getDefinitionDescriptors(WorkflowJob context) {
             return DescriptorVisibilityFilter.apply(context, ExtensionList.lookup(FlowDefinitionDescriptor.class));
         }
+
+
 
     }
 

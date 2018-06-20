@@ -28,15 +28,15 @@
     <parent>
         <groupId>org.jenkins-ci.plugins</groupId>
         <artifactId>plugin</artifactId>
-        <version>2.36</version>
+        <version>3.14</version>
         <relativePath />
     </parent>
     <groupId>org.jenkins-ci.plugins.workflow</groupId>
     <artifactId>workflow-job</artifactId>
-    <version>2.17-SNAPSHOT</version>
+    <version>${revision}${changelist}</version>
     <packaging>hpi</packaging>
     <name>Pipeline: Job</name>
-    <url>https://wiki.jenkins-ci.org/display/JENKINS/Pipeline+Job+Plugin</url>
+    <url>https://wiki.jenkins.io/display/JENKINS/Pipeline+Job+Plugin</url>
     <licenses>
         <license>
             <name>MIT License</name>
@@ -47,8 +47,8 @@
         <connection>scm:git:git://github.com/jenkinsci/${project.artifactId}-plugin.git</connection>
         <developerConnection>scm:git:git@github.com:jenkinsci/${project.artifactId}-plugin.git</developerConnection>
         <url>https://github.com/jenkinsci/${project.artifactId}-plugin</url>
-      <tag>HEAD</tag>
-  </scm>
+        <tag>${scmTag}</tag>
+    </scm>
     <repositories>
         <repository>
             <id>repo.jenkins-ci.org</id>
@@ -62,12 +62,15 @@
         </pluginRepository>
     </pluginRepositories>
     <properties>
+        <revision>2.22</revision>
+        <changelist>-SNAPSHOT</changelist>
         <jenkins.version>2.76</jenkins.version>
         <java.level>8</java.level>
         <no-test-jar>false</no-test-jar>
-        <workflow-support-plugin.version>2.16</workflow-support-plugin.version>
+        <workflow-support-plugin.version>2.17</workflow-support-plugin.version>
         <scm-api-plugin.version>2.1.1</scm-api-plugin.version>
         <git-plugin.version>3.2.0</git-plugin.version>
+        <jenkins-test-harness.version>2.33</jenkins-test-harness.version>
     </properties>
     <dependencies>
         <dependency>
@@ -78,7 +81,7 @@
         <dependency>
             <groupId>org.jenkins-ci.plugins.workflow</groupId>
             <artifactId>workflow-api</artifactId>
-            <version>2.22</version>
+            <version>2.25</version>
         </dependency>
         <dependency>
             <groupId>org.jenkins-ci.plugins.workflow</groupId>
@@ -86,9 +89,16 @@
             <version>${workflow-support-plugin.version}</version>
         </dependency>
         <dependency>
+            <!-- Satisfy upper bound dependencies -->
+            <groupId>org.jenkins-ci.plugins</groupId>
+            <artifactId>script-security</artifactId>
+            <version>1.39</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
             <groupId>org.jenkins-ci.plugins.workflow</groupId>
             <artifactId>workflow-cps</artifactId>
-            <version>2.29</version>
+            <version>2.43</version>
             <scope>test</scope>
         </dependency>
         <dependency>
@@ -141,6 +151,14 @@
             <version>${git-plugin.version}</version>
             <scope>test</scope>
             <exclusions>
+                <exclusion>
+                    <groupId>commons-codec</groupId>
+                    <artifactId>commons-codec</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.apache.httpcomponents</groupId>
+                    <artifactId>httpclient</artifactId>
+                </exclusion>
                 <exclusion> <!-- TODO pending https://github.com/jenkinsci/git-client-plugin/pull/264 -->
                     <groupId>commons-codec</groupId>
                     <artifactId>commons-codec</artifactId>
@@ -153,6 +171,16 @@
             <version>${git-plugin.version}</version>
             <classifier>tests</classifier>
             <scope>test</scope>
+            <exclusions>
+                <exclusion>
+                    <groupId>commons-codec</groupId>
+                    <artifactId>commons-codec</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.apache.httpcomponents</groupId>
+                    <artifactId>httpclient</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
         <dependency>
             <groupId>org.jenkins-ci.plugins</groupId>
@@ -167,4 +195,15 @@
             <scope>test</scope>
         </dependency>
     </dependencies>
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <configuration>
+                <reuseForks>false</reuseForks> <!-- TODO reuse seems to cause problems in memory tests -->
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
 </project>

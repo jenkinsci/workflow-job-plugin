@@ -30,12 +30,14 @@ import hudson.model.Result;
 import hudson.model.TaskListener;
 import java.util.Collections;
 import org.jenkinsci.plugins.workflow.cps.CpsFlowDefinition;
+import org.jenkinsci.plugins.workflow.flow.FlowDurabilityHint;
 import org.jenkinsci.plugins.workflow.flow.FlowExecution;
 import org.jenkinsci.plugins.workflow.flow.FlowExecutionList;
 import org.jenkinsci.plugins.workflow.flow.FlowExecutionListener;
 import org.jenkinsci.plugins.workflow.flow.GraphListener;
 import org.jenkinsci.plugins.workflow.graph.FlowEndNode;
 import org.jenkinsci.plugins.workflow.graph.FlowNode;
+import org.jenkinsci.plugins.workflow.job.properties.DurabilityHintJobProperty;
 import org.jenkinsci.plugins.workflow.test.steps.SemaphoreStep;
 import static org.junit.Assert.*;
 import org.junit.ClassRule;
@@ -74,8 +76,80 @@ public class WorkflowRunRestartTest {
             assertTrue(p.isDisabled());
             WorkflowRun b = p.getBuildByNumber(1);
             assertTrue(b.isBuilding());
+            assertTrue(b.executionLoaded);
+            assertFalse(b.completed);
             SemaphoreStep.success("wait/1", null);
             r.assertBuildStatusSuccess(r.waitForCompletion(b));
+            assertTrue(b.completed);
+            assertNull(b.logsToCopy);
+        });
+    }
+
+    @Issue("JENKINS-33761")
+    @Test public void resumeDisabled() {
+        story.then(r -> {
+            WorkflowJob p = r.jenkins.createProject(WorkflowJob.class, "p");
+            p.setDefinition(new CpsFlowDefinition("node {semaphore 'wait'}", true));
+            p.setResumeBlocked(true);
+            WorkflowRun b = p.scheduleBuild2(0).waitForStart();
+            SemaphoreStep.waitForStart("wait/1", b);
+        });
+        story.then(r -> {
+            WorkflowJob p = r.jenkins.getItemByFullName("p", WorkflowJob.class);
+            assertTrue(p.isResumeBlocked());
+            WorkflowRun b = p.getBuildByNumber(1);
+            r.waitForCompletion(b);
+            assertFalse(b.executionLoaded);
+            assertTrue(b.completed);
+            assertFalse(b.isBuilding());
+            assertEquals(Result.ABORTED, b.getResult());
+            FlowExecution fe = b.getExecution();
+            assertTrue(b.executionLoaded);
+            assertNotNull(fe.getOwner());
+            assertNull(b.logsToCopy);
+        });
+    }
+
+    @Issue({"JENKINS-45585", "JENKINS-50784"})  // Verifies execution lazy-load
+    @Test public void lazyLoadExecution() {
+        story.thenWithHardShutdown(r -> {
+            WorkflowJob p = r.jenkins.createProject(WorkflowJob.class, "p");
+            p.addProperty(new DurabilityHintJobProperty(FlowDurabilityHint.MAX_SURVIVABILITY));
+            p.setDefinition(new CpsFlowDefinition("echo 'dosomething'", true));
+            r.buildAndAssertSuccess(p);
+            WorkflowRun run = p.getLastBuild();
+            assertTrue(run.executionLoaded);
+            assertTrue(run.completed);
+            assertNotNull(run.getExecution().getOwner());
+
+            // Just verify we don't somehow trigger onLoad and mangle something in the future
+            FlowExecution fe = run.getExecution();
+            assertTrue(run.executionLoaded);
+            assertNotNull(run.getExecution().getOwner());
+        });
+        story.then(r -> {
+            WorkflowJob p = r.jenkins.getItemByFullName("p", WorkflowJob.class);
+            WorkflowRun b = p.getBuildByNumber(1);
+            assertNotNull(b.asFlowExecutionOwner());
+            assertNull(b.execution.getOwner());
+            assertFalse(b.executionLoaded);
+            assertTrue(b.completed);
+            assertFalse(b.isBuilding());
+            assertNull(b.asFlowExecutionOwner().getOrNull());
+
+            // Trigger lazy-load of execution
+            FlowExecution fe = b.getExecution();
+            assertNotNull(b.execution.getOwner());
+            assertTrue(b.executionLoaded);
+            assertNotNull(b.asFlowExecutionOwner().getOrNull());
+            assertNotNull(b.asFlowExecutionOwner().get());
+        });
+        story.then( r-> {  // Verify that the FlowExecutionOwner can trigger lazy-load correctly
+            WorkflowJob p = r.jenkins.getItemByFullName("p", WorkflowJob.class);
+            WorkflowRun b = p.getBuildByNumber(1);
+            assertNotNull(b.asFlowExecutionOwner().get());
+            assertTrue(b.executionLoaded);
+            assertNotNull(b.asFlowExecutionOwner().getOrNull());
         });
     }
 
@@ -83,6 +157,7 @@ public class WorkflowRunRestartTest {
     @Test public void hardKill() throws Exception {
         story.then(r -> {
             WorkflowJob p = r.jenkins.createProject(WorkflowJob.class, "p");
+            p.addProperty( new DurabilityHintJobProperty(FlowDurabilityHint.MAX_SURVIVABILITY));
             p.setDefinition(new CpsFlowDefinition("def seq = 0; retry (99) {zombie id: ++seq}", true));
             WorkflowRun b = p.scheduleBuild2(0).waitForStart();
             r.waitForMessage("[1] undead", b);
@@ -105,6 +180,8 @@ public class WorkflowRunRestartTest {
             WorkflowJob p = r.jenkins.getItemByFullName("p", WorkflowJob.class);
             WorkflowRun b = p.getBuildByNumber(1);
             assertFalse(b.isBuilding());
+            assertFalse(b.executionLoaded);
+            assertNull(b.logsToCopy);
         });
     }
 
@@ -135,6 +212,8 @@ public class WorkflowRunRestartTest {
             r.waitForMessage("Hard kill!", b);
             r.waitForCompletion(b);
             r.assertBuildStatus(Result.ABORTED, b);
+            assertNull(b.logsToCopy);
+            assertTrue(b.completed);
         });
     }
 

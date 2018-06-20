@@ -46,8 +46,6 @@ import hudson.slaves.EnvironmentVariablesNodeProperty;
 import hudson.slaves.NodeProperty;
 import hudson.slaves.NodePropertyDescriptor;
 import hudson.util.DescribableList;
-import java.lang.ref.WeakReference;
-import java.util.logging.Level;
 import jenkins.model.CauseOfInterruption;
 import jenkins.model.InterruptedBuildAction;
 import jenkins.model.Jenkins;
@@ -71,7 +69,6 @@ import org.jvnet.hudson.test.BuildWatcher;
 import org.jvnet.hudson.test.Issue;
 import org.jvnet.hudson.test.JenkinsRule;
 import org.jvnet.hudson.test.LoggerRule;
-import org.jvnet.hudson.test.MemoryAssert;
 import org.jvnet.hudson.test.MockAuthorizationStrategy;
 import org.jvnet.hudson.test.recipes.LocalData;
 import org.xml.sax.SAXException;
@@ -91,6 +88,8 @@ public class WorkflowRunTest {
         assertFalse(b1.isBuilding());
         assertFalse(b1.isInProgress());
         assertFalse(b1.isLogUpdated());
+        assertTrue(b1.completed);
+        assertTrue(b1.executionLoaded);
         assertTrue(b1.getDuration() > 0);
         WorkflowRun b2 = r.assertBuildStatusSuccess(p.scheduleBuild2(0));
         assertEquals(b1, b2.getPreviousBuild());
@@ -209,17 +208,7 @@ public class WorkflowRunTest {
         assertSame(color, b.getParent().getIconColor());
     }
 
-    @Test public void cleanup() throws Exception {
-        logging.record("", Level.INFO).capture(256); // like WebAppMain would do, if in a real instance rather than JenkinsRule
-        WorkflowJob p = r.jenkins.createProject(WorkflowJob.class, "p");
-        p.setDefinition(new CpsFlowDefinition("", true));
-        WorkflowRun b1 = r.buildAndAssertSuccess(p);
-        WeakReference<WorkflowRun> b1r = new WeakReference<>(b1);
-        b1.delete();
-        b1 = null;
-        r.jenkins.getQueue().clearLeftItems(); // so we do not need to wait 5m
-        MemoryAssert.assertGC(b1r, false);
-    }
+
 
     @Test public void scriptApproval() throws Exception {
         r.jenkins.setSecurityRealm(r.createDummySecurityRealm());
@@ -272,6 +261,8 @@ public class WorkflowRunTest {
         WorkflowRun b = p.getLastBuild();
         assertNotNull(b);
         r.assertBuildStatusSuccess(r.waitForCompletion(b));
+        assertTrue(b.executionLoaded);
+        assertTrue(b.completed);
     }
 
     @Issue("JENKINS-29571")
