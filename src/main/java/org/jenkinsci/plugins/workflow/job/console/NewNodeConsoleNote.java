@@ -46,7 +46,7 @@ import org.jenkinsci.plugins.workflow.graph.FlowNode;
 import org.jenkinsci.plugins.workflow.graphanalysis.Filterator;
 import org.jenkinsci.plugins.workflow.graphanalysis.FlowScanningUtils;
 import org.jenkinsci.plugins.workflow.job.WorkflowRun;
-import org.jenkinsci.plugins.workflow.support.actions.AnnotatedLogAction;
+import org.jenkinsci.plugins.workflow.log.LogStorage;
 import org.kohsuke.accmod.Restricted;
 import org.kohsuke.accmod.restrictions.NoExternalUse;
 
@@ -59,7 +59,7 @@ import org.kohsuke.accmod.restrictions.NoExternalUse;
  * <li>{@code enclosingId} the immediately enclosing {@link BlockStartNode}, if any
  * <li>{@code label} for {@link LabelAction} if present
  * </ul>
- * @see AnnotatedLogAction#annotateHtml
+ * @see LogStorage#startStep
  */
 @Restricted(NoExternalUse.class)
 public class NewNodeConsoleNote extends ConsoleNote<WorkflowRun> {
