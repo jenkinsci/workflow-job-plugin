@@ -708,7 +708,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
         }
     }
 
-    @Override public FlowExecutionOwner asFlowExecutionOwner() {
+    @Override public @Nonnull FlowExecutionOwner asFlowExecutionOwner() {
         return new Owner(this);
     }
 
