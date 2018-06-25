@@ -26,6 +26,7 @@ package org.jenkinsci.plugins.workflow.job.console;
 
 import org.jenkinsci.plugins.workflow.job.*;
 import com.gargoylesoftware.htmlunit.html.HtmlPage;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 import hudson.Functions;
 import hudson.console.ModelHyperlinkNote;
@@ -35,11 +36,12 @@ import hudson.model.Run;
 import hudson.model.TaskListener;
 import hudson.model.User;
 import hudson.security.ACL;
+import hudson.security.ACLContext;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.StringWriter;
 import java.util.List;
-import jenkins.security.NotReallyRoleSensitiveCallable;
+import java.util.Set;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.IOUtils;
 import static org.hamcrest.Matchers.*;
@@ -49,10 +51,11 @@ import org.jenkinsci.plugins.workflow.graph.FlowNode;
 import org.jenkinsci.plugins.workflow.graphanalysis.DepthFirstScanner;
 import org.jenkinsci.plugins.workflow.graphanalysis.FlowScanningUtils;
 import org.jenkinsci.plugins.workflow.log.StreamLogStorage;
-import org.jenkinsci.plugins.workflow.steps.AbstractStepDescriptorImpl;
-import org.jenkinsci.plugins.workflow.steps.AbstractStepImpl;
-import org.jenkinsci.plugins.workflow.steps.AbstractSynchronousStepExecution;
-import org.jenkinsci.plugins.workflow.steps.StepContextParameter;
+import org.jenkinsci.plugins.workflow.steps.Step;
+import org.jenkinsci.plugins.workflow.steps.StepContext;
+import org.jenkinsci.plugins.workflow.steps.StepDescriptor;
+import org.jenkinsci.plugins.workflow.steps.StepExecution;
+import org.jenkinsci.plugins.workflow.steps.SynchronousStepExecution;
 import static org.junit.Assert.*;
 import static org.junit.Assume.*;
 import org.junit.Rule;
@@ -71,12 +74,12 @@ public class StreamLogStorageIntegrationTest {
         r.jenkins.setSecurityRealm(r.createDummySecurityRealm());
         WorkflowJob p = r.createProject(WorkflowJob.class, "p");
         p.setDefinition(new CpsFlowDefinition("hyperlink()", true));
-        User alice = User.get("alice");
-        WorkflowRun b = r.assertBuildStatusSuccess(p.scheduleBuild2(0, new CauseAction(ACL.impersonate(alice.impersonate(), new NotReallyRoleSensitiveCallable<Cause,RuntimeException>() {
-            @Override public Cause call() throws RuntimeException {
-                return new Cause.UserIdCause();
-            }
-        }))));
+        User alice = User.getById("alice", true);
+        Cause cause;
+        try (ACLContext context = ACL.as(alice)) {
+            cause = new Cause.UserIdCause();
+        }
+        WorkflowRun b = r.assertBuildStatusSuccess(p.scheduleBuild2(0, new CauseAction(cause)));
         HtmlPage page = r.createWebClient().goTo(b.getUrl() + "console");
         assertLogContains(page, hudson.model.Messages.Cause_UserIdCause_ShortDescription(alice.getDisplayName()), alice.getUrl());
         assertLogContains(page, "Running inside " + b.getDisplayName(), b.getUrl());
@@ -97,22 +100,26 @@ public class StreamLogStorageIntegrationTest {
         assertNotNull("found " + absUrl + " in:\n" + html, page.getAnchorByHref(absUrl));
         assertThat(html, not(containsString(StreamLogStorage.NODE_ID_SEP)));
     }
-    public static class HyperlinkingStep extends AbstractStepImpl {
+    public static class HyperlinkingStep extends Step {
         @DataBoundConstructor public HyperlinkingStep() {}
-        public static class Execution extends AbstractSynchronousStepExecution<Void> {
-            @StepContextParameter Run<?,?> run;
-            @StepContextParameter TaskListener listener;
+        @Override public StepExecution start(StepContext context) throws Exception {
+            return new Execution(context);
+        }
+        static class Execution extends SynchronousStepExecution<Void> {
+            Execution(StepContext context) {
+                super(context);
+            }
             @Override protected Void run() throws Exception {
-                listener.getLogger().println("Running inside " + ModelHyperlinkNote.encodeTo(run));
+                getContext().get(TaskListener.class).getLogger().println("Running inside " + ModelHyperlinkNote.encodeTo(getContext().get(Run.class)));
                 return null;
             }
         }
-        @TestExtension("consoleNotes") public static class DescriptorImpl extends AbstractStepDescriptorImpl {
-            public DescriptorImpl() {
-                super(Execution.class);
-            }
+        @TestExtension("consoleNotes") public static class DescriptorImpl extends StepDescriptor {
             @Override public String getFunctionName() {
                 return "hyperlink";
+            }
+            @Override public Set<? extends Class<?>> getRequiredContext() {
+                return ImmutableSet.of(TaskListener.class, Run.class);
             }
         }
     }
