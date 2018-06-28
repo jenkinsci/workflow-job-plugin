@@ -33,7 +33,7 @@
     </parent>
     <groupId>org.jenkins-ci.plugins.workflow</groupId>
     <artifactId>workflow-job</artifactId>
-    <version>2.23-SNAPSHOT</version>
+    <version>${revision}${changelist}</version>
     <packaging>hpi</packaging>
     <name>Pipeline: Job</name>
     <url>https://wiki.jenkins.io/display/JENKINS/Pipeline+Job+Plugin</url>
@@ -62,7 +62,7 @@
         </pluginRepository>
     </pluginRepositories>
     <properties>
-        <revision>2.22</revision>
+        <revision>2.23</revision>
         <changelist>-SNAPSHOT</changelist>
         <jenkins.version>2.62</jenkins.version>
         <java.level>8</java.level>
