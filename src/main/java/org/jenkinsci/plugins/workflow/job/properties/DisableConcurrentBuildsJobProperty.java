@@ -45,7 +45,7 @@ public class DisableConcurrentBuildsJobProperty extends OptionalJobProperty<Work
     public static class DescriptorImpl extends OptionalJobPropertyDescriptor {
 
         @Override public String getDisplayName() {
-            return "Do not allow concurrent builds";
+            return Messages.do_not_allow_concurrent_builds();
         }
 
     }

@@ -71,7 +71,7 @@ public class DurabilityHintJobProperty extends OptionalJobProperty<WorkflowJob> 
         }
 
         @Override public String getDisplayName() {
-            return "Pipeline speed/durability override";
+            return Messages.speed_durability_override();
         }
 
         @Override
