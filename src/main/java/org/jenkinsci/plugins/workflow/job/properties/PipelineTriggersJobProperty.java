@@ -193,7 +193,7 @@ public class PipelineTriggersJobProperty extends JobProperty<WorkflowJob> {
     public static class DescriptorImpl extends JobPropertyDescriptor {
         @Override
         public String getDisplayName() {
-            return "Build triggers";
+            return Messages.build_triggers();
         }
 
         @Override
