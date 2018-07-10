@@ -911,7 +911,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
     /** Initializes and returns the executionPromise to avoid null risk */
     @Nonnull
     private SettableFuture<FlowExecution> getSettableExecutionPromise() {
-        if (executionPromise != null) {
+        if (executionPromise != null) { // Double-checked locking safe rendered safe by volatile field
             return executionPromise;
         } else {
             synchronized(this) {
