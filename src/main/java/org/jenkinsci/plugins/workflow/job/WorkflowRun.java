@@ -148,7 +148,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
      * {@link Future} that yields {@link #execution}, when it is fully configured and ready to be exposed.
      */
     @CheckForNull
-    private transient SettableFuture<FlowExecution> executionPromise = SettableFuture.create();
+    private transient volatile SettableFuture<FlowExecution> executionPromise = SettableFuture.create();
 
     private transient final LazyBuildMixIn.RunMixIn<WorkflowJob,WorkflowRun> runMixIn = new LazyBuildMixIn.RunMixIn<WorkflowJob,WorkflowRun>() {
         @Override protected WorkflowRun asRun() {
@@ -700,12 +700,18 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
     /** Initializes and returns the executionPromise to avoid null risk */
     @Nonnull
     private SettableFuture<FlowExecution> getSettableExecutionPromise() {
-        synchronized(this) {
-            if (executionPromise == null) {
-                executionPromise = SettableFuture.create();
+        SettableFuture execOut = executionPromise;
+        if (execOut == null) { // Double-checked locking safe rendered safe by volatile field
+            synchronized(this) {
+                execOut = executionPromise; // Fetch again from field in case another thread created it
+                if (execOut == null) {
+                    execOut = SettableFuture.create();
+                    executionPromise = execOut;
+                }
+                return execOut;
             }
-            return executionPromise;
         }
+        return execOut;
     }
 
     @Override public @Nonnull FlowExecutionOwner asFlowExecutionOwner() {
