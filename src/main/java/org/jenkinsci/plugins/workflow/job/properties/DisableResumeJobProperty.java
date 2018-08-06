@@ -25,7 +25,7 @@ public class DisableResumeJobProperty extends OptionalJobProperty<WorkflowJob> {
     public static class DescriptorImpl extends OptionalJobPropertyDescriptor implements DurabilityHintProvider{
 
         @Override public String getDisplayName() {
-            return "Do not allow the pipeline to resume if the master restarts.";
+            return Messages.do_not_allow_resume_if_master_restarts();
         }
 
         @Override
