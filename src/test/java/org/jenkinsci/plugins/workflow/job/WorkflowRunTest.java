@@ -469,4 +469,12 @@ public class WorkflowRunTest {
         }
     }
 
+    @Issue("JENKINS-31096")
+    @Test public void unicode() throws Exception {
+        WorkflowJob p = r.jenkins.createProject(WorkflowJob.class, "p");
+        String message = "¡Čau → there!";
+        p.setDefinition(new CpsFlowDefinition("echo '" + message + "'", true));
+        r.assertLogContains(message, r.buildAndAssertSuccess(p));
+    }
+
 }
