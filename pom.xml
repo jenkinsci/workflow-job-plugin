@@ -62,13 +62,13 @@
         </pluginRepository>
     </pluginRepositories>
     <properties>
-        <revision>2.24</revision>
+        <revision>2.25</revision>
         <changelist>-SNAPSHOT</changelist>
         <jenkins.version>2.121.1</jenkins.version>
         <java.level>8</java.level>
         <no-test-jar>false</no-test-jar>
         <useBeta>true</useBeta>
-        <workflow-support-plugin.version>2.19-rc265.3e5e4aeecfff</workflow-support-plugin.version> <!-- TODO https://github.com/jenkinsci/workflow-support-plugin/pull/15 -->
+        <workflow-support-plugin.version>2.20-rc613.7a6c94f3ee60</workflow-support-plugin.version> <!-- TODO https://github.com/jenkinsci/workflow-support-plugin/pull/15 -->
         <scm-api-plugin.version>2.2.6</scm-api-plugin.version>
         <git-plugin.version>3.2.0</git-plugin.version>
         <jenkins-test-harness.version>2.33</jenkins-test-harness.version>
@@ -82,7 +82,7 @@
         <dependency>
             <groupId>org.jenkins-ci.plugins.workflow</groupId>
             <artifactId>workflow-api</artifactId>
-            <version>2.29-rc219.239019e84015</version> <!-- TODO https://github.com/jenkinsci/workflow-api-plugin/pull/17 -->
+            <version>2.30-rc801.5b65e4f63f8a</version> <!-- TODO https://github.com/jenkinsci/workflow-api-plugin/pull/17 -->
         </dependency>
         <dependency>
             <groupId>org.jenkins-ci.plugins.workflow</groupId>
