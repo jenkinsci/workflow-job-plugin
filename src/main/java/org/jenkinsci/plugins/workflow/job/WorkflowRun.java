@@ -72,7 +72,6 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.io.PrintStream;
-import java.nio.charset.Charset;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Date;
@@ -230,7 +229,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
         if (listener == null) {
             try {
                 OutputStream logger = new FileOutputStream(getLogFile(), true);
-                listener = new StreamBuildListener(logger, Charset.defaultCharset());
+                listener = new StreamBuildListener(logger, getCharset());
             } catch (FileNotFoundException fnf) {
                 LOGGER.log(Level.WARNING, "Error trying to open build log file for writing, output will be lost: "+getLogFile(), fnf);
                 return NULL_LISTENER;
@@ -282,6 +281,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
         }
         try {
             onStartBuilding();
+            charset = "UTF-8"; // cannot override getCharset, and various Run methods do not call it anyway
             StreamBuildListener myListener = getListener();
             myListener.started(getCauses());
             Authentication auth = Jenkins.getAuthentication();
