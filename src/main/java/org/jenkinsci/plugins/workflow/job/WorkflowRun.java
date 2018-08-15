@@ -294,7 +294,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
                 boolean blockResume = getParent().isResumeBlocked();
                 ((BlockableResume) newExecution).setResumeBlocked(blockResume);
                 if (blockResume) {
-                    listener.getLogger().println("Resume disabled by user, switching to high-performance, low-durability mode.");
+                    myListener.getLogger().println("Resume disabled by user, switching to high-performance, low-durability mode.");
                     loggedHintOverride = true;
                 }
             }
@@ -995,7 +995,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
      */
     private final class NodePrintListener implements GraphListener.Synchronous {
         @Override public void onNewHead(FlowNode node) {
-            NewNodeConsoleNote.print(node, listener);
+            NewNodeConsoleNote.print(node, getListener());
         }
     }
 
