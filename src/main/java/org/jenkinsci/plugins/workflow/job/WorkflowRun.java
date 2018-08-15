@@ -1004,7 +1004,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
         return LogStorage.of(asFlowExecutionOwner()).overallLog(this, !isLogUpdated());
     }
 
-    // TODO these methods should be better defined in Run itself to delegate to getLogText or getLogInputStream:
+    // TODO log-related overrides pending JEP-207:
 
     @Override public InputStream getLogInputStream() throws IOException {
         // Inefficient but probably rarely used anyway.
@@ -1014,7 +1014,6 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
     }
 
     @Override public Reader getLogReader() throws IOException {
-        // As above.
         return getLogText().readAll();
     }
 
