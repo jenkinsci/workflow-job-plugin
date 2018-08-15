@@ -214,7 +214,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
         // Note that in portions where multithreaded access is possible we are already synchronizing on logCopyGuard
         if (listener == null) {
             try {
-                // TODO add a @Terminator to close the old listener in case a new set of objects gets loaded after in-VM restart and starts writing to the same file
+                // TODO to better handle in-VM restart (e.g. in JenkinsRule), move CpsFlowExecution.suspendAll logic into a FlowExecution.notifyShutdown override, then make FlowExecutionOwner.notifyShutdown also overridable, which for WorkflowRun.Owner should listener.close() as needed
                 // TODO JENKINS-30777 decorate with ConsoleLogFilter.all()
                 listener = LogStorage.of(asFlowExecutionOwner()).overallListener();
             } catch (IOException | InterruptedException x) {
@@ -603,6 +603,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
                         LOGGER.log(Level.WARNING, "could not close build log for " + this, x);
                     }
                 }
+                listener = null;
             }
             saveWithoutFailing(); // TODO useless if we are inside a BulkChange
             Timer.get().submit(() -> {
