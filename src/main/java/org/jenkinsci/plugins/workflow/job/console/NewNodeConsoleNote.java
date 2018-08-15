@@ -24,7 +24,6 @@
 
 package org.jenkinsci.plugins.workflow.job.console;
 
-import com.google.common.base.Predicates;
 import hudson.Extension;
 import hudson.MarkupText;
 import hudson.Util;
@@ -34,6 +33,7 @@ import hudson.console.ConsoleNote;
 import hudson.model.TaskListener;
 import java.io.IOException;
 import java.io.PrintStream;
+import java.util.Iterator;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.annotation.CheckForNull;
@@ -43,8 +43,6 @@ import org.jenkinsci.plugins.workflow.flow.FlowExecution;
 import org.jenkinsci.plugins.workflow.graph.BlockEndNode;
 import org.jenkinsci.plugins.workflow.graph.BlockStartNode;
 import org.jenkinsci.plugins.workflow.graph.FlowNode;
-import org.jenkinsci.plugins.workflow.graphanalysis.Filterator;
-import org.jenkinsci.plugins.workflow.graphanalysis.FlowScanningUtils;
 import org.jenkinsci.plugins.workflow.job.WorkflowRun;
 import org.jenkinsci.plugins.workflow.log.LogStorage;
 import org.kohsuke.accmod.Restricted;
@@ -91,7 +89,7 @@ public class NewNodeConsoleNote extends ConsoleNote<WorkflowRun> {
             enclosing = null;
             start = ((BlockEndNode) node).getStartNode().getId();
         } else {
-            Filterator<FlowNode> it = FlowScanningUtils.fetchEnclosingBlocks(node).filter(Predicates.not(Predicates.equalTo(node)));
+            Iterator<BlockStartNode> it = node.iterateEnclosingBlocks().iterator();
             enclosing = it.hasNext() ? it.next().getId() : null;
             start = node instanceof BlockStartNode ? node.getId() : null;
         }
