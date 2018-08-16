@@ -71,7 +71,6 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.io.PrintStream;
-import java.nio.charset.Charset;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Date;
@@ -122,6 +121,7 @@ import org.jenkinsci.plugins.workflow.graph.BlockEndNode;
 import org.jenkinsci.plugins.workflow.graph.BlockStartNode;
 import org.jenkinsci.plugins.workflow.graph.FlowEndNode;
 import org.jenkinsci.plugins.workflow.graph.FlowNode;
+import org.jenkinsci.plugins.workflow.graph.FlowStartNode;
 import org.jenkinsci.plugins.workflow.job.console.WorkflowConsoleLogger;
 import org.jenkinsci.plugins.workflow.steps.FlowInterruptedException;
 import org.jenkinsci.plugins.workflow.steps.StepContext;
@@ -159,7 +159,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
      * {@link Future} that yields {@link #execution}, when it is fully configured and ready to be exposed.
      */
     @CheckForNull
-    private transient SettableFuture<FlowExecution> executionPromise = SettableFuture.create();
+    private transient volatile SettableFuture<FlowExecution> executionPromise = SettableFuture.create();
 
     private transient final LazyBuildMixIn.RunMixIn<WorkflowJob,WorkflowRun> runMixIn = new LazyBuildMixIn.RunMixIn<WorkflowJob,WorkflowRun>() {
         @Override protected WorkflowRun asRun() {
@@ -229,7 +229,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
         if (listener == null) {
             try {
                 OutputStream logger = new FileOutputStream(getLogFile(), true);
-                listener = new StreamBuildListener(logger, Charset.defaultCharset());
+                listener = new StreamBuildListener(logger, getCharset());
             } catch (FileNotFoundException fnf) {
                 LOGGER.log(Level.WARNING, "Error trying to open build log file for writing, output will be lost: "+getLogFile(), fnf);
                 return NULL_LISTENER;
@@ -281,6 +281,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
         }
         try {
             onStartBuilding();
+            charset = "UTF-8"; // cannot override getCharset, and various Run methods do not call it anyway
             StreamBuildListener myListener = getListener();
             myListener.started(getCauses());
             Authentication auth = Jenkins.getAuthentication();
@@ -910,12 +911,18 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
     /** Initializes and returns the executionPromise to avoid null risk */
     @Nonnull
     private SettableFuture<FlowExecution> getSettableExecutionPromise() {
-        synchronized(this) {
-            if (executionPromise == null) {
-                executionPromise = SettableFuture.create();
+        SettableFuture execOut = executionPromise;
+        if (execOut == null) { // Double-checked locking safe rendered safe by volatile field
+            synchronized(this) {
+                execOut = executionPromise; // Fetch again from field in case another thread created it
+                if (execOut == null) {
+                    execOut = SettableFuture.create();
+                    executionPromise = execOut;
+                }
+                return execOut;
             }
-            return executionPromise;
         }
+        return execOut;
     }
 
     @Override public FlowExecutionOwner asFlowExecutionOwner() {
