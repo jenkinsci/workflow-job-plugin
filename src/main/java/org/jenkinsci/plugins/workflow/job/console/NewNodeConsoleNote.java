@@ -62,6 +62,8 @@ import org.kohsuke.accmod.restrictions.NoExternalUse;
 @Restricted(NoExternalUse.class)
 public class NewNodeConsoleNote extends ConsoleNote<WorkflowRun> {
 
+    private static final Logger LOGGER = Logger.getLogger(NewNodeConsoleNote.class.getName());
+
     /**
      * Prefix used in metadata lines.
      */
@@ -73,7 +75,7 @@ public class NewNodeConsoleNote extends ConsoleNote<WorkflowRun> {
             try {
                 listener.annotate(new NewNodeConsoleNote(node));
             } catch (IOException x) {
-                // never mind
+                LOGGER.log(Level.WARNING, null, x);
             }
             logger.println(CONSOLE_NOTE_PREFIX + node.getDisplayFunctionName());
         }
