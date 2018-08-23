@@ -50,6 +50,7 @@ import org.jenkinsci.plugins.workflow.cps.CpsFlowDefinition;
 import org.jenkinsci.plugins.workflow.graph.FlowNode;
 import org.jenkinsci.plugins.workflow.graphanalysis.DepthFirstScanner;
 import org.jenkinsci.plugins.workflow.graphanalysis.FlowScanningUtils;
+import org.jenkinsci.plugins.workflow.graphanalysis.NodeStepTypePredicate;
 import org.jenkinsci.plugins.workflow.steps.Step;
 import org.jenkinsci.plugins.workflow.steps.StepContext;
 import org.jenkinsci.plugins.workflow.steps.StepDescriptor;
@@ -125,7 +126,7 @@ public class DefaultLogStorageTest {
     @Test public void performance() throws Exception {
         assumeFalse(Functions.isWindows()); // needs newline fixes; not bothering for now
         WorkflowJob p = r.createProject(WorkflowJob.class, "p");
-        p.setDefinition(new CpsFlowDefinition("@NonCPS def giant() {(0..999999).join('\\n')}; echo giant()", true));
+        p.setDefinition(new CpsFlowDefinition("@NonCPS def giant() {(0..999999).join('\\n')}; echo giant(); sleep 0", true));
         long start = System.nanoTime();
         WorkflowRun b = r.buildAndAssertSuccess(p);
         System.out.printf("Took %dms to run the build%n", (System.nanoTime() - start) / 1000 / 1000);
@@ -152,18 +153,19 @@ public class DefaultLogStorageTest {
         /* Whether or not this echo step is annotated in the truncated log is not really important:
         assertThat(sw.toString(), containsString("\n999999\n</span>"));
         */
-        // Raw:
+        // Plain text:
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
         start = System.nanoTime();
         IOUtils.copy(b.getLogInputStream(), baos);
         System.out.printf("Took %dms to write plain text of whole build%n", (System.nanoTime() - start) / 1000 / 1000);
+        // Raw:
         assertThat(baos.toString(), containsString("\n456789\n"));
-        // Per node:
-        FlowNode echo = b.getExecution().getCurrentHeads().get(0).getParents().get(0);
-        assertEquals("echo", echo.getDisplayFunctionName());
         String rawLog = FileUtils.readFileToString(new File(b.getRootDir(), "log"));
         assertThat(rawLog, containsString("0\n"));
         assertThat(rawLog, containsString("\n999999\n"));
+        assertThat(rawLog, containsString("sleep any longer"));
+        // Per node:
+        FlowNode echo = new DepthFirstScanner().findFirstMatch(b.getExecution(), new NodeStepTypePredicate("echo"));
         LogAction la = echo.getAction(LogAction.class);
         assertNotNull(la);
         baos = new ByteArrayOutputStream();
@@ -173,27 +175,41 @@ public class DefaultLogStorageTest {
         sw = new StringWriter();
         start = System.nanoTime();
         la.getLogText().writeHtmlTo(0, sw);
-        System.out.printf("Took %dms to write HTML of one node%n", (System.nanoTime() - start) / 1000 / 1000);
+        System.out.printf("Took %dms to write HTML of one long node%n", (System.nanoTime() - start) / 1000 / 1000);
         assertThat(sw.toString(), containsString("\n456789\n"));
         // Length check (cf. AnnotatedLogAction/index.jelly):
         start = System.nanoTime();
         length = la.getLogText().length();
-        System.out.printf("Took %dms to compute length of one node%n", (System.nanoTime() - start) / 1000 / 1000);
+        System.out.printf("Took %dms to compute length of one long node%n", (System.nanoTime() - start) / 1000 / 1000);
         assertThat(length, greaterThan(200000L));
         // Truncated (cf. AnnotatedLogAction/index.jelly):
         sw = new StringWriter();
         offset = length - 150 * 1024;
         start = System.nanoTime();
         la.getLogText().writeHtmlTo(offset, sw);
-        System.out.printf("Took %dms to write truncated HTML of one node%n", (System.nanoTime() - start) / 1000 / 1000);
+        System.out.printf("Took %dms to write truncated HTML of one long node%n", (System.nanoTime() - start) / 1000 / 1000);
         assertThat(sw.toString(), not(containsString("\n456789\n")));
         assertThat(sw.toString(), containsString("\n999923\n"));
         // Raw (currently not exposed in UI but could be):
         baos = new ByteArrayOutputStream();
         start = System.nanoTime();
         la.getLogText().writeRawLogTo(0, baos);
-        System.out.printf("Took %dms to write plain text of one node%n", (System.nanoTime() - start) / 1000 / 1000);
+        System.out.printf("Took %dms to write plain text of one long node%n", (System.nanoTime() - start) / 1000 / 1000);
         assertThat(baos.toString(), containsString("\n456789\n"));
+        // Node with litte text:
+        FlowNode sleep = new DepthFirstScanner().findFirstMatch(b.getExecution(), new NodeStepTypePredicate("sleep"));
+        la = sleep.getAction(LogAction.class);
+        assertNotNull(la);
+        sw = new StringWriter();
+        start = System.nanoTime();
+        la.getLogText().writeHtmlTo(0, sw);
+        System.out.printf("Took %dms to write HTML of one short node%n", (System.nanoTime() - start) / 1000 / 1000);
+        assertThat(sw.toString(), containsString("No need to sleep any longer"));
+        // Length check
+        start = System.nanoTime();
+        length = la.getLogText().length();
+        System.out.printf("Took %dms to compute length of one short node%n", (System.nanoTime() - start) / 1000 / 1000);
+        assertThat(length, lessThan(50L));
     }
 
 }
