@@ -877,7 +877,12 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
                         if (fetchedExecution.isComplete()) {  // See JENKINS-50199 for cases where the execution is marked complete but build is not
                             // Somehow arrived at one of those weird states
                             this.completed = true;
-                            setResult(Result.FAILURE);
+                            Result finalResult = Result.FAILURE;
+                            List<FlowNode> heads = fetchedExecution.getCurrentHeads();
+                            if (!heads.isEmpty() && heads.get(0) instanceof FlowEndNode) {
+                                finalResult = ((FlowEndNode)(heads.get(0))).getResult();
+                            }
+                            setResult(finalResult);
                             fetchedExecution.removeListener(finishListener);
                             saveWithoutFailing();
                         } else {
