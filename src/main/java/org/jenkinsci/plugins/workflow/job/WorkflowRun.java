@@ -876,6 +876,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
                     if (this.completed != Boolean.TRUE) {
                         if (fetchedExecution.isComplete()) {  // See JENKINS-50199 for cases where the execution is marked complete but build is not
                             // Somehow arrived at one of those weird states
+                            LOGGER.log(Level.WARNING, "Found incomplete build with completed execution - display name: "+this.getFullDisplayName());
                             this.completed = true;
                             Result finalResult = Result.FAILURE;
                             List<FlowNode> heads = fetchedExecution.getCurrentHeads();
