@@ -18,7 +18,6 @@ import org.jenkinsci.plugins.workflow.support.steps.input.InputAction;
 import org.jenkinsci.plugins.workflow.support.steps.input.InputStepExecution;
 import org.junit.Assert;
 import org.junit.ClassRule;
-import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
 import org.jvnet.hudson.test.BuildWatcher;
@@ -296,7 +295,6 @@ public class CpsPersistenceTest {
     }
 
     @Test
-    @Ignore
     public void inProgressMaxPerfDirtyShutdown() throws Exception {
         final int[] build = new int[1];
         final String[] finalNodeId = new String[1];
@@ -401,11 +399,13 @@ public class CpsPersistenceTest {
             WorkflowJob r = j.jenkins.getItemByFullName(DEFAULT_JOBNAME, WorkflowJob.class);
             WorkflowRun run = r.getBuildByNumber(build[0]);
             assertCompletedCleanly(run);
+            Assert.assertEquals(Result.SUCCESS, run.getResult());
         });
         story.then( j->{ // Once more, just to be sure it sticks
             WorkflowJob r = j.jenkins.getItemByFullName(DEFAULT_JOBNAME, WorkflowJob.class);
             WorkflowRun run = r.getBuildByNumber(build[0]);
             assertCompletedCleanly(run);
+            Assert.assertEquals(Result.SUCCESS, run.getResult());
         });
     }
 
