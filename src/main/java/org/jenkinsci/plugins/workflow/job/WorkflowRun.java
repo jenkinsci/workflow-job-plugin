@@ -874,10 +874,24 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
                     }
                     fetchedExecution.onLoad(new Owner(this));
                     if (this.completed != Boolean.TRUE) {
-                        // Defer the normal listener to ensure onLoad can complete before finish() is called since that may
-                        // need the build to be loaded and can result in loading loops otherwise.
-                        fetchedExecution.removeListener(finishListener);
-                        fetchedExecution.addListener(new GraphL());
+                        if (fetchedExecution.isComplete()) {  // See JENKINS-50199 for cases where the execution is marked complete but build is not
+                            // Somehow arrived at one of those weird states
+                            LOGGER.log(Level.WARNING, "Found incomplete build with completed execution - display name: "+this.getFullDisplayName());
+                            this.completed = true;
+                            Result finalResult = Result.FAILURE;
+                            List<FlowNode> heads = fetchedExecution.getCurrentHeads();
+                            if (!heads.isEmpty() && heads.get(0) instanceof FlowEndNode) {
+                                finalResult = ((FlowEndNode)(heads.get(0))).getResult();
+                            }
+                            setResult(finalResult);
+                            fetchedExecution.removeListener(finishListener);
+                            saveWithoutFailing();
+                        } else {
+                            // Defer the normal listener to ensure onLoad can complete before finish() is called since that may
+                            // need the build to be loaded and can result in loading loops otherwise.
+                            fetchedExecution.removeListener(finishListener);
+                            fetchedExecution.addListener(new GraphL());
+                        }
                     }
                     SettableFuture<FlowExecution> settablePromise = getSettableExecutionPromise();
                     if (!settablePromise.isDone()) {
