@@ -102,6 +102,7 @@ public class CpsPersistenceTest {
             Assert.assertTrue(cpsExec.getCurrentHeads().get(0) instanceof FlowEndNode);
             Stack<BlockStartNode> starts = getCpsBlockStartNodes(cpsExec);
             Assert.assertTrue(starts == null || starts.isEmpty());
+            Thread.sleep(1000); // TODO seems to be flaky
             Assert.assertFalse(cpsExec.blocksRestart());
         } else {
             System.out.println("WARNING: no FlowExecutionForBuild");
