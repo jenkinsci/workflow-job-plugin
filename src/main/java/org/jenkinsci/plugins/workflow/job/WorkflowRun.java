@@ -210,7 +210,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
 
     /** Used internally to ensure listener has been initialized correctly. */
     BuildListener getListener() {
-        // Un-synchronized to prevent deadlocks (combination of run and logCopyGuard) until the log-handling rewrite removes the log copying
+        // Un-synchronized to prevent deadlocks (combination of run and logCopyGuard)
         // Note that in portions where multithreaded access is possible we are already synchronizing on logCopyGuard
         if (listener == null) {
             try {
