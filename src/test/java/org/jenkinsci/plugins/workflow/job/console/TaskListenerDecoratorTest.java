@@ -72,7 +72,9 @@ public class TaskListenerDecoratorTest {
         WorkflowJob p = r.createProject(WorkflowJob.class, "p");
         p.setDefinition(new CpsFlowDefinition("filter {decorate {node('remote') {remotePrint()}}}", true));
         WorkflowRun b = r.buildAndAssertSuccess(p);
-        r.assertLogContains("[job/p/1/ via remote] [filtered via remote] [decorated via remote] printed a message on master=false", b);
+        r.assertLogContains("[job/p/1/] Started", b);
+        r.assertLogContains("[decorated] [filtered] [job/p/1/] Running on remote in ", b);
+        r.assertLogContains("[decorated via remote] [filtered via remote] [job/p/1/ via remote] printed a message on master=false", b);
     }
 
     private static final class DecoratorImpl extends TaskListenerDecorator {
@@ -91,6 +93,9 @@ public class TaskListenerDecoratorTest {
                     logger.write(b, 0, len);
                 }
             };
+        }
+        @Override public String toString() {
+            return "DecoratorImpl[" + message + "]";
         }
     }
 
@@ -157,6 +162,9 @@ public class TaskListenerDecoratorTest {
             @SuppressWarnings({"rawtypes", "deprecation"})
             @Override public OutputStream decorateLogger(AbstractBuild _ignore, OutputStream logger) throws IOException, InterruptedException {
                 return new DecoratorImpl(message).decorate(logger);
+            }
+            @Override public String toString() {
+                return "Filter[" + message + "]";
             }
         }
         @TestExtension public static final class DescriptorImpl extends StepDescriptor {
