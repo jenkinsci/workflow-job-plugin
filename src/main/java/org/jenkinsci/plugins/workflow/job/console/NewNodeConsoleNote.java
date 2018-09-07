@@ -77,7 +77,7 @@ public class NewNodeConsoleNote extends ConsoleNote<WorkflowRun> {
             } catch (IOException x) {
                 LOGGER.log(Level.WARNING, null, x);
             }
-            logger.println(CONSOLE_NOTE_PREFIX + node.getDisplayFunctionName());
+            logger.println(CONSOLE_NOTE_PREFIX + node.getDisplayFunctionName()); // note that StepAtomNode will never have a LabelAction at this point
         }
     }
 
@@ -124,7 +124,6 @@ public class NewNodeConsoleNote extends ConsoleNote<WorkflowRun> {
         }
         startTag.append("\">");
         text.addMarkup(0, text.length(), startTag.toString(), "</span>");
-        // TODO should we also add another span around the actual displayFunctionName text, to make it easy to parse out?
         return null;
     }
 
