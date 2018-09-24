@@ -1,4 +1,8 @@
 Behaviour.specify("span.pipeline-new-node", 'NewNodeConsoleNote', 0, function(e) {
+    if (e.processedNewNodeConsoleNote) {
+        return
+    }
+    e.processedNewNodeConsoleNote = true
     var label = e.getAttribute('label')
     if (label != null) {
         var html = e.innerHTML
