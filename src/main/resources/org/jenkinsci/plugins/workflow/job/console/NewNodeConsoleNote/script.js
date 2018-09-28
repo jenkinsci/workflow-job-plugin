@@ -1,7 +1,15 @@
 Behaviour.specify("span.pipeline-new-node", 'NewNodeConsoleNote', 0, function(e) {
+    if (e.processedNewNodeConsoleNote) {
+        return
+    }
+    e.processedNewNodeConsoleNote = true
     var label = e.getAttribute('label')
     if (label != null) {
-        e.innerHTML = e.innerHTML.replace(/.+/, '$& (' + label.escapeHTML() + ')')
+        var html = e.innerHTML
+        var suffix = ' (' + label.escapeHTML() + ')';
+        if (!html.includes(suffix)) {
+            e.innerHTML = e.innerHTML.replace(/.+/, '$&' + suffix) // insert before EOL
+        }
     }
     var startId = e.getAttribute('startId')
     if (startId == null || startId == e.getAttribute('nodeId')) {
