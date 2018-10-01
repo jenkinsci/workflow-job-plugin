@@ -1121,10 +1121,15 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
             isAtomic = hint.isAtomicWrite();
         }
 
-        synchronized (this) {
-            PipelineIOUtils.writeByXStream(this, loc, XSTREAM2, isAtomic);
-            SaveableListener.fireOnChange(this, file);
-            if (Boolean.TRUE.equals(completed)) {
+        boolean completeAsynchronousExecution = false;
+        try {
+            synchronized (this) {
+                completeAsynchronousExecution = Boolean.TRUE.equals(completed);
+                PipelineIOUtils.writeByXStream(this, loc, XSTREAM2, isAtomic);
+                SaveableListener.fireOnChange(this, file);
+            }
+        } finally {
+            if (completeAsynchronousExecution) {
                 Executor executor = getExecutor();
                 if (executor != null) {
                     AsynchronousExecution asynchronousExecution = executor.getAsynchronousExecution();
