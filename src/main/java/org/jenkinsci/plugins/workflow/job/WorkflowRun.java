@@ -580,6 +580,16 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
             setResult(r);
             completed = Boolean.TRUE;
             duration = Math.max(0, System.currentTimeMillis() - getStartTimeInMillis());
+
+        }
+        Executor executor = getExecutor();
+        if (executor != null) {
+            AsynchronousExecution asynchronousExecution = executor.getAsynchronousExecution();
+            if (asynchronousExecution != null) {
+                asynchronousExecution.completed(null);
+            }
+        } else {
+            LOGGER.log(Level.SEVERE, "Build tried to complete when in fact already done.");
         }
         try {
             LOGGER.log(Level.INFO, "{0} completed: {1}", new Object[]{toString(), getResult()});
@@ -1122,22 +1132,10 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
         }
 
         boolean completeAsynchronousExecution = false;
-        try {
-            synchronized (this) {
-                completeAsynchronousExecution = Boolean.TRUE.equals(completed);
-                PipelineIOUtils.writeByXStream(this, loc, XSTREAM2, isAtomic);
-                SaveableListener.fireOnChange(this, file);
-            }
-        } finally {
-            if (completeAsynchronousExecution) {
-                Executor executor = getExecutor();
-                if (executor != null) {
-                    AsynchronousExecution asynchronousExecution = executor.getAsynchronousExecution();
-                    if (asynchronousExecution != null) {
-                        asynchronousExecution.completed(null);
-                    }
-                }
-            }
+        synchronized (this) {
+            completeAsynchronousExecution = Boolean.TRUE.equals(completed);
+            PipelineIOUtils.writeByXStream(this, loc, XSTREAM2, isAtomic);
+            SaveableListener.fireOnChange(this, file);
         }
     }
 }
