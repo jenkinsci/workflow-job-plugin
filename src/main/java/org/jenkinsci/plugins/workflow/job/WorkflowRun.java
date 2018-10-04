@@ -181,7 +181,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
      * Flag for whether or not the build has completed somehow.
      * This was previously a transient field, so we may need to recompute in {@link #onLoad} based on {@link FlowExecution#isComplete}.
      */
-    Boolean completed;  // Non-private for testing
+    volatile Boolean completed;  // Non-private for testing
 
     /** Protects the access to logsToCopy, completed, and branchNameCache that are used in the logCopy process */
     private transient Object logCopyGuard = new Object();
@@ -508,7 +508,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
         new XmlFile(XSTREAM,new File(getRootDir(),"build.xml")).unmarshal(this);
     }
 
-    @Override protected void onLoad() {
+    @Override protected void onLoad() {  // Here there be DRAGONS: due to lazy-loading and subtle threading risks, be very cautious!
         try {
             synchronized (getLogCopyGuard()) {
                 if (executionLoaded) {
@@ -543,8 +543,10 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
                         }
                     } else {   // Execution nulled due to a critical failure, explicitly mark completed
                         completed = Boolean.TRUE;
+                        needsToPersist = true;  // Make sure we save toggled state
                     }
-                } else if (execution == null) {
+                } else if (execution == null && completed != Boolean.TRUE) {
+                    needsToPersist = true; // Make sure we save toggled state
                     completed = Boolean.TRUE;
                 }
                 if (needsToPersist && completed) {
@@ -572,6 +574,20 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
         }
     }
 
+    private void endExecutionTask() {
+        try {
+            Executor executor = getExecutor();
+            if (executor != null) {
+                AsynchronousExecution asynchronousExecution = executor.getAsynchronousExecution();
+                if (asynchronousExecution != null) {
+                    asynchronousExecution.completed(null);
+                }
+            }
+        } catch (Exception ex) {
+            LOGGER.log(Level.WARNING, "Error when trying to end the FlyWeightTask for run "+this, ex);
+        }
+    }
+
     /** Handles normal build completion (including errors) but also handles the case that the flow did not even start correctly, for example due to an error in {@link FlowExecution#start}. */
     private void finish(@Nonnull Result r, @CheckForNull Throwable t) {
         boolean nullListener = false;
@@ -581,15 +597,6 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
             completed = Boolean.TRUE;
             duration = Math.max(0, System.currentTimeMillis() - getStartTimeInMillis());
 
-        }
-        Executor executor = getExecutor();
-        if (executor != null) {
-            AsynchronousExecution asynchronousExecution = executor.getAsynchronousExecution();
-            if (asynchronousExecution != null) {
-                asynchronousExecution.completed(null);
-            }
-        } else {
-            LOGGER.log(Level.SEVERE, "Build tried to complete when in fact already done.");
         }
         try {
             LOGGER.log(Level.INFO, "{0} completed: {1}", new Object[]{toString(), getResult()});
@@ -615,7 +622,8 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
                 }
                 listener = null;
             }
-            saveWithoutFailing(); // TODO useless if we are inside a BulkChange
+            saveWithoutFailing();
+            endExecutionTask();
             Timer.get().submit(() -> {
                 try {
                     getParent().logRotate();
@@ -624,7 +632,8 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
                 }
             });
             onEndBuilding();
-        } finally {  // Ensure this is ALWAYS removed from FlowExecutionList
+        } finally {  // Ensure this is ALWAYS removed from FlowExecutionList and finished
+            endExecutionTask();  // Just in case an exception was thrown above
             FlowExecutionList.get().unregister(new Owner(this));
         }
 
@@ -1119,8 +1128,9 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
 
     @Override
     public void save() throws IOException {
-
-        if(BulkChange.contains(this))   return;
+        /* Checking for completion ensures the final save can complete.
+         */
+        if(BulkChange.contains(this) && completed != Boolean.TRUE)   return;
         File loc = new File(getRootDir(),"build.xml");
         XmlFile file = new XmlFile(XSTREAM,loc);
 
