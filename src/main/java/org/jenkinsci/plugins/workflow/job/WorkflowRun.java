@@ -112,6 +112,7 @@ import org.jenkinsci.plugins.workflow.graph.FlowEndNode;
 import org.jenkinsci.plugins.workflow.graph.FlowNode;
 import org.jenkinsci.plugins.workflow.job.console.NewNodeConsoleNote;
 import org.jenkinsci.plugins.workflow.log.LogStorage;
+import org.jenkinsci.plugins.workflow.log.TaskListenerDecorator;
 import org.jenkinsci.plugins.workflow.steps.FlowInterruptedException;
 import org.jenkinsci.plugins.workflow.steps.StepContext;
 import org.jenkinsci.plugins.workflow.steps.StepExecution;
@@ -215,8 +216,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
         if (listener == null) {
             try {
                 // TODO to better handle in-VM restart (e.g. in JenkinsRule), move CpsFlowExecution.suspendAll logic into a FlowExecution.notifyShutdown override, then make FlowExecutionOwner.notifyShutdown also overridable, which for WorkflowRun.Owner should listener.close() as needed
-                // TODO JENKINS-30777 decorate with ConsoleLogFilter.all()
-                listener = LogStorage.of(asFlowExecutionOwner()).overallListener();
+                listener = TaskListenerDecorator.apply(LogStorage.of(asFlowExecutionOwner()).overallListener(), asFlowExecutionOwner(), null);
             } catch (IOException | InterruptedException x) {
                 LOGGER.log(Level.WARNING, "Error trying to open build log file for writing, output will be lost: " + getLogFile(), x);
                 return NULL_LISTENER;
