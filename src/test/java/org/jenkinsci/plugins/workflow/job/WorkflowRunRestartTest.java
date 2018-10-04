@@ -125,10 +125,13 @@ public class WorkflowRunRestartTest {
             assertTrue(run.executionLoaded);
             assertNotNull(run.getExecution().getOwner());
         });
+        WorkflowRun.LOG_GET_EXECUTION = true;
         story.then(r -> {
+            WorkflowRun.LOG_GET_EXECUTION = true;
             WorkflowJob p = r.jenkins.getItemByFullName("p", WorkflowJob.class);
             WorkflowRun b = p.getBuildByNumber(1);
             assertNotNull(b.asFlowExecutionOwner());
+            assertNull(b.execution.getOwner());
             assertFalse(b.executionLoaded);
             assertTrue(b.completed);
             assertFalse(b.isBuilding());

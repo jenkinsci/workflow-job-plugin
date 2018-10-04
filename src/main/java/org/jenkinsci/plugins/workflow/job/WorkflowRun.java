@@ -651,12 +651,18 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
         StashManager.clearAll(this);
     }
 
+    public static boolean LOG_GET_EXECUTION = false;
+
     /**
      * Gets the associated execution state, and do a more expensive loading operation if not initialized.
      * Performs all the needed initialization for the execution pre-loading too -- sets the executionPromise, adds Listener, calls onLoad on it etc.
      * @return non-null after the flow has started, even after finished (but may be null temporarily when about to start, or if starting failed)
      */
     public @CheckForNull FlowExecution getExecution() {
+        if (LOG_GET_EXECUTION) {
+            LOGGER.log(Level.SEVERE, "Logging when getExecution was invoked", new Exception("Ran getExecution"));
+        }
+
         if (executionLoaded || execution == null) {  // Avoids highly-contended synchronization on run
             return execution;
         } else {  // Try to lazy-load execution
