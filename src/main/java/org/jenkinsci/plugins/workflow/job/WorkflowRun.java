@@ -24,9 +24,6 @@
 
 package org.jenkinsci.plugins.workflow.job;
 
-import com.google.common.base.Optional;
-import com.google.common.cache.Cache;
-import com.google.common.cache.CacheBuilder;
 import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -40,8 +37,9 @@ import hudson.FilePath;
 import hudson.Functions;
 import hudson.XmlFile;
 import hudson.console.AnnotatedLargeText;
-import hudson.console.LineTransformationOutputStream;
+import hudson.console.ConsoleNote;
 import hudson.console.ModelHyperlinkNote;
+import hudson.model.BuildListener;
 import hudson.model.Executor;
 import hudson.model.Item;
 import hudson.model.ParameterValue;
@@ -60,39 +58,34 @@ import hudson.scm.SCM;
 import hudson.scm.SCMRevisionState;
 import hudson.security.ACL;
 import hudson.slaves.NodeProperty;
-import hudson.util.DaemonThreadFactory;
 import hudson.util.Iterators;
-import hudson.util.NamingThreadFactory;
 import hudson.util.NullStream;
 import hudson.util.PersistedList;
+import java.io.BufferedReader;
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.File;
-import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.OutputStream;
-import java.io.PrintStream;
+import java.io.Reader;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.LinkedHashMap;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.Future;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.ScheduledFuture;
-import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicReference;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.annotation.CheckForNull;
 import javax.annotation.Nonnull;
-import javax.annotation.concurrent.GuardedBy;
 import jenkins.model.CauseOfInterruption;
 import jenkins.model.Jenkins;
 import jenkins.model.lazy.BuildReference;
@@ -103,8 +96,6 @@ import jenkins.security.NotReallyRoleSensitiveCallable;
 import jenkins.util.Timer;
 import org.acegisecurity.Authentication;
 import org.jenkinsci.plugins.workflow.FilePathUtils;
-import org.jenkinsci.plugins.workflow.actions.LogAction;
-import org.jenkinsci.plugins.workflow.actions.ThreadNameAction;
 import org.jenkinsci.plugins.workflow.actions.TimingAction;
 import org.jenkinsci.plugins.workflow.flow.BlockableResume;
 import org.jenkinsci.plugins.workflow.flow.DurabilityHintProvider;
@@ -117,12 +108,10 @@ import org.jenkinsci.plugins.workflow.flow.FlowExecutionListener;
 import org.jenkinsci.plugins.workflow.flow.FlowExecutionOwner;
 import org.jenkinsci.plugins.workflow.flow.GraphListener;
 import org.jenkinsci.plugins.workflow.flow.StashManager;
-import org.jenkinsci.plugins.workflow.graph.BlockEndNode;
-import org.jenkinsci.plugins.workflow.graph.BlockStartNode;
 import org.jenkinsci.plugins.workflow.graph.FlowEndNode;
 import org.jenkinsci.plugins.workflow.graph.FlowNode;
-import org.jenkinsci.plugins.workflow.graph.FlowStartNode;
-import org.jenkinsci.plugins.workflow.job.console.WorkflowConsoleLogger;
+import org.jenkinsci.plugins.workflow.job.console.NewNodeConsoleNote;
+import org.jenkinsci.plugins.workflow.log.LogStorage;
 import org.jenkinsci.plugins.workflow.steps.FlowInterruptedException;
 import org.jenkinsci.plugins.workflow.steps.StepContext;
 import org.jenkinsci.plugins.workflow.steps.StepExecution;
@@ -166,7 +155,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
             return WorkflowRun.this;
         }
     };
-    private transient StreamBuildListener listener;
+    private transient BuildListener listener;
 
     private transient boolean allowTerm;
 
@@ -192,13 +181,10 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
      * Flag for whether or not the build has completed somehow.
      * This was previously a transient field, so we may need to recompute in {@link #onLoad} based on {@link FlowExecution#isComplete}.
      */
-    Boolean completed;  // Non-private for testing
+    volatile Boolean completed;  // Non-private for testing
 
     /** Protects the access to logsToCopy, completed, and branchNameCache that are used in the logCopy process */
     private transient Object logCopyGuard = new Object();
-
-    /** map from node IDs to log positions from which we should copy text */
-    Map<String,Long> logsToCopy;  // Exposed for testing
 
     /** JENKINS-26761: supposed to always be set but sometimes is not. Access only through {@link #checkouts(TaskListener)}. */
     private @CheckForNull List<SCMCheckout> checkouts;
@@ -212,7 +198,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
      *  Note: to avoid deadlocks, when nesting locks we ALWAYS need to lock on the logCopyGuard first, THEN the WorkflowRun.
      *  Synchronizing this helps ensure that fields are not mutated during a {@link #save()} operation, since that locks on the Run.
      */
-    private synchronized Object getLogCopyGuard() {
+    private synchronized Object getLogCopyGuard() { // TODO no longer used for log copying, so rename
         if (logCopyGuard == null) {
             logCopyGuard = new Object();
         }
@@ -223,15 +209,16 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
     static final StreamBuildListener NULL_LISTENER = new StreamBuildListener(new NullStream());
 
     /** Used internally to ensure listener has been initialized correctly. */
-    StreamBuildListener getListener() {
-        // Un-synchronized to prevent deadlocks (combination of run and logCopyGuard) until the log-handling rewrite removes the log copying
+    BuildListener getListener() {
+        // Un-synchronized to prevent deadlocks (combination of run and logCopyGuard)
         // Note that in portions where multithreaded access is possible we are already synchronizing on logCopyGuard
         if (listener == null) {
             try {
-                OutputStream logger = new FileOutputStream(getLogFile(), true);
-                listener = new StreamBuildListener(logger, getCharset());
-            } catch (FileNotFoundException fnf) {
-                LOGGER.log(Level.WARNING, "Error trying to open build log file for writing, output will be lost: "+getLogFile(), fnf);
+                // TODO to better handle in-VM restart (e.g. in JenkinsRule), move CpsFlowExecution.suspendAll logic into a FlowExecution.notifyShutdown override, then make FlowExecutionOwner.notifyShutdown also overridable, which for WorkflowRun.Owner should listener.close() as needed
+                // TODO JENKINS-30777 decorate with ConsoleLogFilter.all()
+                listener = LogStorage.of(asFlowExecutionOwner()).overallListener();
+            } catch (IOException | InterruptedException x) {
+                LOGGER.log(Level.WARNING, "Error trying to open build log file for writing, output will be lost: " + getLogFile(), x);
                 return NULL_LISTENER;
             }
         }
@@ -282,7 +269,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
         try {
             onStartBuilding();
             charset = "UTF-8"; // cannot override getCharset, and various Run methods do not call it anyway
-            StreamBuildListener myListener = getListener();
+            BuildListener myListener = getListener();
             myListener.started(getCauses());
             Authentication auth = Jenkins.getAuthentication();
             if (!auth.equals(ACL.SYSTEM)) {
@@ -307,7 +294,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
                 boolean blockResume = getParent().isResumeBlocked();
                 ((BlockableResume) newExecution).setResumeBlocked(blockResume);
                 if (blockResume) {
-                    listener.getLogger().println("Resume disabled by user, switching to high-performance, low-durability mode.");
+                    myListener.getLogger().println("Resume disabled by user, switching to high-performance, low-durability mode.");
                     loggedHintOverride = true;
                 }
             }
@@ -318,8 +305,8 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
             synchronized (getLogCopyGuard()) {  // Technically safe but it makes FindBugs happy
                 FlowExecutionList.get().register(owner);
                 newExecution.addListener(new GraphL());
+                newExecution.addListener(new NodePrintListener());
                 completed = Boolean.FALSE;
-                logsToCopy = new ConcurrentSkipListMap<>();
                 executionLoaded = true;
                 execution = newExecution;
             }
@@ -349,15 +336,8 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
         throw sleep();
     }
 
-    private static ScheduledExecutorService copyLogsExecutorService;
-    private static synchronized ScheduledExecutorService copyLogsExecutorService() {
-        if (copyLogsExecutorService == null) {
-            copyLogsExecutorService = new /*ErrorLogging*/ScheduledThreadPoolExecutor(5, new NamingThreadFactory(new DaemonThreadFactory(), "WorkflowRun.copyLogs"));
-        }
-        return copyLogsExecutorService;
-    }
     private AsynchronousExecution sleep() {
-        final AsynchronousExecution asynchronousExecution = new AsynchronousExecution() {
+        return new AsynchronousExecution() {
             @Override public void interrupt(boolean forShutdown) {
                 if (forShutdown) {
                     return;
@@ -392,34 +372,6 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
                 return blocksRestart();
             }
         };
-        final AtomicReference<ScheduledFuture<?>> copyLogsTask = new AtomicReference<>();
-        copyLogsTask.set(copyLogsExecutorService().scheduleAtFixedRate(new Runnable() {
-            @Override public void run() {
-                synchronized (getLogCopyGuard()) {
-                    if (completed == null) {
-                        // Loading run, give it a moment.
-                        return;
-                    }
-                    if (completed) {
-                        asynchronousExecution.completed(null);
-                        copyLogsTask.get().cancel(false);
-                        return;
-                    }
-                    Jenkins jenkins = Jenkins.getInstance();
-                    if (jenkins == null || jenkins.isTerminating()) {
-                        LOGGER.log(Level.FINE, "shutting down, breaking waitForCompletion on {0}", this);
-                        // Stop writing content, in case a new set of objects gets loaded after in-VM restart and starts writing to the same file:
-                        getListener().closeQuietly();
-                        listener = NULL_LISTENER;
-                        return;
-                    }
-                    try (WithThreadName naming = new WithThreadName(" (" + WorkflowRun.this + ")")) {
-                        copyLogs();
-                    }
-                }
-            }
-        }, 1, 1, TimeUnit.SECONDS));
-        return asynchronousExecution;
     }
 
     private void printLater(final StopState state, final String message) {
@@ -540,173 +492,6 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
         return isBuilding() && allowKill;
     }
 
-    @GuardedBy("logCopyGuard")
-    private void copyLogs() {
-        if (logsToCopy == null) { // finished
-            return;
-        }
-        if (logsToCopy instanceof LinkedHashMap) { // upgrade while build is running
-            logsToCopy = new ConcurrentSkipListMap<>(logsToCopy);
-        }
-        boolean modified = false;
-        FlowExecution exec = getExecution();
-
-        // Early-exit if build was hard-killed -- state will be so broken that we can't actually load nodes to copy logs
-        if (exec == null) {
-            logsToCopy.clear();
-            saveWithoutFailing();
-            return;
-        }
-
-        for (Map.Entry<String,Long> entry : logsToCopy.entrySet()) {
-            String id = entry.getKey();
-            FlowNode node;
-            try {
-                node = exec.getNode(id);
-            } catch (IOException x) {
-                LOGGER.log(Level.WARNING, null, x);
-                logsToCopy.remove(id);
-                modified = true;
-                continue;
-            }
-            if (node == null) {
-                LOGGER.log(Level.WARNING, "no such node {0}", id);
-                logsToCopy.remove(id);
-                modified = true;
-                continue;
-            }
-            LogAction la = node.getAction(LogAction.class);
-            if (la != null) {
-                AnnotatedLargeText<? extends FlowNode> logText = la.getLogText();
-                try {
-                    long old = entry.getValue();
-                    OutputStream logger;
-
-                    String prefix = getBranchName(node);
-                    if (prefix != null) {
-                        logger = new LogLinePrefixOutputFilter(getListener().getLogger(), "[" + prefix + "] ");
-                    } else {
-                        logger = getListener().getLogger();
-                    }
-
-                    try {
-                        long revised = writeRawLogTo(logText, old, logger);
-                        if (revised != old) {
-                            logsToCopy.put(id, revised);
-                            modified = true;
-                        }
-                        if (logText.isComplete()) {
-                            writeRawLogTo(logText, revised, logger); // defend against race condition?
-                            assert !node.isRunning() : "LargeText.complete yet " + node + " claims to still be running";
-                            logsToCopy.remove(id);
-                            modified = true;
-                        }
-                    } finally {
-                        if (prefix != null) {
-                            ((LogLinePrefixOutputFilter)logger).forceEol();
-                        }
-                    }
-                } catch (IOException x) {
-                    LOGGER.log(Level.WARNING, null, x);
-                    logsToCopy.remove(id);
-                    modified = true;
-                }
-            } else if (!node.isRunning()) {
-                logsToCopy.remove(id);
-                modified = true;
-            }
-        }
-        if (modified && exec.getDurabilityHint().isPersistWithEveryStep()) {
-            saveWithoutFailing();
-        }
-    }
-    private long writeRawLogTo(AnnotatedLargeText<?> text, long start, OutputStream out) throws IOException {
-        long len = text.length();
-        if (start > len) {
-            LOGGER.log(Level.WARNING, "JENKINS-37664: attempt to copy logs in {0} @{1} past end @{2}", new Object[] {this, start, len});
-            return len;
-        } else {
-            return text.writeRawLogTo(start, out);
-        }
-    }
-
-    @GuardedBy("logCopyGuard")
-    private volatile transient Cache<FlowNode,Optional<String>> branchNameCache;  // TODO Consider making this a top-level FlowNode API
-
-    private Cache<FlowNode, Optional<String>> getBranchNameCache() {
-        if (branchNameCache == null) {
-            synchronized (getLogCopyGuard()) {  // Double-checked locking safe rendered safe by volatile field
-                if (branchNameCache == null) {
-                    branchNameCache = CacheBuilder.newBuilder().weakKeys().build();
-                }
-            }
-        }
-        return branchNameCache;
-    }
-
-    private @CheckForNull String getBranchName(FlowNode node) {
-        Cache<FlowNode, Optional<String>> cache = getBranchNameCache();
-
-        Optional<String> output = cache.getIfPresent(node);
-        if (output != null) {
-            return output.orNull();
-        }
-
-        // We must explicitly check for the current node being the start/end of a parallel branch
-        if (node instanceof BlockEndNode) {
-            output = Optional.fromNullable(getBranchName(((BlockEndNode) node).getStartNode()));
-            cache.put(node, output);
-            return output.orNull();
-        } else if (node instanceof BlockStartNode) { // And of course this node might be the start of a parallel branch
-            ThreadNameAction threadNameAction = node.getPersistentAction(ThreadNameAction.class);
-            if (threadNameAction != null) {
-                String name = threadNameAction.getThreadName();
-                cache.put(node, Optional.of(name));
-                return name;
-            }
-        }
-
-        // Check parent which will USUALLY result in a cache hit, but improve performance and avoid a stack overflow by not doing recursion
-        List<FlowNode> parents = node.getParents();
-        if (!parents.isEmpty()) {
-            FlowNode parent = parents.get(0);
-            output = cache.getIfPresent(parent);
-            if (output != null) {
-                cache.put(node, output);
-                return output.orNull();
-            }
-        }
-
-        // Fall back to looking for an enclosing parallel branch... but using more efficient APIs and avoiding stack overflows
-        output = Optional.absent();
-        for (BlockStartNode myNode : node.iterateEnclosingBlocks()) {
-            ThreadNameAction threadNameAction = myNode.getPersistentAction(ThreadNameAction.class);
-            if (threadNameAction != null) {
-                output = Optional.of(threadNameAction.getThreadName());
-                break;
-            }
-        }
-        cache.put(node, output);
-        return output.orNull();
-    }
-
-    private static final class LogLinePrefixOutputFilter extends LineTransformationOutputStream {
-
-        private final PrintStream logger;
-        private final String prefix;
-
-        protected LogLinePrefixOutputFilter(PrintStream logger, String prefix) {
-            this.logger = logger;
-            this.prefix = prefix;
-        }
-
-        @Override
-        protected void eol(byte[] b, int len) throws IOException {
-            logger.append(prefix);
-            logger.write(b, 0, len);
-        }
-    }
-    
     private static final Map<String,WorkflowRun> LOADING_RUNS = new HashMap<>();
 
     private String key() {
@@ -723,7 +508,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
         new XmlFile(XSTREAM,new File(getRootDir(),"build.xml")).unmarshal(this);
     }
 
-    @Override protected void onLoad() {
+    @Override protected void onLoad() {  // Here there be DRAGONS: due to lazy-loading and subtle threading risks, be very cautious!
         try {
             synchronized (getLogCopyGuard()) {
                 if (executionLoaded) {
@@ -787,6 +572,20 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
         }
     }
 
+    private void endExecutionTask() {
+        try {
+            Executor executor = getExecutor();
+            if (executor != null) {
+                AsynchronousExecution asynchronousExecution = executor.getAsynchronousExecution();
+                if (asynchronousExecution != null) {
+                    asynchronousExecution.completed(null);
+                }
+            }
+        } catch (Exception ex) {
+            LOGGER.log(Level.WARNING, "Error when trying to end the FlyWeightTask for run "+this, ex);
+        }
+    }
+
     /** Handles normal build completion (including errors) but also handles the case that the flow did not even start correctly, for example due to an error in {@link FlowExecution#start}. */
     private void finish(@Nonnull Result r, @CheckForNull Throwable t) {
         boolean nullListener = false;
@@ -795,9 +594,8 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
             setResult(r);
             completed = Boolean.TRUE;
             duration = Math.max(0, System.currentTimeMillis() - getStartTimeInMillis());
+
         }
-        logsToCopy = null;
-        branchNameCache = null;
         try {
             LOGGER.log(Level.INFO, "{0} completed: {1}", new Object[]{toString(), getResult()});
             if (nullListener) {
@@ -813,10 +611,17 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
                     Functions.printStackTrace(t, getListener().getLogger());
                 }
                 getListener().finished(getResult());
-                getListener().closeQuietly();
+                if (listener instanceof AutoCloseable) {
+                    try {
+                        ((AutoCloseable) listener).close();
+                    } catch (Exception x) {
+                        LOGGER.log(Level.WARNING, "could not close build log for " + this, x);
+                    }
+                }
+                listener = null;
             }
-            logsToCopy = null;
             saveWithoutFailing();
+            endExecutionTask();
             Timer.get().submit(() -> {
                 try {
                     getParent().logRotate();
@@ -825,7 +630,8 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
                 }
             });
             onEndBuilding();
-        } finally {  // Ensure this is ALWAYS removed from FlowExecutionList
+        } finally {  // Ensure this is ALWAYS removed from FlowExecutionList and finished
+            endExecutionTask();  // Just in case an exception was thrown above
             FlowExecutionList.get().unregister(new Owner(this));
         }
 
@@ -891,6 +697,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
                             // need the build to be loaded and can result in loading loops otherwise.
                             fetchedExecution.removeListener(finishListener);
                             fetchedExecution.addListener(new GraphL());
+                            fetchedExecution.addListener(new NodePrintListener());
                         }
                     }
                     SettableFuture<FlowExecution> settablePromise = getSettableExecutionPromise();
@@ -939,7 +746,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
         return execOut;
     }
 
-    @Override public FlowExecutionOwner asFlowExecutionOwner() {
+    @Override public @Nonnull FlowExecutionOwner asFlowExecutionOwner() {
         return new Owner(this);
     }
 
@@ -1200,21 +1007,10 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
 
     private final class GraphL implements GraphListener {
         @Override public void onNewHead(FlowNode node) {
-            synchronized (getLogCopyGuard()) {
-                copyLogs();
-                if (logsToCopy == null) {
-                    // Only happens when a FINISHED build loses FlowNodeStorage and we have to create placeholder nodes
-                    //  after the build is nominally completed.
-                    logsToCopy = new HashMap<String, Long>(3);
-                }
-                logsToCopy.put(node.getId(), 0L);
-            }
-
             if (node.getPersistentAction(TimingAction.class) == null) {
                 node.addAction(new TimingAction());
             }
 
-            logNodeMessage(node);
             FlowExecution exec = getExecution();
             if (node instanceof FlowEndNode) {
                 finish(((FlowEndNode) node).getResult(), exec != null ? exec.getCauseOfFailure() : null);
@@ -1226,19 +1022,73 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
         }
     }
 
-    private void logNodeMessage(FlowNode node) {
-        WorkflowConsoleLogger wfLogger = new WorkflowConsoleLogger(getListener());
-        String prefix = getBranchName(node);
-        if (prefix != null) {
-            wfLogger.log(String.format("[%s] %s", prefix, node.getDisplayFunctionName()));
-        } else {
-            wfLogger.log(node.getDisplayFunctionName());
+    /**
+     * Prints nodes as they appear (including block start and end nodes).
+     */
+    private final class NodePrintListener implements GraphListener.Synchronous {
+        @Override public void onNewHead(FlowNode node) {
+            NewNodeConsoleNote.print(node, getListener());
         }
-        // Flushing to keep logs printed in order as much as possible. The copyLogs method uses
-        // LargeText and possibly LogLinePrefixOutputFilter. Both of these buffer and flush, causing strange
-        // out of sequence writes to the underlying log stream (and => things being printed out of sequence)
-        // if we don't flush the logger here.
-        wfLogger.getLogger().flush();
+    }
+
+    @SuppressWarnings("rawtypes")
+    @Override public AnnotatedLargeText getLogText() {
+        return LogStorage.of(asFlowExecutionOwner()).overallLog(this, !isLogUpdated());
+    }
+
+    // TODO log-related overrides pending JEP-207:
+
+    @Override public InputStream getLogInputStream() throws IOException {
+        // Inefficient but probably rarely used anyway.
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        getLogText().writeRawLogTo(0, baos);
+        return new ByteArrayInputStream(baos.toByteArray());
+    }
+
+    @Override public Reader getLogReader() throws IOException {
+        return getLogText().readAll();
+    }
+
+    @SuppressWarnings("deprecation")
+    @Override public String getLog() throws IOException {
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        getLogText().writeRawLogTo(0, baos);
+        return baos.toString("UTF-8");
+    }
+
+    @Override public List<String> getLog(int maxLines) throws IOException {
+        int lineCount = 0;
+        List<String> logLines = new LinkedList<>();
+        if (maxLines == 0) {
+            return logLines;
+        }
+        try (BufferedReader reader = new BufferedReader(getLogReader())) {
+            for (String line = reader.readLine(); line != null; line = reader.readLine()) {
+                logLines.add(line);
+                ++lineCount;
+                if (lineCount > maxLines) {
+                    logLines.remove(0);
+                }
+            }
+        }
+        if (lineCount > maxLines) {
+            logLines.set(0, "[...truncated " + (lineCount - (maxLines - 1)) + " lines...]");
+        }
+        return ConsoleNote.removeNotes(logLines);
+    }
+
+    @Override public File getLogFile() {
+        LOGGER.log(Level.WARNING, "Avoid calling getLogFile on " + this, new UnsupportedOperationException());
+        try {
+            File f = File.createTempFile("deprecated", ".log", getRootDir());
+            f.deleteOnExit();
+            try (OutputStream os = new FileOutputStream(f)) {
+                getLogText().writeRawLogTo(0, os);
+            }
+            return f;
+        } catch (IOException x) {
+            throw new RuntimeException(x);
+        }
     }
 
     static void alias() {
@@ -1276,8 +1126,9 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
 
     @Override
     public void save() throws IOException {
-
-        if(BulkChange.contains(this))   return;
+        /* Checking for completion ensures the final save can complete.
+         */
+        if(BulkChange.contains(this) && completed != Boolean.TRUE)   return;
         File loc = new File(getRootDir(),"build.xml");
         XmlFile file = new XmlFile(XSTREAM,loc);
 
