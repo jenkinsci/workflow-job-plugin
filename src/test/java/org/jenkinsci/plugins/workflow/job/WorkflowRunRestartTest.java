@@ -129,7 +129,6 @@ public class WorkflowRunRestartTest {
             WorkflowJob p = r.jenkins.getItemByFullName("p", WorkflowJob.class);
             WorkflowRun b = p.getBuildByNumber(1);
             assertNotNull(b.asFlowExecutionOwner());
-            assertNull(b.execution.getOwner());
             assertFalse(b.executionLoaded);
             assertTrue(b.completed);
             assertFalse(b.isBuilding());

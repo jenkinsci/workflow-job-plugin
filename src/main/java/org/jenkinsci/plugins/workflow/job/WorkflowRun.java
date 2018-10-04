@@ -543,10 +543,8 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
                         }
                     } else {   // Execution nulled due to a critical failure, explicitly mark completed
                         completed = Boolean.TRUE;
-                        needsToPersist = true;  // Make sure we save toggled state
                     }
-                } else if (execution == null && completed != Boolean.TRUE) {
-                    needsToPersist = true; // Make sure we save toggled state
+                } else if (execution == null) {
                     completed = Boolean.TRUE;
                 }
                 if (needsToPersist && completed) {
