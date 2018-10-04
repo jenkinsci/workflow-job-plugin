@@ -79,9 +79,8 @@ public class CpsPersistenceTest {
 
     /** Verifies all the assumptions about a cleanly finished build. */
     static void assertCompletedCleanly(WorkflowRun run) throws Exception {
-        if (run.isBuilding()) {
-            System.out.println("Run initially building, going to wait a second to see if it finishes, run="+run);
-            Thread.sleep(1000);
+        while (run.isBuilding()) {
+            Thread.sleep(100); // Somewhat variable speeds
         }
         Assert.assertFalse(run.isBuilding());
         Assert.assertNotNull(run.getResult());
@@ -103,7 +102,9 @@ public class CpsPersistenceTest {
             Stack<BlockStartNode> starts = getCpsBlockStartNodes(cpsExec);
             Assert.assertTrue(starts == null || starts.isEmpty());
             Thread.sleep(1000); // TODO seems to be flaky
-            Assert.assertFalse(cpsExec.blocksRestart());
+            while (cpsExec.blocksRestart()) {
+                Thread.sleep(100);
+            }
         } else {
             System.out.println("WARNING: no FlowExecutionForBuild");
         }
