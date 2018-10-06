@@ -32,6 +32,7 @@ import hudson.model.Item;
 import hudson.model.Items;
 import hudson.triggers.TimerTrigger;
 import hudson.triggers.Trigger;
+import org.apache.commons.io.IOUtils;
 import org.jenkinsci.plugins.workflow.job.WorkflowJob;
 import org.junit.After;
 import org.junit.ClassRule;
@@ -193,7 +194,7 @@ public class PipelineTriggersJobPropertyTest {
         assertNull(getTriggerFromList(QueryingMockTrigger.class,
                 p.getTriggersJobProperty().getTriggers()));
         JenkinsRule.WebClient wc = r.createWebClient();
-        String newConfig = org.apache.commons.io.IOUtils.toString(
+        String newConfig = IOUtils.toString(
                 PipelineTriggersJobPropertyTest.class.getResourceAsStream(
                         "/org/jenkinsci/plugins/workflow/job/properties/PipelineTriggersJobPropertyTest/triggerPresentDuringStart.json"), "UTF-8");
         WebRequest request = new WebRequest(new URL(p.getAbsoluteUrl() + "configSubmit"), HttpMethod.POST);
