@@ -275,7 +275,10 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
             if (!auth.equals(ACL.SYSTEM)) {
                 String name = auth.getName();
                 if (!auth.equals(Jenkins.ANONYMOUS)) {
-                    name = ModelHyperlinkNote.encodeTo(User.get(name));
+                    User user = User.getById(name, false);
+                    if (user != null) {
+                        name = ModelHyperlinkNote.encodeTo(user);
+                    }
                 }
                 myListener.getLogger().println(/* hudson.model.Messages.Run_running_as_(name) */ "Running as " + name);
             }

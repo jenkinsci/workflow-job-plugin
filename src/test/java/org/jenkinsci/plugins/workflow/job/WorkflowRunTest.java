@@ -218,11 +218,11 @@ public class WorkflowRunTest {
     @Test public void scriptApproval() throws Exception {
         r.jenkins.setSecurityRealm(r.createDummySecurityRealm());
         r.jenkins.setAuthorizationStrategy(new MockAuthorizationStrategy().
-            grant(Jenkins.READ).everywhere().to("devel").
-            grant(Item.PERMISSIONS.getPermissions().toArray(new Permission[0])).everywhere().to("devel"));
+            grant(Jenkins.READ).everywhere().to("dev").
+            grant(Item.PERMISSIONS.getPermissions().toArray(new Permission[0])).everywhere().to("dev"));
         final WorkflowJob p = r.jenkins.createProject(WorkflowJob.class, "p");
         final String groovy = "println 'hello'";
-        ACL.impersonate(User.get("devel").impersonate(), new Runnable() {
+        ACL.impersonate(User.getById("dev", true).impersonate(), new Runnable() {
             @Override public void run() {
                 p.setDefinition(new CpsFlowDefinition(groovy));
             }
@@ -233,7 +233,7 @@ public class WorkflowRunTest {
         ScriptApproval.PendingScript pendingScript = pendingScripts.iterator().next();
         assertEquals(groovy, pendingScript.script);
         // only works if configured via WebClient: assertEquals(p, pendingScript.getContext().getItem());
-        assertEquals("devel", pendingScript.getContext().getUser());
+        assertEquals("dev", pendingScript.getContext().getUser());
         ScriptApproval.get().approveScript(pendingScript.getHash());
         r.assertLogContains("hello", r.assertBuildStatusSuccess(p.scheduleBuild2(0)));
     }
@@ -369,7 +369,7 @@ public class WorkflowRunTest {
         p.setDefinition(new CpsFlowDefinition("@NonCPS def users(e) {e.causes*.user}; try {semaphore 'wait'} catch (e) {echo(/users=${users(e)}/); throw e}", true));
         final WorkflowRun b1 = p.scheduleBuild2(0).waitForStart();
         SemaphoreStep.waitForStart("wait/1", b1);
-        ACL.impersonate(User.get("dev").impersonate(), new Runnable() {
+        ACL.impersonate(User.getById("dev", true).impersonate(), new Runnable() {
             @Override public void run() {
                 b1.getExecutor().doStop();
             }
