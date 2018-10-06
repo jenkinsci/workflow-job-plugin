@@ -467,7 +467,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
     @Override public EnvVars getEnvironment(TaskListener listener) throws IOException, InterruptedException {
         EnvVars env = super.getEnvironment(listener);
 
-        Jenkins instance = Jenkins.getInstance();
+        Jenkins instance = Jenkins.getInstanceOrNull();
         if (instance != null) {
             for (NodeProperty nodeProperty : instance.getGlobalNodeProperties()) {
                 nodeProperty.buildEnvVars(env, listener);
@@ -890,7 +890,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
                 if (candidate != null && candidate.getParent().getFullName().equals(job) && candidate.getId().equals(id)) {
                     run = candidate;
                 } else {
-                    final Jenkins jenkins = Jenkins.getInstance();
+                    final Jenkins jenkins = Jenkins.getInstanceOrNull();
                     if (jenkins == null) {
                         throw new IOException("Jenkins is not running"); // do not use Jenkins.getActiveInstance() as that is an ISE
                     }

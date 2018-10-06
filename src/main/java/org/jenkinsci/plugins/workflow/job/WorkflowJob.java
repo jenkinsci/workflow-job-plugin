@@ -289,7 +289,7 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements L
     }
 
     @Override public int getQuietPeriod() {
-        return quietPeriod != null ? quietPeriod : Jenkins.getActiveInstance().getQuietPeriod();
+        return quietPeriod != null ? quietPeriod : Jenkins.get().getQuietPeriod();
     }
 
     @Restricted(DoNotUse.class) // for config-quietPeriod.jelly
@@ -411,9 +411,8 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements L
         return subTasks;
     }
 
-    @SuppressFBWarnings(value="RCN_REDUNDANT_NULLCHECK_OF_NONNULL_VALUE", justification="TODO 1.653+ switch to Jenkins.getInstanceOrNull")
     @Override public Label getAssignedLabel() {
-        Jenkins j = Jenkins.getInstance();
+        Jenkins j = Jenkins.getInstanceOrNull();
         if (j == null) {
             return null;
         }
@@ -421,7 +420,7 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements L
     }
 
     @Override public Node getLastBuiltOn() {
-        return Jenkins.getInstance();
+        return Jenkins.getInstanceOrNull();
     }
 
     @Override public Object getSameNodeConstraint() {
@@ -433,7 +432,7 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements L
     }
 
     @Override public TopLevelItemDescriptor getDescriptor() {
-        return (DescriptorImpl) Jenkins.getActiveInstance().getDescriptorOrDie(WorkflowJob.class);
+        return (DescriptorImpl) Jenkins.get().getDescriptorOrDie(WorkflowJob.class);
     }
 
     @Override public Map<TriggerDescriptor, Trigger<?>> getTriggers() {
@@ -567,7 +566,6 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements L
         return typical;
     }
 
-    @SuppressFBWarnings(value="RCN_REDUNDANT_NULLCHECK_OF_NONNULL_VALUE", justification="TODO 1.653+ switch to Jenkins.getInstanceOrNull")
     @Override public PollingResult poll(TaskListener listener) {
         if (!isBuildable()) {
             listener.getLogger().println("Build disabled");
@@ -608,7 +606,7 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements L
                 Launcher launcher;
                 WorkspaceList.Lease lease;
                 if (co.scm.requiresWorkspaceForPolling()) {
-                    Jenkins j = Jenkins.getInstance();
+                    Jenkins j = Jenkins.getInstanceOrNull();
                     if (j == null) {
                         listener.error("Jenkins is shutting down");
                         continue;
