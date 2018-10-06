@@ -57,6 +57,7 @@ import hudson.scm.ChangeLogSet;
 import hudson.scm.SCM;
 import hudson.scm.SCMRevisionState;
 import hudson.security.ACL;
+import hudson.security.ACLContext;
 import hudson.slaves.NodeProperty;
 import hudson.util.Iterators;
 import hudson.util.NullStream;
@@ -92,7 +93,6 @@ import jenkins.model.lazy.BuildReference;
 import jenkins.model.lazy.LazyBuildMixIn;
 import jenkins.model.queue.AsynchronousExecution;
 import jenkins.scm.RunWithSCM;
-import jenkins.security.NotReallyRoleSensitiveCallable;
 import jenkins.util.Timer;
 import org.acegisecurity.Authentication;
 import org.jenkinsci.plugins.workflow.FilePathUtils;
@@ -894,11 +894,10 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
                     if (jenkins == null) {
                         throw new IOException("Jenkins is not running"); // do not use Jenkins.getActiveInstance() as that is an ISE
                     }
-                    WorkflowJob j = ACL.impersonate(ACL.SYSTEM, new NotReallyRoleSensitiveCallable<WorkflowJob,IOException>() {
-                        @Override public WorkflowJob call() throws IOException {
-                            return jenkins.getItemByFullName(job, WorkflowJob.class);
-                        }
-                    });
+                    WorkflowJob j;
+                    try (ACLContext context = ACL.as(ACL.SYSTEM)) {
+                        j = jenkins.getItemByFullName(job, WorkflowJob.class);
+                    };
                     if (j == null) {
                         throw new IOException("no such WorkflowJob " + job);
                     }

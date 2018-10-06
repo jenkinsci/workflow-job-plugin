@@ -31,6 +31,7 @@ import hudson.model.*;
 import hudson.model.listeners.RunListener;
 import hudson.model.queue.QueueTaskFuture;
 import hudson.security.ACL;
+import hudson.security.ACLContext;
 import hudson.security.Permission;
 import java.io.File;
 import java.io.IOException;
@@ -222,11 +223,9 @@ public class WorkflowRunTest {
             grant(Item.PERMISSIONS.getPermissions().toArray(new Permission[0])).everywhere().to("dev"));
         final WorkflowJob p = r.jenkins.createProject(WorkflowJob.class, "p");
         final String groovy = "println 'hello'";
-        ACL.impersonate(User.getById("dev", true).impersonate(), new Runnable() {
-            @Override public void run() {
-                p.setDefinition(new CpsFlowDefinition(groovy));
-            }
-        });
+        try (ACLContext context = ACL.as(User.getById("dev", true))) {
+            p.setDefinition(new CpsFlowDefinition(groovy));
+        };
         r.assertLogContains("UnapprovedUsageException", r.assertBuildStatus(Result.FAILURE, p.scheduleBuild2(0).get()));
         Set<ScriptApproval.PendingScript> pendingScripts = ScriptApproval.get().getPendingScripts();
         assertEquals(1, pendingScripts.size());
@@ -369,11 +368,9 @@ public class WorkflowRunTest {
         p.setDefinition(new CpsFlowDefinition("@NonCPS def users(e) {e.causes*.user}; try {semaphore 'wait'} catch (e) {echo(/users=${users(e)}/); throw e}", true));
         final WorkflowRun b1 = p.scheduleBuild2(0).waitForStart();
         SemaphoreStep.waitForStart("wait/1", b1);
-        ACL.impersonate(User.getById("dev", true).impersonate(), new Runnable() {
-            @Override public void run() {
-                b1.getExecutor().doStop();
-            }
-        });
+        try (ACLContext context = ACL.as(User.getById("dev", true))) {
+            b1.getExecutor().doStop();
+        };
         r.assertBuildStatus(Result.ABORTED, r.waitForCompletion(b1));
         r.assertLogContains("users=[dev]", b1);
         InterruptedBuildAction iba = b1.getAction(InterruptedBuildAction.class);
