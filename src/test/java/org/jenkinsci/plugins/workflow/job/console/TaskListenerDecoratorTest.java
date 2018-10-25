@@ -200,6 +200,7 @@ public class TaskListenerDecoratorTest {
             }
             @Override public Void call() throws RuntimeException {
                 listener.getLogger().println("printed a message on master=" + JenkinsJVM.isJenkinsJVM());
+                listener.getLogger().flush();
                 return null;
             }
         }
