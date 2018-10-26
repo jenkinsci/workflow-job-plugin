@@ -32,9 +32,10 @@ import hudson.console.ConsoleNote;
 import hudson.model.Run;
 
 /**
- * Console note for Workflow metadata specific messages.
- * See {@link WorkflowConsoleLogger} for more information.
+ * @deprecated No longer used, but retained for serial-form compatibility of old build logs.
+ * @see NewNodeConsoleNote
  */
+@Deprecated
 public class WorkflowRunConsoleNote extends ConsoleNote<Run<?, ?>> {
 
     /**

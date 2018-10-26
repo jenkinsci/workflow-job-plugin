@@ -34,6 +34,7 @@ import hudson.security.ACL;
 import hudson.security.Permission;
 import java.io.File;
 import java.io.IOException;
+import java.io.StringWriter;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -49,18 +50,23 @@ import hudson.util.DescribableList;
 import jenkins.model.CauseOfInterruption;
 import jenkins.model.InterruptedBuildAction;
 import jenkins.model.Jenkins;
+import jenkins.security.QueueItemAuthenticatorConfiguration;
 import net.sf.json.JSONArray;
 import net.sf.json.JSONObject;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.jenkinsci.plugins.scriptsecurity.scripts.ScriptApproval;
+import org.jenkinsci.plugins.workflow.actions.LogAction;
 import org.jenkinsci.plugins.workflow.cps.CpsFlowDefinition;
 import org.jenkinsci.plugins.workflow.cps.CpsFlowExecution;
 import org.jenkinsci.plugins.workflow.cps.nodes.StepNode;
 import org.jenkinsci.plugins.workflow.flow.FlowExecution;
 import org.jenkinsci.plugins.workflow.graph.FlowGraphWalker;
 import org.jenkinsci.plugins.workflow.graph.FlowNode;
+import org.jenkinsci.plugins.workflow.graphanalysis.DepthFirstScanner;
+import org.jenkinsci.plugins.workflow.graphanalysis.NodeStepTypePredicate;
 import org.jenkinsci.plugins.workflow.test.steps.SemaphoreStep;
+import static org.hamcrest.Matchers.*;
 import static org.junit.Assert.*;
 import org.junit.ClassRule;
 import org.junit.Rule;
@@ -70,6 +76,7 @@ import org.jvnet.hudson.test.Issue;
 import org.jvnet.hudson.test.JenkinsRule;
 import org.jvnet.hudson.test.LoggerRule;
 import org.jvnet.hudson.test.MockAuthorizationStrategy;
+import org.jvnet.hudson.test.MockQueueItemAuthenticator;
 import org.jvnet.hudson.test.recipes.LocalData;
 import org.xml.sax.SAXException;
 
@@ -265,6 +272,39 @@ public class WorkflowRunTest {
         assertTrue(b.completed);
     }
 
+    @Issue("JENKINS-38381")
+    @LocalData
+    @Test public void stepRunningAcrossUpgrade() throws Exception {
+        /* Setup @ 3510070cfc6ef666804258e1aad6f29fdf6e864c:
+        WorkflowJob p = r.createProject(WorkflowJob.class, "p");
+        p.setDefinition(new CpsFlowDefinition("echo 'before'; sleep 60; echo 'after'", true));
+        WorkflowRun b = p.scheduleBuild2(0).waitForStart();
+        r.waitForMessage("Sleeping for ", b);
+        try (OutputStream os = new FileOutputStream("src/test/resources/" + WorkflowRunTest.class.getName().replace('.', '/') + "/stepRunningAcrossUpgrade.zip")) {
+            r.jenkins.getRootPath().zip(os, new DirScanner.Glob("jobs/,org.jenkinsci.plugins.workflow.flow.FlowExecutionList.xml", "**" + "/lastStable,**" + "/lastSuccessful"));
+        }
+        */
+        WorkflowJob p = r.jenkins.getItemByFullName("p", WorkflowJob.class);
+        WorkflowRun b = p.getBuildByNumber(1);
+        r.waitForCompletion(b);
+        r.assertLogContains("before", b);
+        r.assertLogContains("Sleeping for ", b);
+        r.assertLogContains("No need to sleep any longer", b);
+        r.assertLogContains("after", b);
+        List<FlowNode> echoNodes = new DepthFirstScanner().filteredNodes(b.getExecution(), new NodeStepTypePredicate("echo"));
+        assertEquals(2, echoNodes.size());
+        assertThat(stepLog(echoNodes.get(0)), containsString("after"));
+        assertThat(stepLog(echoNodes.get(1)), containsString("before"));
+        List<FlowNode> sleepNodes = new DepthFirstScanner().filteredNodes(b.getExecution(), new NodeStepTypePredicate("sleep"));
+        assertEquals(1, sleepNodes.size());
+        assertThat(stepLog(sleepNodes.get(0)), allOf(containsString("Sleeping for "), containsString("No need to sleep any longer")));
+    }
+    private static String stepLog(FlowNode node) throws Exception {
+        StringWriter w = new StringWriter();
+        node.getAction(LogAction.class).getLogText().writeLogTo(0, w);
+        return w.toString();
+    }
+
     @Issue("JENKINS-29571")
     @Test public void buildRecordAfterRename() throws Exception {
         {
@@ -343,33 +383,6 @@ public class WorkflowRunTest {
         assertEquals(Collections.singletonList(new CauseOfInterruption.UserInterruption("dev")), iba.getCauses());
         String log = JenkinsRule.getLog(b1);
         assertEquals(log, 1, StringUtils.countMatches(log, jenkins.model.Messages.CauseOfInterruption_ShortDescription("dev")));
-    }
-
-    @Test
-    @Issue({"JENKINS-26122", "JENKINS-28222"})
-    public void parallelBranchLabels() throws Exception {
-        WorkflowJob p = r.jenkins.createProject(WorkflowJob.class, "p");
-        p.setDefinition(new CpsFlowDefinition(
-            "parallel a: {\n" +
-            "  echo 'a-outside-1'\n" +
-            "  withEnv(['A=1']) {echo 'a-inside-1'}\n" +
-            "  echo 'a-outside-2'\n" +
-            "  withEnv(['A=1']) {echo 'a-inside-2'}\n" +
-            "}, b: {\n" +
-            "  echo 'b-outside-1'\n" +
-            "  withEnv(['B=1']) {echo 'b-inside-1'}\n" +
-            "  echo 'b-outside-2'\n" +
-            "  withEnv(['B=1']) {echo 'b-inside-2'}\n" +
-            "}", true));
-        WorkflowRun b = r.assertBuildStatusSuccess(p.scheduleBuild2(0));
-        r.assertLogContains("[a] a-outside-1", b);
-        r.assertLogContains("[b] b-outside-1", b);
-        r.assertLogContains("[a] a-inside-1", b);
-        r.assertLogContains("[b] b-inside-1", b);
-        r.assertLogContains("[a] a-outside-2", b);
-        r.assertLogContains("[b] b-outside-2", b);
-        r.assertLogContains("[a] a-inside-2", b);
-        r.assertLogContains("[b] b-inside-2", b);
     }
 
     @Test
@@ -467,6 +480,30 @@ public class WorkflowRunTest {
             }
             assertEquals(fromApi, new TreeSet<>(Arrays.asList(expectedIds)));
         }
+    }
+
+    @Issue("JENKINS-46652")
+    @Test public void noComputerBuildPermissionOnMaster() throws Exception {
+        r.waitOnline(r.createSlave("remote", null, null));
+        r.jenkins.setSecurityRealm(r.createDummySecurityRealm());
+        r.jenkins.setAuthorizationStrategy(new MockAuthorizationStrategy().
+            grant(Jenkins.ADMINISTER).everywhere().to("admin"));
+        WorkflowJob p = r.jenkins.createProject(WorkflowJob.class, "p");
+        p.setDefinition(new CpsFlowDefinition("", true));
+        // Control case:
+        QueueItemAuthenticatorConfiguration.get().getAuthenticators().add(new MockQueueItemAuthenticator(Collections.singletonMap("p", User.get("admin").impersonate())));
+        r.buildAndAssertSuccess(p);
+        // Test case: build is never scheduled, queue item hangs with “Waiting for next available executor on master”
+        QueueItemAuthenticatorConfiguration.get().getAuthenticators().replace(new MockQueueItemAuthenticator(Collections.singletonMap("p", User.get("dev").impersonate())));
+        r.buildAndAssertSuccess(p);
+    }
+
+    @Issue("JENKINS-31096")
+    @Test public void unicode() throws Exception {
+        WorkflowJob p = r.jenkins.createProject(WorkflowJob.class, "p");
+        String message = "¡Čau → there!";
+        p.setDefinition(new CpsFlowDefinition("echo '" + message + "'", true));
+        r.assertLogContains(message, r.buildAndAssertSuccess(p));
     }
 
 }

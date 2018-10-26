@@ -28,7 +28,7 @@
     <parent>
         <groupId>org.jenkins-ci.plugins</groupId>
         <artifactId>plugin</artifactId>
-        <version>3.14</version>
+        <version>3.24</version>
         <relativePath />
     </parent>
     <groupId>org.jenkins-ci.plugins.workflow</groupId>
@@ -62,13 +62,14 @@
         </pluginRepository>
     </pluginRepositories>
     <properties>
-        <revision>2.22</revision>
+        <revision>2.27</revision>
         <changelist>-SNAPSHOT</changelist>
-        <jenkins.version>2.76</jenkins.version>
+        <jenkins.version>2.121.1</jenkins.version>
         <java.level>8</java.level>
         <no-test-jar>false</no-test-jar>
-        <workflow-support-plugin.version>2.17</workflow-support-plugin.version>
-        <scm-api-plugin.version>2.1.1</scm-api-plugin.version>
+        <useBeta>true</useBeta>
+        <workflow-support-plugin.version>2.21</workflow-support-plugin.version>
+        <scm-api-plugin.version>2.2.6</scm-api-plugin.version>
         <git-plugin.version>3.2.0</git-plugin.version>
         <jenkins-test-harness.version>2.33</jenkins-test-harness.version>
     </properties>
@@ -81,7 +82,7 @@
         <dependency>
             <groupId>org.jenkins-ci.plugins.workflow</groupId>
             <artifactId>workflow-api</artifactId>
-            <version>2.25</version>
+            <version>2.30</version>
         </dependency>
         <dependency>
             <groupId>org.jenkins-ci.plugins.workflow</groupId>
@@ -92,19 +93,19 @@
             <!-- Satisfy upper bound dependencies -->
             <groupId>org.jenkins-ci.plugins</groupId>
             <artifactId>script-security</artifactId>
-            <version>1.39</version>
+            <version>1.42</version>
             <scope>test</scope>
         </dependency>
         <dependency>
             <groupId>org.jenkins-ci.plugins.workflow</groupId>
             <artifactId>workflow-cps</artifactId>
-            <version>2.43</version>
+            <version>2.54</version>
             <scope>test</scope>
         </dependency>
         <dependency>
             <groupId>org.jenkins-ci.plugins</groupId>
             <artifactId>structs</artifactId>
-            <version>1.7</version>
+            <version>1.14</version>
             <scope>test</scope>
         </dependency>
         <dependency>
@@ -121,6 +122,12 @@
             <scope>test</scope>
         </dependency>
         <dependency>
+            <groupId>org.jenkins-ci.plugins</groupId>
+            <artifactId>pipeline-stage-step</artifactId>
+            <version>2.2</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
             <groupId>org.jenkins-ci.plugins.workflow</groupId>
             <artifactId>workflow-scm-step</artifactId>
             <version>2.4</version>
@@ -130,6 +137,12 @@
             <groupId>org.jenkins-ci.plugins.workflow</groupId>
             <artifactId>workflow-durable-task-step</artifactId>
             <version>2.11</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.jenkins-ci.plugins</groupId>
+            <artifactId>pipeline-input-step</artifactId>
+            <version>2.5</version>
             <scope>test</scope>
         </dependency>
         <dependency>
@@ -202,6 +215,13 @@
                 <artifactId>maven-surefire-plugin</artifactId>
                 <configuration>
                 <reuseForks>false</reuseForks> <!-- TODO reuse seems to cause problems in memory tests -->
+                </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.jenkins-ci.tools</groupId>
+                <artifactId>maven-hpi-plugin</artifactId>
+                <configuration>
+                    <compatibleSinceVersion>2.26</compatibleSinceVersion>
                 </configuration>
             </plugin>
         </plugins>
