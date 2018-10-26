@@ -50,6 +50,7 @@ import hudson.util.DescribableList;
 import jenkins.model.CauseOfInterruption;
 import jenkins.model.InterruptedBuildAction;
 import jenkins.model.Jenkins;
+import jenkins.security.QueueItemAuthenticatorConfiguration;
 import net.sf.json.JSONArray;
 import net.sf.json.JSONObject;
 import org.apache.commons.io.FileUtils;
@@ -75,6 +76,7 @@ import org.jvnet.hudson.test.Issue;
 import org.jvnet.hudson.test.JenkinsRule;
 import org.jvnet.hudson.test.LoggerRule;
 import org.jvnet.hudson.test.MockAuthorizationStrategy;
+import org.jvnet.hudson.test.MockQueueItemAuthenticator;
 import org.jvnet.hudson.test.recipes.LocalData;
 import org.xml.sax.SAXException;
 
@@ -478,6 +480,22 @@ public class WorkflowRunTest {
             }
             assertEquals(fromApi, new TreeSet<>(Arrays.asList(expectedIds)));
         }
+    }
+
+    @Issue("JENKINS-46652")
+    @Test public void noComputerBuildPermissionOnMaster() throws Exception {
+        r.waitOnline(r.createSlave("remote", null, null));
+        r.jenkins.setSecurityRealm(r.createDummySecurityRealm());
+        r.jenkins.setAuthorizationStrategy(new MockAuthorizationStrategy().
+            grant(Jenkins.ADMINISTER).everywhere().to("admin"));
+        WorkflowJob p = r.jenkins.createProject(WorkflowJob.class, "p");
+        p.setDefinition(new CpsFlowDefinition("", true));
+        // Control case:
+        QueueItemAuthenticatorConfiguration.get().getAuthenticators().add(new MockQueueItemAuthenticator(Collections.singletonMap("p", User.get("admin").impersonate())));
+        r.buildAndAssertSuccess(p);
+        // Test case: build is never scheduled, queue item hangs with “Waiting for next available executor on master”
+        QueueItemAuthenticatorConfiguration.get().getAuthenticators().replace(new MockQueueItemAuthenticator(Collections.singletonMap("p", User.get("dev").impersonate())));
+        r.buildAndAssertSuccess(p);
     }
 
     @Issue("JENKINS-31096")
