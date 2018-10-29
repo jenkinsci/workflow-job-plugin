@@ -207,6 +207,12 @@
             <version>1.26.1</version>
             <scope>test</scope>
         </dependency>
+        <dependency>
+            <groupId>org.jenkins-ci.plugins</groupId>
+            <artifactId>timestamper</artifactId>
+            <version>1.8.11-rc430.c45d6cdd7237</version> <!-- TODO https://github.com/jenkinsci/timestamper-plugin/pull/25 -->
+            <scope>test</scope>
+        </dependency>
     </dependencies>
     <build>
         <plugins>
