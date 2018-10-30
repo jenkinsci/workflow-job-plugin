@@ -11,10 +11,35 @@ Behaviour.specify("span.pipeline-new-node", 'NewNodeConsoleNote', 0, function(e)
             e.innerHTML = e.innerHTML.replace(/.+/, '$&' + suffix) // insert before EOL
         }
     }
+    var nodeId = e.getAttribute('nodeId')
     var startId = e.getAttribute('startId')
-    if (startId == null || startId == e.getAttribute('nodeId')) {
+    if (startId == null || startId == nodeId) {
         e.innerHTML = e.innerHTML.replace(/.+/, '$&<span class="pipeline-show-hide"> (<a href="#" onclick="showHidePipelineSection(this); return false">hide</a>)</span>')
         // TODO automatically hide second and subsequent branches: namely, in case a node has the same parent as an earlier one
+    }
+    var nodes = $$('.pipeline-new-node')
+    var enclosings = new Map() // id → enclosingId
+    var labels = new Map() // id → label
+    for (var i = 0; i < nodes.length; i++) {
+        var node = nodes[i]
+        var oid = node.getAttribute('nodeId')
+        enclosings.set(oid, node.getAttribute('enclosingId'))
+        labels.set(oid, node.getAttribute('label'))
+    }
+    var id = nodeId
+    while (true) {
+        id = enclosings.get(id)
+        if (id == null) {
+            break
+        }
+        var label = labels.get(id)
+        if (label != null && label.startsWith('Branch: ')) {
+            var branch = label.substring(8)
+            var ss = document.styleSheets[0]
+            // TODO https://stackoverflow.com/a/18990994/12916 does not scale well to add width: 25em; text-align: right
+            ss.insertRule('.pipeline-node-' + nodeId + '::before {content: "[' + branch.escapeHTML() + '] "; color: #9A9999; position: absolute; left: 0}', ss.rules.length)
+            break
+        }
     }
 });
 
