@@ -38,6 +38,7 @@ import java.util.Collections;
 import java.util.Set;
 import jenkins.security.MasterToSlaveCallable;
 import jenkins.util.JenkinsJVM;
+import static org.hamcrest.Matchers.*;
 import org.jenkinsci.plugins.workflow.cps.CpsFlowDefinition;
 import org.jenkinsci.plugins.workflow.flow.FlowExecutionOwner;
 import org.jenkinsci.plugins.workflow.job.WorkflowJob;
@@ -49,6 +50,7 @@ import org.jenkinsci.plugins.workflow.steps.StepContext;
 import org.jenkinsci.plugins.workflow.steps.StepDescriptor;
 import org.jenkinsci.plugins.workflow.steps.StepExecution;
 import org.jenkinsci.plugins.workflow.steps.SynchronousNonBlockingStepExecution;
+import static org.junit.Assert.*;
 import org.junit.ClassRule;
 import org.junit.Rule;
 import org.junit.Test;
@@ -75,6 +77,8 @@ public class TaskListenerDecoratorTest {
         r.assertLogContains("[job/p/1/] Started", b);
         r.assertLogContains("[decorated] [filtered] [job/p/1/] Running on remote in ", b);
         r.assertLogContains("[decorated via remote] [filtered via remote] [job/p/1/ via remote] printed a message on master=false", b);
+        String log = JenkinsRule.getLog(b);
+        assertThat(log, log.indexOf("master=false"), lessThan(log.indexOf("// node")));
     }
 
     private static final class DecoratorImpl extends TaskListenerDecorator {
@@ -91,6 +95,13 @@ public class TaskListenerDecoratorTest {
                 @Override protected void eol(byte[] b, int len) throws IOException {
                     logger.write(("[" + message + "] ").getBytes());
                     logger.write(b, 0, len);
+                }
+                @Override public void close() throws IOException {
+                    super.close();
+                    logger.close();
+                }
+                @Override public void flush() throws IOException {
+                    logger.flush();
                 }
             };
         }
@@ -200,6 +211,7 @@ public class TaskListenerDecoratorTest {
             }
             @Override public Void call() throws RuntimeException {
                 listener.getLogger().println("printed a message on master=" + JenkinsJVM.isJenkinsJVM());
+                listener.getLogger().flush();
                 return null;
             }
         }
