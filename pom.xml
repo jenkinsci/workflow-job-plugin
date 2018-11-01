@@ -136,7 +136,7 @@
         <dependency>
             <groupId>org.jenkins-ci.plugins.workflow</groupId>
             <artifactId>workflow-durable-task-step</artifactId>
-            <version>2.26-rc789.fba882266ed3</version> <!-- TODO https://github.com/jenkinsci/workflow-durable-task-step-plugin/pull/85 -->
+            <version>2.26</version>
             <scope>test</scope>
         </dependency>
         <dependency>
