@@ -40,7 +40,9 @@ import hudson.security.ACLContext;
 import hudson.slaves.SlaveComputer;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
+import java.io.InputStream;
 import java.io.StringWriter;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Set;
 import java.util.logging.Level;
@@ -261,6 +263,18 @@ public class DefaultLogStorageTest {
         WorkflowRun b = p.scheduleBuild2(0).waitForStart();
         SemaphoreStep.waitForStart("wait/1", b);
         assertThat(r.createWebClient().goTo(b.getUrl() + "consoleText", "text/plain").getWebResponse().getContentAsString(), containsString("\n12345\n"));
+        SemaphoreStep.success("wait/1", null);
+        r.assertBuildStatusSuccess(r.waitForCompletion(b));
+    }
+
+    @Test public void getLogInputStream() throws Exception {
+        WorkflowJob p = r.createProject(WorkflowJob.class, "p");
+        p.setDefinition(new CpsFlowDefinition("@NonCPS def giant() {(0..19999).join('\\n')}; echo giant(); semaphore 'wait'", true));
+        WorkflowRun b = p.scheduleBuild2(0).waitForStart();
+        SemaphoreStep.waitForStart("wait/1", b);
+        try (InputStream logStream = b.getLogInputStream()) {
+            assertThat(IOUtils.toString(logStream, StandardCharsets.UTF_8), containsString("\n12345\n"));
+        }
         SemaphoreStep.success("wait/1", null);
         r.assertBuildStatusSuccess(r.waitForCompletion(b));
     }
