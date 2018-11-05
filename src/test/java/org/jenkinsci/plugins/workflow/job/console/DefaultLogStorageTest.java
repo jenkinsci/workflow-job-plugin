@@ -58,6 +58,7 @@ import org.jenkinsci.plugins.workflow.steps.StepContext;
 import org.jenkinsci.plugins.workflow.steps.StepDescriptor;
 import org.jenkinsci.plugins.workflow.steps.StepExecution;
 import org.jenkinsci.plugins.workflow.steps.SynchronousStepExecution;
+import org.jenkinsci.plugins.workflow.test.steps.SemaphoreStep;
 import static org.junit.Assert.*;
 import static org.junit.Assume.*;
 import org.junit.Ignore;
@@ -252,6 +253,16 @@ public class DefaultLogStorageTest {
             Thread.sleep(100);
         }
         b.writeWholeLogTo(System.out);
+    }
+
+    @Test public void doConsoleText() throws Exception {
+        WorkflowJob p = r.createProject(WorkflowJob.class, "p");
+        p.setDefinition(new CpsFlowDefinition("@NonCPS def giant() {(0..19999).join('\\n')}; echo giant(); semaphore 'wait'", true));
+        WorkflowRun b = p.scheduleBuild2(0).waitForStart();
+        SemaphoreStep.waitForStart("wait/1", b);
+        assertThat(r.createWebClient().goTo(b.getUrl() + "consoleText", "text/plain").getWebResponse().getContentAsString(), containsString("\n12345\n"));
+        SemaphoreStep.success("wait/1", null);
+        r.assertBuildStatusSuccess(r.waitForCompletion(b));
     }
 
 }
