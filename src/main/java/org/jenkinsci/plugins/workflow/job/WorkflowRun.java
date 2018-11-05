@@ -122,6 +122,8 @@ import org.kohsuke.accmod.Restricted;
 import org.kohsuke.accmod.restrictions.DoNotUse;
 import org.kohsuke.stapler.HttpResponse;
 import org.kohsuke.stapler.HttpResponses;
+import org.kohsuke.stapler.StaplerRequest;
+import org.kohsuke.stapler.StaplerResponse;
 import org.kohsuke.stapler.export.Exported;
 import org.kohsuke.stapler.interceptor.RequirePOST;
 
@@ -1017,6 +1019,13 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
         getLogText().writeRawLogTo(0, baos);
         return new ByteArrayInputStream(baos.toByteArray());
+    }
+
+    @Override public void doConsoleText(StaplerRequest req, StaplerResponse rsp) throws IOException {
+        rsp.setContentType("text/plain;charset=UTF-8");
+        try (OutputStream os = rsp.getCompressedOutputStream(req)) {
+            getLogText().writeLogTo(0, os);
+        }
     }
 
     @Override public Reader getLogReader() throws IOException {
