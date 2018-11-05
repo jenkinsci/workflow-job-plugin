@@ -1017,7 +1017,14 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
     @Override public InputStream getLogInputStream() throws IOException {
         // Inefficient but probably rarely used anyway.
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
-        getLogText().writeRawLogTo(0, baos);
+        long pos = 0;
+        while (true) {
+            long pos2 = getLogText().writeLogTo(pos, baos);
+            if (pos2 <= pos) {
+                break;
+            }
+            pos = pos2;
+        }
         return new ByteArrayInputStream(baos.toByteArray());
     }
 
