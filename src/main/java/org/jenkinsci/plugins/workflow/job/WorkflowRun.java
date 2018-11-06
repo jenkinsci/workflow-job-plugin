@@ -890,7 +890,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
                     WorkflowJob j;
                     try (ACLContext context = ACL.as(ACL.SYSTEM)) {
                         j = jenkins.getItemByFullName(job, WorkflowJob.class);
-                    };
+                    }
                     if (j == null) {
                         throw new IOException("no such WorkflowJob " + job);
                     }

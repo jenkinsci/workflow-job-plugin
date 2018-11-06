@@ -227,7 +227,7 @@ public class WorkflowRunTest {
         final String groovy = "println 'hello'";
         try (ACLContext context = ACL.as(User.getById("dev", true))) {
             p.setDefinition(new CpsFlowDefinition(groovy));
-        };
+        }
         r.assertLogContains("UnapprovedUsageException", r.assertBuildStatus(Result.FAILURE, p.scheduleBuild2(0).get()));
         Set<ScriptApproval.PendingScript> pendingScripts = ScriptApproval.get().getPendingScripts();
         assertEquals(1, pendingScripts.size());
@@ -372,7 +372,7 @@ public class WorkflowRunTest {
         SemaphoreStep.waitForStart("wait/1", b1);
         try (ACLContext context = ACL.as(User.getById("dev", true))) {
             b1.getExecutor().doStop();
-        };
+        }
         r.assertBuildStatus(Result.ABORTED, r.waitForCompletion(b1));
         r.assertLogContains("users=[dev]", b1);
         InterruptedBuildAction iba = b1.getAction(InterruptedBuildAction.class);
