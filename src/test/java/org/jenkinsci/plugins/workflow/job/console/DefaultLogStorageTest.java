@@ -279,4 +279,14 @@ public class DefaultLogStorageTest {
         r.assertBuildStatusSuccess(r.waitForCompletion(b));
     }
 
+    @Test public void getLog() throws Exception {
+        WorkflowJob p = r.createProject(WorkflowJob.class, "p");
+        p.setDefinition(new CpsFlowDefinition("@NonCPS def giant() {(0..19999).join('\\n')}; echo giant(); semaphore 'wait'", true));
+        WorkflowRun b = p.scheduleBuild2(0).waitForStart();
+        SemaphoreStep.waitForStart("wait/1", b);
+        assertThat(b.getLog(), containsString("\n12345\n"));
+        SemaphoreStep.success("wait/1", null);
+        r.assertBuildStatusSuccess(r.waitForCompletion(b));
+    }
+
 }
