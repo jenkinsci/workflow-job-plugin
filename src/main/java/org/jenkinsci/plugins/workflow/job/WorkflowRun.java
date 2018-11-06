@@ -1017,14 +1017,14 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
     @Override public InputStream getLogInputStream() throws IOException {
         // Inefficient but probably rarely used anyway.
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
-        getLogText().writeRawLogTo(0, baos);
+        writeLogTo(getLogText()::writeLogTo, baos);
         return new ByteArrayInputStream(baos.toByteArray());
     }
 
     @Override public void doConsoleText(StaplerRequest req, StaplerResponse rsp) throws IOException {
         rsp.setContentType("text/plain;charset=UTF-8");
         try (OutputStream os = rsp.getCompressedOutputStream(req)) {
-            getLogText().writeLogTo(0, os);
+            writeLogTo(getLogText()::writeLogTo, os);
         }
     }
 
@@ -1035,8 +1035,24 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
     @SuppressWarnings("deprecation")
     @Override public String getLog() throws IOException {
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
-        getLogText().writeRawLogTo(0, baos);
+        writeLogTo(getLogText()::writeRawLogTo, baos);
         return baos.toString("UTF-8");
+    }
+
+    @FunctionalInterface private interface WriteMethod {
+        public long writeLogTo(long start, OutputStream os) throws IOException;
+    }
+
+    private void writeLogTo(WriteMethod method, OutputStream os) throws IOException {
+        // Similar to Run#writeWholeLogTo but terminates even if !logText.complete:
+        long pos = 0;
+        while (true) {
+            long pos2 = method.writeLogTo(pos, os);
+            if (pos2 <= pos) {
+                break;
+            }
+            pos = pos2;
+        }
     }
 
     @Override public List<String> getLog(int maxLines) throws IOException {
