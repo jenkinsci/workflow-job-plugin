@@ -55,6 +55,7 @@ import hudson.scm.ChangeLogSet;
 import hudson.scm.SCM;
 import hudson.scm.SCMRevisionState;
 import hudson.security.ACL;
+import hudson.security.ACLContext;
 import hudson.slaves.NodeProperty;
 import hudson.util.Iterators;
 import hudson.util.NullStream;
@@ -90,7 +91,6 @@ import jenkins.model.lazy.BuildReference;
 import jenkins.model.lazy.LazyBuildMixIn;
 import jenkins.model.queue.AsynchronousExecution;
 import jenkins.scm.RunWithSCM;
-import jenkins.security.NotReallyRoleSensitiveCallable;
 import jenkins.util.Timer;
 import org.acegisecurity.Authentication;
 import org.jenkinsci.plugins.workflow.FilePathUtils;
@@ -275,7 +275,10 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
             if (!auth.equals(ACL.SYSTEM)) {
                 String name = auth.getName();
                 if (!auth.equals(Jenkins.ANONYMOUS)) {
-                    name = ModelHyperlinkNote.encodeTo(User.get(name));
+                    User user = User.getById(name, false);
+                    if (user != null) {
+                        name = ModelHyperlinkNote.encodeTo(user);
+                    }
                 }
                 myListener.getLogger().println(/* hudson.model.Messages.Run_running_as_(name) */ "Running as " + name);
             }
@@ -464,7 +467,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
     @Override public EnvVars getEnvironment(TaskListener listener) throws IOException, InterruptedException {
         EnvVars env = super.getEnvironment(listener);
 
-        Jenkins instance = Jenkins.getInstance();
+        Jenkins instance = Jenkins.getInstanceOrNull();
         if (instance != null) {
             for (NodeProperty nodeProperty : instance.getGlobalNodeProperties()) {
                 nodeProperty.buildEnvVars(env, listener);
@@ -880,15 +883,14 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
                 if (candidate != null && candidate.getParent().getFullName().equals(job) && candidate.getId().equals(id)) {
                     run = candidate;
                 } else {
-                    final Jenkins jenkins = Jenkins.getInstance();
+                    final Jenkins jenkins = Jenkins.getInstanceOrNull();
                     if (jenkins == null) {
                         throw new IOException("Jenkins is not running"); // do not use Jenkins.getActiveInstance() as that is an ISE
                     }
-                    WorkflowJob j = ACL.impersonate(ACL.SYSTEM, new NotReallyRoleSensitiveCallable<WorkflowJob,IOException>() {
-                        @Override public WorkflowJob call() throws IOException {
-                            return jenkins.getItemByFullName(job, WorkflowJob.class);
-                        }
-                    });
+                    WorkflowJob j;
+                    try (ACLContext context = ACL.as(ACL.SYSTEM)) {
+                        j = jenkins.getItemByFullName(job, WorkflowJob.class);
+                    };
                     if (j == null) {
                         throw new IOException("no such WorkflowJob " + job);
                     }
