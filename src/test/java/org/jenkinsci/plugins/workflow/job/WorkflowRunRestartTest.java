@@ -156,7 +156,7 @@ public class WorkflowRunRestartTest {
         story.then(r -> {
             WorkflowJob p = r.jenkins.createProject(WorkflowJob.class, "p");
             p.addProperty( new DurabilityHintJobProperty(FlowDurabilityHint.MAX_SURVIVABILITY));
-            p.setDefinition(new CpsFlowDefinition("def seq = 0; retry (99) {zombie id: ++seq}", true));
+            p.setDefinition(new CpsFlowDefinition("def seq = 0; while (true) {try {zombie id: ++seq} catch (x) {echo(/ignoring $x/)}}", true));
             WorkflowRun b = p.scheduleBuild2(0).waitForStart();
             r.waitForMessage("[1] undead", b);
             Executor ex = b.getExecutor();
@@ -186,7 +186,7 @@ public class WorkflowRunRestartTest {
     @Test public void termAndKillInSidePanel() throws Exception {
         story.then(r -> {
             WorkflowJob p = r.jenkins.createProject(WorkflowJob.class, "p");
-            p.setDefinition(new CpsFlowDefinition("def seq = 0; retry (99) {zombie id: ++seq}", true));
+            p.setDefinition(new CpsFlowDefinition("def seq = 0; while (true) {try {zombie id: ++seq} catch (x) {echo(/ignoring $x/)}}", true));
             WorkflowRun b = p.scheduleBuild2(0).waitForStart();
             r.waitForMessage("[1] undead", b);
             Executor ex = b.getExecutor();

@@ -37,11 +37,15 @@ import hudson.model.TaskListener;
 import hudson.model.User;
 import hudson.security.ACL;
 import hudson.security.ACLContext;
+import hudson.slaves.SlaveComputer;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
+import java.io.InputStream;
 import java.io.StringWriter;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Set;
+import java.util.logging.Level;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.IOUtils;
 import static org.hamcrest.Matchers.*;
@@ -56,12 +60,15 @@ import org.jenkinsci.plugins.workflow.steps.StepContext;
 import org.jenkinsci.plugins.workflow.steps.StepDescriptor;
 import org.jenkinsci.plugins.workflow.steps.StepExecution;
 import org.jenkinsci.plugins.workflow.steps.SynchronousStepExecution;
+import org.jenkinsci.plugins.workflow.test.steps.SemaphoreStep;
 import static org.junit.Assert.*;
 import static org.junit.Assume.*;
+import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
 import org.jvnet.hudson.test.Issue;
 import org.jvnet.hudson.test.JenkinsRule;
+import org.jvnet.hudson.test.LoggerRule;
 import org.jvnet.hudson.test.TestExtension;
 import org.kohsuke.stapler.DataBoundConstructor;
 
@@ -69,6 +76,7 @@ import org.kohsuke.stapler.DataBoundConstructor;
 public class DefaultLogStorageTest {
 
     @Rule public JenkinsRule r = new JenkinsRule();
+    @Rule public LoggerRule logging = new LoggerRule();
 
     @Test public void consoleNotes() throws Exception {
         r.jenkins.setSecurityRealm(r.createDummySecurityRealm());
@@ -210,6 +218,75 @@ public class DefaultLogStorageTest {
         length = la.getLogText().length();
         System.out.printf("Took %dms to compute length of one short node%n", (System.nanoTime() - start) / 1000 / 1000);
         assertThat(length, lessThan(50L));
+    }
+
+    @Ignore("Currently not asserting anything, just here for interactive evaluation.")
+    @Test public void parallelLogStreaming() throws Exception {
+        assumeFalse(Functions.isWindows());
+        logging.record(SlaveComputer.class, Level.FINEST); // for interactive use, try cli-log plugin
+        int concurrency = 10;
+        for (int i = 0; i < concurrency; i++) {
+            r.createSlave();
+        }
+        WorkflowJob p = r.createProject(WorkflowJob.class, "p");
+        p.setDefinition(new CpsFlowDefinition(
+            "def branches = [:]\n" +
+            "for (def i = 0; i < " + concurrency + "; i++) {\n" +
+            "    def branch = /branch$i/\n" +
+            "    branches[branch] = { \n" +
+            "        node('!master') {\n" +
+            "            withEnv([/BRANCH=$branch/]) {\n" +
+            "                timeout(activity: true, time: 2, unit: 'HOURS') {\n" +
+            "                    timestamps {\n" +
+            "                        sh '''\n" +
+            "                            set +x\n" +
+            "                            cat /dev/urandom | env LC_CTYPE=c tr -dc '[:alpha:]\\n' | awk '{print ENVIRON[\"BRANCH\"], $0; system(\"sleep .1\");}'\n" +
+            "                        '''\n" +
+            "                    }\n" +
+            "                }\n" +
+            "            }\n" +
+            "        }\n" +
+            "    }\n" +
+            "}\n" +
+            "parallel(branches)", true));
+        WorkflowRun b = p.scheduleBuild2(0).waitForStart();
+        // TODO cannot apply BuildWatcher to just a single test case:
+        while (!new File(b.getRootDir(), "log").isFile()) {
+            Thread.sleep(100);
+        }
+        b.writeWholeLogTo(System.out);
+    }
+
+    @Test public void doConsoleText() throws Exception {
+        WorkflowJob p = r.createProject(WorkflowJob.class, "p");
+        p.setDefinition(new CpsFlowDefinition("@NonCPS def giant() {(0..19999).join('\\n')}; echo giant(); semaphore 'wait'", true));
+        WorkflowRun b = p.scheduleBuild2(0).waitForStart();
+        SemaphoreStep.waitForStart("wait/1", b);
+        assertThat(r.createWebClient().goTo(b.getUrl() + "consoleText", "text/plain").getWebResponse().getContentAsString(), containsString("\n12345\n"));
+        SemaphoreStep.success("wait/1", null);
+        r.assertBuildStatusSuccess(r.waitForCompletion(b));
+    }
+
+    @Test public void getLogInputStream() throws Exception {
+        WorkflowJob p = r.createProject(WorkflowJob.class, "p");
+        p.setDefinition(new CpsFlowDefinition("@NonCPS def giant() {(0..19999).join('\\n')}; echo giant(); semaphore 'wait'", true));
+        WorkflowRun b = p.scheduleBuild2(0).waitForStart();
+        SemaphoreStep.waitForStart("wait/1", b);
+        try (InputStream logStream = b.getLogInputStream()) {
+            assertThat(IOUtils.toString(logStream, StandardCharsets.UTF_8), containsString("\n12345\n"));
+        }
+        SemaphoreStep.success("wait/1", null);
+        r.assertBuildStatusSuccess(r.waitForCompletion(b));
+    }
+
+    @Test public void getLog() throws Exception {
+        WorkflowJob p = r.createProject(WorkflowJob.class, "p");
+        p.setDefinition(new CpsFlowDefinition("@NonCPS def giant() {(0..19999).join('\\n')}; echo giant(); semaphore 'wait'", true));
+        WorkflowRun b = p.scheduleBuild2(0).waitForStart();
+        SemaphoreStep.waitForStart("wait/1", b);
+        assertThat(b.getLog(), containsString("\n12345\n"));
+        SemaphoreStep.success("wait/1", null);
+        r.assertBuildStatusSuccess(r.waitForCompletion(b));
     }
 
 }

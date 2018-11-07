@@ -55,6 +55,7 @@ import hudson.scm.ChangeLogSet;
 import hudson.scm.SCM;
 import hudson.scm.SCMRevisionState;
 import hudson.security.ACL;
+import hudson.security.ACLContext;
 import hudson.slaves.NodeProperty;
 import hudson.util.Iterators;
 import hudson.util.NullStream;
@@ -90,7 +91,6 @@ import jenkins.model.lazy.BuildReference;
 import jenkins.model.lazy.LazyBuildMixIn;
 import jenkins.model.queue.AsynchronousExecution;
 import jenkins.scm.RunWithSCM;
-import jenkins.security.NotReallyRoleSensitiveCallable;
 import jenkins.util.Timer;
 import org.acegisecurity.Authentication;
 import org.jenkinsci.plugins.workflow.FilePathUtils;
@@ -122,6 +122,8 @@ import org.kohsuke.accmod.Restricted;
 import org.kohsuke.accmod.restrictions.DoNotUse;
 import org.kohsuke.stapler.HttpResponse;
 import org.kohsuke.stapler.HttpResponses;
+import org.kohsuke.stapler.StaplerRequest;
+import org.kohsuke.stapler.StaplerResponse;
 import org.kohsuke.stapler.export.Exported;
 import org.kohsuke.stapler.interceptor.RequirePOST;
 
@@ -273,7 +275,10 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
             if (!auth.equals(ACL.SYSTEM)) {
                 String name = auth.getName();
                 if (!auth.equals(Jenkins.ANONYMOUS)) {
-                    name = ModelHyperlinkNote.encodeTo(User.get(name));
+                    User user = User.getById(name, false);
+                    if (user != null) {
+                        name = ModelHyperlinkNote.encodeTo(user);
+                    }
                 }
                 myListener.getLogger().println(/* hudson.model.Messages.Run_running_as_(name) */ "Running as " + name);
             }
@@ -462,7 +467,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
     @Override public EnvVars getEnvironment(TaskListener listener) throws IOException, InterruptedException {
         EnvVars env = super.getEnvironment(listener);
 
-        Jenkins instance = Jenkins.getInstance();
+        Jenkins instance = Jenkins.getInstanceOrNull();
         if (instance != null) {
             for (NodeProperty nodeProperty : instance.getGlobalNodeProperties()) {
                 nodeProperty.buildEnvVars(env, listener);
@@ -878,15 +883,14 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
                 if (candidate != null && candidate.getParent().getFullName().equals(job) && candidate.getId().equals(id)) {
                     run = candidate;
                 } else {
-                    final Jenkins jenkins = Jenkins.getInstance();
+                    final Jenkins jenkins = Jenkins.getInstanceOrNull();
                     if (jenkins == null) {
                         throw new IOException("Jenkins is not running"); // do not use Jenkins.getActiveInstance() as that is an ISE
                     }
-                    WorkflowJob j = ACL.impersonate(ACL.SYSTEM, new NotReallyRoleSensitiveCallable<WorkflowJob,IOException>() {
-                        @Override public WorkflowJob call() throws IOException {
-                            return jenkins.getItemByFullName(job, WorkflowJob.class);
-                        }
-                    });
+                    WorkflowJob j;
+                    try (ACLContext context = ACL.as(ACL.SYSTEM)) {
+                        j = jenkins.getItemByFullName(job, WorkflowJob.class);
+                    }
                     if (j == null) {
                         throw new IOException("no such WorkflowJob " + job);
                     }
@@ -1015,8 +1019,15 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
     @Override public InputStream getLogInputStream() throws IOException {
         // Inefficient but probably rarely used anyway.
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
-        getLogText().writeRawLogTo(0, baos);
+        writeLogTo(getLogText()::writeLogTo, baos);
         return new ByteArrayInputStream(baos.toByteArray());
+    }
+
+    @Override public void doConsoleText(StaplerRequest req, StaplerResponse rsp) throws IOException {
+        rsp.setContentType("text/plain;charset=UTF-8");
+        try (OutputStream os = rsp.getCompressedOutputStream(req)) {
+            writeLogTo(getLogText()::writeLogTo, os);
+        }
     }
 
     @Override public Reader getLogReader() throws IOException {
@@ -1026,8 +1037,24 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
     @SuppressWarnings("deprecation")
     @Override public String getLog() throws IOException {
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
-        getLogText().writeRawLogTo(0, baos);
+        writeLogTo(getLogText()::writeRawLogTo, baos);
         return baos.toString("UTF-8");
+    }
+
+    @FunctionalInterface private interface WriteMethod {
+        public long writeLogTo(long start, OutputStream os) throws IOException;
+    }
+
+    private void writeLogTo(WriteMethod method, OutputStream os) throws IOException {
+        // Similar to Run#writeWholeLogTo but terminates even if !logText.complete:
+        long pos = 0;
+        while (true) {
+            long pos2 = method.writeLogTo(pos, os);
+            if (pos2 <= pos) {
+                break;
+            }
+            pos = pos2;
+        }
     }
 
     @Override public List<String> getLog(int maxLines) throws IOException {
