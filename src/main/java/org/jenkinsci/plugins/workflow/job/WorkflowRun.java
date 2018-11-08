@@ -1087,12 +1087,11 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
             // FileLogStorage does write a file with the same name and the same format as before JEP-210, so accept it if it is there.
             // This is the normal case if no additional plugin is installed.
         } else {
-            // Some other storage, perhaps cloud-based. Cache under the traditional name, but load from the defined source on each call.
-            try {
-                f.deleteOnExit();
-                try (OutputStream os = new FileOutputStream(f)) {
-                    writeLogTo(getLogText()::writeRawLogTo, os);
-                }
+            // Some other storage, perhaps cloud-based. Load from the defined source on each call, but do not create more than one copy.
+            f = new File(f.getPath() + ".tmp");
+            f.deleteOnExit();
+            try (OutputStream os = new FileOutputStream(f)) {
+                writeLogTo(getLogText()::writeRawLogTo, os);
             } catch (IOException x) {
                 throw new RuntimeException(x);
             }
