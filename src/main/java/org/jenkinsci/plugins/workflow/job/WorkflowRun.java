@@ -1089,7 +1089,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
             try {
                 f.deleteOnExit();
                 try (OutputStream os = new FileOutputStream(f)) {
-                    getLogText().writeRawLogTo(0, os);
+                    writeLogTo(getLogText()::writeRawLogTo, os);
                 }
             } catch (IOException x) {
                 throw new RuntimeException(x);
