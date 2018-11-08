@@ -109,6 +109,7 @@ import org.jenkinsci.plugins.workflow.flow.StashManager;
 import org.jenkinsci.plugins.workflow.graph.FlowEndNode;
 import org.jenkinsci.plugins.workflow.graph.FlowNode;
 import org.jenkinsci.plugins.workflow.job.console.NewNodeConsoleNote;
+import org.jenkinsci.plugins.workflow.log.FileLogStorage;
 import org.jenkinsci.plugins.workflow.log.LogStorage;
 import org.jenkinsci.plugins.workflow.log.TaskListenerDecorator;
 import org.jenkinsci.plugins.workflow.steps.FlowInterruptedException;
@@ -1080,16 +1081,21 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
 
     @Override public File getLogFile() {
         LOGGER.log(Level.WARNING, "Avoid calling getLogFile on " + this, new UnsupportedOperationException());
-        try {
-            File f = File.createTempFile("deprecated", ".log", getRootDir());
-            f.deleteOnExit();
-            try (OutputStream os = new FileOutputStream(f)) {
-                getLogText().writeRawLogTo(0, os);
+        File f = super.getLogFile();
+        if (LogStorage.of(asFlowExecutionOwner()) instanceof FileLogStorage) {
+            // FileLogStorage does write a file with the same name and the same format as before JEP-210, so accept it if it is there.
+        } else {
+            // Some other storage. Cache under the traditional name, but load from the defined source on each call.
+            try {
+                f.deleteOnExit();
+                try (OutputStream os = new FileOutputStream(f)) {
+                    getLogText().writeRawLogTo(0, os);
+                }
+            } catch (IOException x) {
+                throw new RuntimeException(x);
             }
-            return f;
-        } catch (IOException x) {
-            throw new RuntimeException(x);
         }
+        return f;
     }
 
     static void alias() {
