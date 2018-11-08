@@ -1020,7 +1020,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
     @Override public InputStream getLogInputStream() throws IOException {
         // Inefficient but probably rarely used anyway.
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
-        writeLogTo(getLogText()::writeLogTo, baos);
+        writeLogTo(getLogText()::writeRawLogTo, baos);
         return new ByteArrayInputStream(baos.toByteArray());
     }
 
@@ -1085,8 +1085,9 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
         File f = super.getLogFile();
         if (LogStorage.of(asFlowExecutionOwner()) instanceof FileLogStorage) {
             // FileLogStorage does write a file with the same name and the same format as before JEP-210, so accept it if it is there.
+            // This is the normal case if no additional plugin is installed.
         } else {
-            // Some other storage. Cache under the traditional name, but load from the defined source on each call.
+            // Some other storage, perhaps cloud-based. Cache under the traditional name, but load from the defined source on each call.
             try {
                 f.deleteOnExit();
                 try (OutputStream os = new FileOutputStream(f)) {
