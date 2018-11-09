@@ -82,6 +82,7 @@ import org.jvnet.hudson.test.recipes.LocalData;
 import org.xml.sax.SAXException;
 
 import javax.annotation.Nonnull;
+import org.apache.commons.io.IOUtils;
 
 public class WorkflowRunTest {
 
@@ -501,6 +502,15 @@ public class WorkflowRunTest {
         String message = "¡Čau → there!";
         p.setDefinition(new CpsFlowDefinition("echo '" + message + "'", true));
         r.assertLogContains(message, r.buildAndAssertSuccess(p));
+    }
+
+    @Issue("JENKINS-54128")
+    @SuppressWarnings("deprecation")
+    @Test public void getLogFile() throws Exception {
+        WorkflowJob p = r.jenkins.createProject(WorkflowJob.class, "p");
+        p.setDefinition(new CpsFlowDefinition("echo 'sample text'", true));
+        WorkflowRun b = r.buildAndAssertSuccess(p);
+        assertEquals(IOUtils.toString(b.getLogInputStream()), FileUtils.readFileToString(b.getLogFile()));
     }
 
 }

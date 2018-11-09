@@ -64,7 +64,6 @@ import java.io.BufferedReader;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
-import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -1019,7 +1018,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
     @Override public InputStream getLogInputStream() throws IOException {
         // Inefficient but probably rarely used anyway.
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
-        writeLogTo(getLogText()::writeLogTo, baos);
+        writeLogTo(getLogText()::writeRawLogTo, baos);
         return new ByteArrayInputStream(baos.toByteArray());
     }
 
@@ -1081,16 +1080,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
     @Deprecated
     @Override public File getLogFile() {
         LOGGER.log(Level.WARNING, "Avoid calling getLogFile on " + this, new UnsupportedOperationException());
-        try {
-            File f = File.createTempFile("deprecated", ".log", getRootDir());
-            f.deleteOnExit();
-            try (OutputStream os = new FileOutputStream(f)) {
-                getLogText().writeRawLogTo(0, os);
-            }
-            return f;
-        } catch (IOException x) {
-            throw new RuntimeException(x);
-        }
+        return LogStorage.of(asFlowExecutionOwner()).getLogFile(this, !isLogUpdated());
     }
 
     static void alias() {
