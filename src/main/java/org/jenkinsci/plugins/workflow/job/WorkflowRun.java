@@ -64,7 +64,6 @@ import java.io.BufferedReader;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
-import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -109,7 +108,6 @@ import org.jenkinsci.plugins.workflow.flow.StashManager;
 import org.jenkinsci.plugins.workflow.graph.FlowEndNode;
 import org.jenkinsci.plugins.workflow.graph.FlowNode;
 import org.jenkinsci.plugins.workflow.job.console.NewNodeConsoleNote;
-import org.jenkinsci.plugins.workflow.log.FileLogStorage;
 import org.jenkinsci.plugins.workflow.log.LogStorage;
 import org.jenkinsci.plugins.workflow.log.TaskListenerDecorator;
 import org.jenkinsci.plugins.workflow.steps.FlowInterruptedException;
@@ -1082,21 +1080,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
     @Deprecated
     @Override public File getLogFile() {
         LOGGER.log(Level.WARNING, "Avoid calling getLogFile on " + this, new UnsupportedOperationException());
-        File f = super.getLogFile();
-        if (LogStorage.of(asFlowExecutionOwner()) instanceof FileLogStorage) {
-            // FileLogStorage does write a file with the same name and the same format as before JEP-210, so accept it if it is there.
-            // This is the normal case if no additional plugin is installed.
-        } else {
-            // Some other storage, perhaps cloud-based. Load from the defined source on each call, but do not create more than one copy.
-            f = new File(f.getPath() + ".tmp");
-            f.deleteOnExit();
-            try (OutputStream os = new FileOutputStream(f)) {
-                writeLogTo(getLogText()::writeRawLogTo, os);
-            } catch (IOException x) {
-                throw new RuntimeException(x);
-            }
-        }
-        return f;
+        return LogStorage.of(asFlowExecutionOwner()).getLogFile(this, !isLogUpdated());
     }
 
     static void alias() {
