@@ -64,7 +64,6 @@ import java.io.BufferedReader;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
-import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -218,7 +217,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
                 // TODO to better handle in-VM restart (e.g. in JenkinsRule), move CpsFlowExecution.suspendAll logic into a FlowExecution.notifyShutdown override, then make FlowExecutionOwner.notifyShutdown also overridable, which for WorkflowRun.Owner should listener.close() as needed
                 listener = TaskListenerDecorator.apply(LogStorage.of(asFlowExecutionOwner()).overallListener(), asFlowExecutionOwner(), null);
             } catch (IOException | InterruptedException x) {
-                LOGGER.log(Level.WARNING, "Error trying to open build log file for writing, output will be lost: " + getLogFile(), x);
+                LOGGER.log(Level.WARNING, "Error trying to open build log file for writing, output will be lost: " + this, x);
                 return NULL_LISTENER;
             }
         }
@@ -1019,7 +1018,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
     @Override public InputStream getLogInputStream() throws IOException {
         // Inefficient but probably rarely used anyway.
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
-        writeLogTo(getLogText()::writeLogTo, baos);
+        writeLogTo(getLogText()::writeRawLogTo, baos);
         return new ByteArrayInputStream(baos.toByteArray());
     }
 
@@ -1078,18 +1077,10 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
         return ConsoleNote.removeNotes(logLines);
     }
 
+    @Deprecated
     @Override public File getLogFile() {
         LOGGER.log(Level.WARNING, "Avoid calling getLogFile on " + this, new UnsupportedOperationException());
-        try {
-            File f = File.createTempFile("deprecated", ".log", getRootDir());
-            f.deleteOnExit();
-            try (OutputStream os = new FileOutputStream(f)) {
-                getLogText().writeRawLogTo(0, os);
-            }
-            return f;
-        } catch (IOException x) {
-            throw new RuntimeException(x);
-        }
+        return LogStorage.of(asFlowExecutionOwner()).getLogFile(this, !isLogUpdated());
     }
 
     static void alias() {
