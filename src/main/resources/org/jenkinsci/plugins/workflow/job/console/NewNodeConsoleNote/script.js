@@ -37,7 +37,7 @@ Behaviour.specify("span.pipeline-new-node", 'NewNodeConsoleNote', 0, function(e)
             var branch = label.substring(8)
             var ss = document.styleSheets[0]
             // TODO https://stackoverflow.com/a/18990994/12916 does not scale well to add width: 25em; text-align: right
-            ss.insertRule('.pipeline-node-' + nodeId + '::before {content: "[' + branch.escapeHTML() + '] "; color: #9A9999; position: absolute; left: 0}', ss.rules == null ? 0 : ss.rules.length)
+            ss.insertRule('.pipeline-node-' + nodeId + '::before {content: "[' + branch.escapeHTML() + '] "; color: #9A9999; position: absolute; transform: translateX(-100%)}', ss.cssRules == null ? 0 : ss.cssRules.length)
             break
         }
     }
