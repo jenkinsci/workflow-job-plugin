@@ -58,6 +58,7 @@ import hudson.security.ACL;
 import hudson.security.ACLContext;
 import hudson.slaves.NodeProperty;
 import hudson.util.Iterators;
+import hudson.util.LogTaskListener;
 import hudson.util.NullStream;
 import hudson.util.PersistedList;
 import java.io.BufferedReader;
@@ -614,8 +615,8 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
         }
 
         try {
-            StashManager.maybeClearAll(this);
-        } catch (IOException x) {
+            StashManager.maybeClearAll(this, /* or move up before closing getListener()? */new LogTaskListener(LOGGER, Level.FINE));
+        } catch (IOException | InterruptedException x) {
             LOGGER.log(Level.WARNING, "failed to clean up stashes from " + this, x);
         }
         FlowExecution exec = getExecution();
@@ -626,7 +627,11 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
 
     @Override public void deleteArtifacts() throws IOException {
         super.deleteArtifacts();
-        StashManager.clearAll(this);
+        try {
+            StashManager.clearAll(this, /* core API defines no log sink for this */ new LogTaskListener(LOGGER, Level.FINE));
+        } catch (InterruptedException x) {
+            throw new IOException(x);
+        }
     }
 
     /**

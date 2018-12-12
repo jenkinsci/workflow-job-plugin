@@ -59,13 +59,13 @@ function showHidePipelineSection(link) {
     var showHide = function(id, display) {
         var sect = '.pipeline-node-' + id
         var ss = document.styleSheets[0]
-        for (var i = 0; i < ss.rules.length; i++) {
-            if (ss.rules[i].selectorText === sect) {
-                ss.rules[i].style.display = display
+        for (var i = 0; i < ss.cssRules.length; i++) {
+            if (ss.cssRules[i].selectorText === sect) {
+                ss.cssRules[i].style.display = display
                 return
             }
         }
-        ss.insertRule(sect + ' {display: ' + display + '}', ss.rules.length)
+        ss.insertRule(sect + ' {display: ' + display + '}', ss.cssRules.length)
     }
     showHide(id, display)
     if (span.getAttribute('startId') != null) {
