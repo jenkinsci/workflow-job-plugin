@@ -302,18 +302,6 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements L
         save();
     }
 
-    // TODO delete after baseline has https://github.com/jenkinsci/jenkins/pull/3099
-    @Override public boolean isBuildBlocked() {
-        return getCauseOfBlockage() != null;
-    }
-
-    // TODO delete after baseline has https://github.com/jenkinsci/jenkins/pull/3099
-    @Deprecated
-    @Override public String getWhyBlocked() {
-        CauseOfBlockage c = getCauseOfBlockage();
-        return c != null ? c.getShortDescription() : null;
-    }
-
     @Override public CauseOfBlockage getCauseOfBlockage() {
         if (isLogUpdated() && !isConcurrentBuild()) {
             WorkflowRun lastBuild = getLastBuild();
