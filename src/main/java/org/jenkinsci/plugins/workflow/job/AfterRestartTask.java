@@ -28,7 +28,6 @@ import hudson.model.Label;
 import hudson.model.Node;
 import hudson.model.Queue;
 import hudson.model.Queue.FlyweightTask;
-import hudson.model.queue.CauseOfBlockage;
 import java.io.IOException;
 import org.kohsuke.stapler.export.ExportedBean;
 
@@ -51,18 +50,6 @@ class AfterRestartTask implements Queue.FlyweightTask, Queue.TransientTask {
 
     @Override public int hashCode() {
         return getClass().hashCode() ^ run.hashCode();
-    }
-
-    // TODO delete after baseline has https://github.com/jenkinsci/jenkins/pull/3099
-    @Override public boolean isBuildBlocked() {
-        return getCauseOfBlockage() != null;
-    }
-
-    // TODO delete after baseline has https://github.com/jenkinsci/jenkins/pull/3099
-    @Deprecated
-    @Override public String getWhyBlocked() {
-        CauseOfBlockage causeOfBlockage = getCauseOfBlockage();
-        return causeOfBlockage != null ? causeOfBlockage.getShortDescription() : null;
     }
 
     @Override public String getName() {
