@@ -210,7 +210,7 @@
         <dependency>
             <groupId>org.jenkins-ci.plugins</groupId>
             <artifactId>timestamper</artifactId>
-            <version>1.8.11-rc430.c45d6cdd7237</version> <!-- TODO https://github.com/jenkinsci/timestamper-plugin/pull/25 -->
+            <version>1.9</version>
             <scope>test</scope>
         </dependency>
     </dependencies>
