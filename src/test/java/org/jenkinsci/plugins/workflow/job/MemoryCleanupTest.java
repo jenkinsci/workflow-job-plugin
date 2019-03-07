@@ -12,6 +12,8 @@ import org.jvnet.hudson.test.MemoryAssert;
 import java.lang.ref.WeakReference;
 import java.util.logging.Level;
 
+import static org.junit.Assume.assumeTrue;
+
 /**
  *  Verifies we do proper garbage collection of memory
  */
@@ -24,6 +26,8 @@ public class MemoryCleanupTest {
 
     @Test
     public void cleanup() throws Exception {
+        // Ignore on Java 9+, because `MemoryAssert.assertGC` below tries to call setAccessible on some internal structure
+        assumeTrue(System.getProperty("java.specification.version").startsWith("1."));
         logging.record("", Level.INFO).capture(256); // like WebAppMain would do, if in a real instance rather than JenkinsRule
         WorkflowJob p = r.jenkins.createProject(WorkflowJob.class, "p");
         p.setDefinition(new CpsFlowDefinition("", true));
