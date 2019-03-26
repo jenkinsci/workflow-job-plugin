@@ -45,7 +45,7 @@ public final class FlowGraphTableAction implements Action {
     }
 
     @Override public String getDisplayName() {
-        return "Pipeline Steps";
+        return Messages.Pipeline_Steps();
     }
 
     @Override public String getUrlName() {
