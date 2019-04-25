@@ -37,6 +37,7 @@ import org.jenkinsci.plugins.workflow.flow.FlowExecutionListener;
 import org.jenkinsci.plugins.workflow.flow.GraphListener;
 import org.jenkinsci.plugins.workflow.graph.FlowEndNode;
 import org.jenkinsci.plugins.workflow.graph.FlowNode;
+import org.jenkinsci.plugins.workflow.graph.FlowStartNode;
 import org.jenkinsci.plugins.workflow.job.properties.DurabilityHintJobProperty;
 import org.jenkinsci.plugins.workflow.test.steps.SemaphoreStep;
 import static org.junit.Assert.*;
@@ -268,6 +269,8 @@ public class WorkflowRunRestartTest {
             SemaphoreStep.waitForStart("wait/1", b);
             ExecListener listener = ExtensionList.lookup(FlowExecutionListener.class).get(ExecListener.class);
             assertNotNull(listener);
+            assertTrue(listener.graphListener.wasCalledWithFlowStartNode);
+            assertEquals(1, listener.created);
             assertEquals(1, listener.started);
             assertEquals(0, listener.resumed);
             assertEquals(0, listener.finished);
@@ -281,6 +284,7 @@ public class WorkflowRunRestartTest {
             SemaphoreStep.waitForStart("post-resume/1", b);
             ExecListener listener = ExtensionList.lookup(FlowExecutionListener.class).get(ExecListener.class);
             assertNotNull(listener);
+            assertEquals(0, listener.created);
             assertEquals(0, listener.started);
             assertEquals(1, listener.resumed);
             assertEquals(0, listener.finished);
@@ -290,6 +294,7 @@ public class WorkflowRunRestartTest {
             r.assertBuildStatus(Result.FAILURE, r.waitForCompletion(b));
             r.assertLogContains("Running for listener", b);
 
+            assertEquals(0, listener.created);
             assertEquals(0, listener.started);
             assertEquals(1, listener.resumed);
             assertEquals(1, listener.finished);
@@ -300,10 +305,18 @@ public class WorkflowRunRestartTest {
 
     @TestExtension("flowExecutionListener")
     public static class ExecListener extends FlowExecutionListener {
+        int created;
         int started;
         int finished;
         int resumed;
         ExecGraphListener graphListener = new ExecGraphListener();
+
+        @Override
+        public void onCreated(FlowExecution execution) {
+            assertTrue(execution.getCurrentHeads().isEmpty());
+            addGraphListenerCheckList(execution);
+            created++;
+        }
 
         @Override
         public void onRunning(FlowExecution execution) {
@@ -347,6 +360,7 @@ public class WorkflowRunRestartTest {
 
     public static class ExecGraphListener implements GraphListener.Synchronous {
         boolean wasCalledBeforeExecListener;
+        boolean wasCalledWithFlowStartNode;
 
         @Override
         public void onNewHead(FlowNode node) {
@@ -355,6 +369,9 @@ public class WorkflowRunRestartTest {
                 if (listener.finished == 0) {
                     wasCalledBeforeExecListener = true;
                 }
+            }
+            if (node instanceof FlowStartNode) {
+                wasCalledWithFlowStartNode = true;
             }
         }
     }

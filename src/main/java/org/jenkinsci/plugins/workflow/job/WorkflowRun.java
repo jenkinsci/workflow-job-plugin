@@ -317,6 +317,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
             if (!exec.isDone()) {
                 exec.set(newExecution);
             }
+            FlowExecutionListener.fireCreated(newExecution);
             newExecution.start();  // We should probably have the promise set before beginning, no?
             FlowExecutionListener.fireRunning(newExecution);
 
