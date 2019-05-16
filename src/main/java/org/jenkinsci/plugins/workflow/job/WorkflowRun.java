@@ -758,7 +758,8 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
         return isBuilding(); // there is no equivalent to a post-production state for flows
     }
 
-    synchronized @Nonnull List<SCMCheckout> checkouts(@CheckForNull TaskListener listener) {
+    @Exported
+    public synchronized @Nonnull List<SCMCheckout> checkouts(@CheckForNull TaskListener listener) {
         if (checkouts == null) {
             LOGGER.log(Level.WARNING, "JENKINS-26761: no checkouts in {0}", this);
             if (listener != null) {
