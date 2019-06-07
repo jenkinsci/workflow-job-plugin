@@ -570,16 +570,10 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
 
     /** Handles normal build completion (including errors) but also handles the case that the flow did not even start correctly, for example due to an error in {@link FlowExecution#start}. */
     private void finish(@Nonnull Result r, @CheckForNull Throwable t) {
-        boolean nullListener = false;
-        synchronized (getLogCopyGuard()) {
-            nullListener = listener == null;
-            setResult(r);
-            completed = Boolean.TRUE;
-            duration = Math.max(0, System.currentTimeMillis() - getStartTimeInMillis());
-        }
         try {
+            setResult(r);
             LOGGER.log(Level.INFO, "{0} completed: {1}", new Object[]{toString(), getResult()});
-            if (nullListener) {
+            if (listener == null) {
                 // Never even made it to running, either failed when fresh-started or resumed -- otherwise getListener would have run
                 LOGGER.log(Level.WARNING, this + " failed to start", t);
             } else {
@@ -600,6 +594,10 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
                     }
                 }
                 listener = null;
+            }
+            synchronized (getLogCopyGuard()) {
+                completed = true;
+                duration = Math.max(0, System.currentTimeMillis() - getStartTimeInMillis());
             }
             saveWithoutFailing(); // TODO useless if we are inside a BulkChange
             Timer.get().submit(() -> {
