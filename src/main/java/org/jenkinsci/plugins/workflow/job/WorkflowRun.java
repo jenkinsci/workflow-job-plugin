@@ -572,6 +572,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
     private void finish(@Nonnull Result r, @CheckForNull Throwable t) {
         try {
             setResult(r);
+            duration = Math.max(0, System.currentTimeMillis() - getStartTimeInMillis());
             LOGGER.log(Level.INFO, "{0} completed: {1}", new Object[]{toString(), getResult()});
             if (listener == null) {
                 // Never even made it to running, either failed when fresh-started or resumed -- otherwise getListener would have run
@@ -597,7 +598,6 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
             }
             synchronized (getLogCopyGuard()) {
                 completed = true;
-                duration = Math.max(0, System.currentTimeMillis() - getStartTimeInMillis());
             }
             saveWithoutFailing(); // TODO useless if we are inside a BulkChange
             Timer.get().submit(() -> {
