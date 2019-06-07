@@ -195,7 +195,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
     /** True when first started, false when running after a restart. */
     private transient boolean firstTime;
 
-    /** Obtain our guard object for log copying, lazily initializing if needed.
+    /** Obtain our guard object for metadata, lazily initializing if needed.
      *  Note: to avoid deadlocks, when nesting locks we ALWAYS need to lock on the guard first, THEN the WorkflowRun.
      *  Synchronizing this helps ensure that fields are not mutated during a {@link #save()} operation, since that locks on the Run.
      */
@@ -211,8 +211,8 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
 
     /** Used internally to ensure listener has been initialized correctly. */
     BuildListener getListener() {
-        // Un-synchronized to prevent deadlocks (combination of run and logCopyGuard)
-        // Note that in portions where multithreaded access is possible we are already synchronizing on logCopyGuard
+        // Un-synchronized to prevent deadlocks (combination of run and metadataGuard)
+        // Note that in portions where multithreaded access is possible we are already synchronizing on metadataGuard
         if (listener == null) {
             try {
                 // TODO to better handle in-VM restart (e.g. in JenkinsRule), move CpsFlowExecution.suspendAll logic into a FlowExecution.notifyShutdown override, then make FlowExecutionOwner.notifyShutdown also overridable, which for WorkflowRun.Owner should listener.close() as needed
