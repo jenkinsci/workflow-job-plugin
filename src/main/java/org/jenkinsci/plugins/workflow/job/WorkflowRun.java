@@ -753,7 +753,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
     }
 
     @Override public boolean isLogUpdated() {
-        return isBuilding(); // there is no equivalent to a post-production state for flows
+        return listener != null || isBuilding(); // there is no equivalent to a post-production state for flows
     }
 
     synchronized @Nonnull List<SCMCheckout> checkouts(@CheckForNull TaskListener listener) {
