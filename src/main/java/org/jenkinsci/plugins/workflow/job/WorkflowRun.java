@@ -196,7 +196,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
     private transient boolean firstTime;
 
     /** Obtain our guard object for log copying, lazily initializing if needed.
-     *  Note: to avoid deadlocks, when nesting locks we ALWAYS need to lock on the logCopyGuard first, THEN the WorkflowRun.
+     *  Note: to avoid deadlocks, when nesting locks we ALWAYS need to lock on the guard first, THEN the WorkflowRun.
      *  Synchronizing this helps ensure that fields are not mutated during a {@link #save()} operation, since that locks on the Run.
      */
     private synchronized Object getMetadataGuard() {
