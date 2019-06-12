@@ -156,7 +156,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
             return WorkflowRun.this;
         }
     };
-    private transient BuildListener listener;
+    private transient volatile BuildListener listener;
 
     private transient boolean allowTerm;
 
@@ -210,7 +210,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
     static final StreamBuildListener NULL_LISTENER = new StreamBuildListener(new NullStream());
 
     /** Used internally to ensure listener has been initialized correctly. */
-    BuildListener getListener() {
+    private BuildListener getListener() {
         // Un-synchronized to prevent deadlocks (combination of run and metadataGuard)
         // Note that in portions where multithreaded access is possible we are already synchronizing on metadataGuard
         if (listener == null) {
@@ -572,6 +572,9 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
     private void finish(@Nonnull Result r, @CheckForNull Throwable t) {
         try {
             setResult(r);
+            synchronized (getMetadataGuard()) {
+                completed = true;
+            }
             duration = Math.max(0, System.currentTimeMillis() - getStartTimeInMillis());
             LOGGER.log(Level.INFO, "{0} completed: {1}", new Object[]{toString(), getResult()});
             if (listener == null) {
@@ -595,9 +598,6 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
                     }
                 }
                 listener = null;
-            }
-            synchronized (getMetadataGuard()) {
-                completed = true;
             }
             saveWithoutFailing(); // TODO useless if we are inside a BulkChange
             Timer.get().submit(() -> {
