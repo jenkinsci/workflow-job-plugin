@@ -156,7 +156,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
             return WorkflowRun.this;
         }
     };
-    private transient BuildListener listener;
+    private transient volatile BuildListener listener;
 
     private transient boolean allowTerm;
 
@@ -184,8 +184,8 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
      */
     Boolean completed;  // Non-private for testing
 
-    /** Protects the access to logsToCopy, completed, and branchNameCache that are used in the logCopy process */
-    private transient Object logCopyGuard = new Object();
+    /** Protects access to {@link #completed} etc. */
+    private transient Object metadataGuard = new Object();
 
     /** JENKINS-26761: supposed to always be set but sometimes is not. Access only through {@link #checkouts(TaskListener)}. */
     private @CheckForNull List<SCMCheckout> checkouts;
@@ -195,24 +195,24 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
     /** True when first started, false when running after a restart. */
     private transient boolean firstTime;
 
-    /** Obtain our guard object for log copying, lazily initializing if needed.
-     *  Note: to avoid deadlocks, when nesting locks we ALWAYS need to lock on the logCopyGuard first, THEN the WorkflowRun.
+    /** Obtain our guard object for metadata, lazily initializing if needed.
+     *  Note: to avoid deadlocks, when nesting locks we ALWAYS need to lock on the guard first, THEN the WorkflowRun.
      *  Synchronizing this helps ensure that fields are not mutated during a {@link #save()} operation, since that locks on the Run.
      */
-    private synchronized Object getLogCopyGuard() { // TODO no longer used for log copying, so rename
-        if (logCopyGuard == null) {
-            logCopyGuard = new Object();
+    private synchronized Object getMetadataGuard() {
+        if (metadataGuard == null) {
+            metadataGuard = new Object();
         }
-        return logCopyGuard;
+        return metadataGuard;
     }
 
     /** Avoids creating new instances, analogous to {@link TaskListener#NULL} but as full StreamBuildListener. */
     static final StreamBuildListener NULL_LISTENER = new StreamBuildListener(new NullStream());
 
     /** Used internally to ensure listener has been initialized correctly. */
-    BuildListener getListener() {
-        // Un-synchronized to prevent deadlocks (combination of run and logCopyGuard)
-        // Note that in portions where multithreaded access is possible we are already synchronizing on logCopyGuard
+    private BuildListener getListener() {
+        // Un-synchronized to prevent deadlocks (combination of run and metadataGuard)
+        // Note that in portions where multithreaded access is possible we are already synchronizing on metadataGuard
         if (listener == null) {
             try {
                 // TODO to better handle in-VM restart (e.g. in JenkinsRule), move CpsFlowExecution.suspendAll logic into a FlowExecution.notifyShutdown override, then make FlowExecutionOwner.notifyShutdown also overridable, which for WorkflowRun.Owner should listener.close() as needed
@@ -305,7 +305,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
                 myListener.getLogger().println("Running in Durability level: "+DurabilityHintProvider.suggestedFor(this.project));
             }
             save();  // Save before we add to the FlowExecutionList, to ensure we never have a run with a null build.
-            synchronized (getLogCopyGuard()) {  // Technically safe but it makes FindBugs happy
+            synchronized (getMetadataGuard()) {  // Technically safe but it makes FindBugs happy
                 FlowExecutionList.get().register(owner);
                 newExecution.addListener(new GraphL());
                 newExecution.addListener(new NodePrintListener());
@@ -406,7 +406,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
         final Throwable x = new FlowInterruptedException(Result.ABORTED);
         FlowExecution exec = getExecution();
         if (exec == null) { // Already dead, just make sure statuses reflect that.
-            synchronized (getLogCopyGuard()) {
+            synchronized (getMetadataGuard()) {
                 // Null execution means a hard-kill of the execution and build is by definition dead
                 // So we should make sure the result is set to failure if un-set and it's completed and then save.
                 boolean modified = false;
@@ -451,7 +451,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
         if (!isBuilding() || /* probably redundant, but just to be sure */ execution == null) {
             return;
         }
-        synchronized (getLogCopyGuard()) {
+        synchronized (getMetadataGuard()) {
             getListener().getLogger().println("Hard kill!");
         }
         synchronized (this) {
@@ -506,7 +506,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
 
     @Override protected void onLoad() {
         try {
-            synchronized (getLogCopyGuard()) {
+            synchronized (getMetadataGuard()) {
                 if (executionLoaded) {
                     LOGGER.log(Level.WARNING, "Double onLoad of build "+this);
                     return;
@@ -570,16 +570,14 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
 
     /** Handles normal build completion (including errors) but also handles the case that the flow did not even start correctly, for example due to an error in {@link FlowExecution#start}. */
     private void finish(@Nonnull Result r, @CheckForNull Throwable t) {
-        boolean nullListener = false;
-        synchronized (getLogCopyGuard()) {
-            nullListener = listener == null;
-            setResult(r);
-            completed = Boolean.TRUE;
-            duration = Math.max(0, System.currentTimeMillis() - getStartTimeInMillis());
-        }
         try {
+            setResult(r);
+            synchronized (getMetadataGuard()) {
+                completed = true;
+            }
+            duration = Math.max(0, System.currentTimeMillis() - getStartTimeInMillis());
             LOGGER.log(Level.INFO, "{0} completed: {1}", new Object[]{toString(), getResult()});
-            if (nullListener) {
+            if (listener == null) {
                 // Never even made it to running, either failed when fresh-started or resumed -- otherwise getListener would have run
                 LOGGER.log(Level.WARNING, this + " failed to start", t);
             } else {
@@ -755,7 +753,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
     }
 
     @Override public boolean isLogUpdated() {
-        return isBuilding(); // there is no equivalent to a post-production state for flows
+        return listener != null || isBuilding(); // there is no equivalent to a post-production state for flows
     }
 
     synchronized @Nonnull List<SCMCheckout> checkouts(@CheckForNull TaskListener listener) {
@@ -979,7 +977,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
         @Override public void onNewHead(FlowNode node) {
             if (node instanceof FlowEndNode) {
                 Timer.get().schedule(() -> {
-                    synchronized (getLogCopyGuard()) {
+                    synchronized (getMetadataGuard()) {
                         finish(((FlowEndNode) node).getResult(), execution != null ? execution.getCauseOfFailure() : null);
                     }
                 }, 1, TimeUnit.SECONDS);
