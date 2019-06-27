@@ -110,7 +110,7 @@ public class PipelineTriggersJobProperty extends JobProperty<WorkflowJob> {
             if (LOGGER.isLoggable(Level.FINE)) {
                 // This is a normal behavior. Even if we miss the triggers,
                 // They will be started once WorkflowJob#addProperty() is called (standard method override).
-                LOGGER.log(Level.FINE, "Cannot start triggers. Owner of the JobProperty has not been assigned yet", 
+                LOGGER.log(Level.WARNING, "Cannot start triggers. Owner of the JobProperty has not been assigned yet", 
                         new IllegalStateException("JobProperty owner is null"));
             }
             return;
