@@ -629,7 +629,7 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements L
             } catch (AbortException x) {
                 listener.error("polling failed in " + co.workspace + " on " + co.node + ": " + x.getMessage());
             } catch (Exception x) {
-                listener.error("polling failed in " + co.workspace + " on " + co.node).println(Functions.printThrowable(x).trim()); // TODO 2.43+ use Functions.printStackTrace
+                Functions.printStackTrace(x, listener.error("polling failed in " + co.workspace + " on " + co.node));
             }
         }
         return result;
