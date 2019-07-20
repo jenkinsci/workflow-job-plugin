@@ -92,7 +92,7 @@ public class WorkflowRunTest {
 
     @Test public void basics() throws Exception {
         WorkflowJob p = r.jenkins.createProject(WorkflowJob.class, "p");
-        p.setDefinition(new CpsFlowDefinition("println('hello')"));
+        p.setDefinition(new CpsFlowDefinition("println('hello')", true));
         WorkflowRun b1 = r.assertBuildStatusSuccess(p.scheduleBuild2(0));
         assertFalse(b1.isBuilding());
         assertFalse(b1.isInProgress());
@@ -150,8 +150,8 @@ public class WorkflowRunTest {
         p.setDefinition(new CpsFlowDefinition(
             "println('hello')\n"+
             "semaphore 'wait'\n"+
-            "println('hello')\n"
-        ));
+            "println('hello')\n",
+            true));
 
         // no build exists yet
         assertSame(p.getIconColor(),BallColor.NOTBUILT);
@@ -227,7 +227,7 @@ public class WorkflowRunTest {
         final WorkflowJob p = r.jenkins.createProject(WorkflowJob.class, "p");
         final String groovy = "println 'hello'";
         try (ACLContext context = ACL.as(User.getById("dev", true))) {
-            p.setDefinition(new CpsFlowDefinition(groovy));
+            p.setDefinition(new CpsFlowDefinition(groovy, false /* for mock authorization strategy */));
         }
         r.assertLogContains("UnapprovedUsageException", r.assertBuildStatus(Result.FAILURE, p.scheduleBuild2(0).get()));
         Set<ScriptApproval.PendingScript> pendingScripts = ScriptApproval.get().getPendingScripts();
@@ -248,8 +248,8 @@ public class WorkflowRunTest {
                         "def hello = new HelloWorld()\n" +
                         "public class HelloWorld()\n" +
                         "{ // <- invalid class definition }\n" +
-                        "}}"
-        ));
+                        "}}",
+                true));
         QueueTaskFuture<WorkflowRun> workflowRunQueueTaskFuture = p.scheduleBuild2(0);
         WorkflowRun run = r.assertBuildStatus(Result.FAILURE, workflowRunQueueTaskFuture.get());
 
@@ -264,7 +264,7 @@ public class WorkflowRunTest {
     @Test public void buildRecordAfterRename() throws Exception {
         {
             WorkflowJob p = r.jenkins.createProject(WorkflowJob.class, "p1");
-            p.setDefinition(new CpsFlowDefinition("echo 'hello world'"));
+            p.setDefinition(new CpsFlowDefinition("echo 'hello world'", true));
             r.assertBuildStatusSuccess(p.scheduleBuild2(0));
             p.renameTo("p2");
         }
@@ -372,7 +372,7 @@ public class WorkflowRunTest {
                 "    def thirdScm = new FakeChangeLogSCM()\n" +
                 "    thirdScm.addChange().withAuthor(/charlie$BUILD_NUMBER/)\n" +
                 "    checkout(thirdScm)\n" +
-                "}\n", false));
+                "}\n", false /* for org.jvnet.hudson.test.FakeChangeLogSCM */));
 
         WorkflowRun b1 = p.scheduleBuild2(0).waitForStart();
 

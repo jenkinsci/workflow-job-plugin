@@ -54,7 +54,7 @@ public class CLITest {
 
     @Test public void listChanges() throws Exception {
         WorkflowJob p = r.createProject(WorkflowJob.class, "p");
-        p.setDefinition(new CpsFlowDefinition("node {def s = new org.jvnet.hudson.test.FakeChangeLogSCM(); s.addChange().withAuthor('alice').withMsg('hello'); checkout s}", false));
+        p.setDefinition(new CpsFlowDefinition("node {def s = new org.jvnet.hudson.test.FakeChangeLogSCM(); s.addChange().withAuthor('alice').withMsg('hello'); checkout s}", false /* for org.jvnet.hudson.test.FakeChangeLogSCM */));
         r.buildAndAssertSuccess(p);
         CLICommandInvoker.Result res = new CLICommandInvoker(r, "list-changes").invokeWithArgs("p", "1");
         assertThat(res, CLICommandInvoker.Matcher.succeeded());
