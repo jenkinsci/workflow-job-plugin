@@ -29,20 +29,20 @@ public class WorkflowJobTest {
         p.setDefinition(new CpsFlowDefinition(
             "node {\n" +
                     "  checkout(new hudson.scm.NullSCM())\n" +
-            "}"));
+            "}", false /* for hudson.scm.NullSCM */));
         assertTrue("No runs has been performed and there should be no SCMs", p.getSCMs().isEmpty());
 
         j.buildAndAssertSuccess(p);
 
         assertEquals("Expecting one SCM", 1, p.getSCMs().size());
 
-        p.setDefinition(new CpsFlowDefinition("error 'Fail!'"));
+        p.setDefinition(new CpsFlowDefinition("error 'Fail!'", true));
 
         j.assertBuildStatus(Result.FAILURE, p.scheduleBuild2(0));
 
         assertEquals("Expecting one SCM even though last run failed",1, p.getSCMs().size());
 
-        p.setDefinition(new CpsFlowDefinition("echo 'Pass!'"));
+        p.setDefinition(new CpsFlowDefinition("echo 'Pass!'", true));
 
         j.buildAndAssertSuccess(p);
 

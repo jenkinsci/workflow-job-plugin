@@ -22,7 +22,7 @@ public class DurabilityHintJobPropertyTest {
     @Test
     public void configRoundTripAndRun() throws Exception{
         WorkflowJob defaultCase = r.jenkins.createProject(WorkflowJob.class, "testCase");
-        defaultCase.setDefinition(new CpsFlowDefinition("echo 'cheese is delicious'", false));
+        defaultCase.setDefinition(new CpsFlowDefinition("echo 'cheese is delicious'", true));
 
         assertNull(defaultCase.getProperty(DurabilityHintJobProperty.class));
 
