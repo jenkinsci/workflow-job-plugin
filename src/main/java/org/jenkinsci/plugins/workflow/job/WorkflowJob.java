@@ -671,34 +671,29 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements L
         /**
          * Needed if it wants Pipeline jobs are categorized in Jenkins 2.x.
          *
-         * TODO: Override when the baseline is upgraded to 2.x
          * TODO: Replace to {@code StandaloneProjectsCategory.ID}
          *
          * @return A string it represents a ItemCategory identifier.
          */
-        public String getCategoryId() {
+        @Override public String getCategoryId() {
             return "standalone-projects";
         }
 
         /**
          * Needed if it wants Pipeline jobs are categorized in Jenkins 2.x.
          *
-         * TODO: Override when the baseline is upgraded to 2.x
-         *
          * @return A string with the Item description.
          */
-        public String getDescription() {
+        @Override public String getDescription() {
             return Messages.WorkflowJob_Description();
         }
 
         /**
          * Needed if it wants Pipeline jobs are categorized in Jenkins 2.x.
          *
-         * TODO: Override when the baseline is upgraded to 2.x
-         *
          * @return A string it represents a URL pattern to get the Item icon in different sizes.
          */
-        public String getIconFilePathPattern() {
+        @Override public String getIconFilePathPattern() {
             return "plugin/workflow-job/images/:size/pipelinejob.png";
         }
 
