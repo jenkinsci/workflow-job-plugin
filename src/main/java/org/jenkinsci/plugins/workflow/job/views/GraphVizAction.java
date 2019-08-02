@@ -24,6 +24,7 @@
 
 package org.jenkinsci.plugins.workflow.job.views;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import hudson.Extension;
 import hudson.model.Action;
 import hudson.util.HttpResponses;
@@ -76,7 +77,7 @@ public final class GraphVizAction implements Action {
         return HttpResponses.plainText(sw.toString());
     }
 
-    @edu.umd.cs.findbugs.annotations.SuppressWarnings("DM_DEFAULT_ENCODING")
+    @SuppressFBWarnings("DM_DEFAULT_ENCODING")
     public void doIndex(StaplerResponse rsp) throws IOException {
         Process p = new ProcessBuilder("dot", "-Tpng").start();
         writeDot(new PrintWriter(p.getOutputStream()));

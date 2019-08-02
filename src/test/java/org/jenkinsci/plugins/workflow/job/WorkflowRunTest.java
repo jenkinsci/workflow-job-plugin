@@ -444,10 +444,10 @@ public class WorkflowRunTest {
         WorkflowJob p = r.jenkins.createProject(WorkflowJob.class, "p");
         p.setDefinition(new CpsFlowDefinition("", true));
         // Control case:
-        QueueItemAuthenticatorConfiguration.get().getAuthenticators().add(new MockQueueItemAuthenticator(Collections.singletonMap("p", User.get("admin").impersonate())));
+        QueueItemAuthenticatorConfiguration.get().getAuthenticators().add(new MockQueueItemAuthenticator(Collections.singletonMap("p", User.getById("admin", true).impersonate())));
         r.buildAndAssertSuccess(p);
         // Test case: build is never scheduled, queue item hangs with “Waiting for next available executor on master”
-        QueueItemAuthenticatorConfiguration.get().getAuthenticators().replace(new MockQueueItemAuthenticator(Collections.singletonMap("p", User.get("dev").impersonate())));
+        QueueItemAuthenticatorConfiguration.get().getAuthenticators().replace(new MockQueueItemAuthenticator(Collections.singletonMap("p", User.getById("dev", true).impersonate())));
         r.buildAndAssertSuccess(p);
     }
 
