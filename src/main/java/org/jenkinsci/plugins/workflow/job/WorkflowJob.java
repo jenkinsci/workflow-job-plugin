@@ -431,7 +431,7 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements L
         PipelineTriggersJobProperty triggerProp = getProperty(PipelineTriggersJobProperty.class);
 
         if (triggerProp == null) {
-            triggerProp = new PipelineTriggersJobProperty(new ArrayList<Trigger>());
+            triggerProp = new PipelineTriggersJobProperty(new ArrayList<>());
         }
 
         return triggerProp;
