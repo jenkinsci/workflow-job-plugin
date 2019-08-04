@@ -25,9 +25,7 @@
 package org.jenkinsci.plugins.workflow.job.properties;
 
 import hudson.Extension;
-import hudson.ExtensionList;
 import hudson.model.Item;
-import jenkins.model.Jenkins;
 import jenkins.model.OptionalJobProperty;
 import org.jenkinsci.Symbol;
 import org.jenkinsci.plugins.workflow.flow.DurabilityHintProvider;
@@ -38,7 +36,6 @@ import org.kohsuke.stapler.DataBoundConstructor;
 
 import javax.annotation.CheckForNull;
 import javax.annotation.Nonnull;
-import java.util.List;
 
 /**
  * Hint about the desired {@link FlowDurabilityHint}.
