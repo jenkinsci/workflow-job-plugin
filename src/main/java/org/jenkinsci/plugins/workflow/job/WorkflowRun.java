@@ -346,26 +346,24 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
                 if (forShutdown) {
                     return;
                 }
-                Timer.get().submit(new Runnable() {
-                    @Override public void run() {
-                        FlowExecution fetchedExecution = execution;
-                        if (fetchedExecution == null) {
-                            return;
-                        }
-                        Executor executor = getExecutor();
-                        if (executor == null) {
-                            LOGGER.log(Level.WARNING, "Lost executor for {0}", WorkflowRun.this);
-                            return;
-                        }
-                        try {
-                            Collection<CauseOfInterruption> causes = executor.getCausesOfInterruption();
-                            fetchedExecution.interrupt(executor.abortResult(), causes.toArray(new CauseOfInterruption[causes.size()]));
-                        } catch (Exception x) {
-                            LOGGER.log(Level.WARNING, null, x);
-                        }
-                        executor.recordCauseOfInterruption(WorkflowRun.this, getListener());
-                        printLater(StopState.TERM, "Click here to forcibly terminate running steps");
+                Timer.get().submit(() -> {
+                    FlowExecution fetchedExecution = execution;
+                    if (fetchedExecution == null) {
+                        return;
                     }
+                    Executor executor = getExecutor();
+                    if (executor == null) {
+                        LOGGER.log(Level.WARNING, "Lost executor for {0}", WorkflowRun.this);
+                        return;
+                    }
+                    try {
+                        Collection<CauseOfInterruption> causes = executor.getCausesOfInterruption();
+                        fetchedExecution.interrupt(executor.abortResult(), causes.toArray(new CauseOfInterruption[causes.size()]));
+                    } catch (Exception x) {
+                        LOGGER.log(Level.WARNING, null, x);
+                    }
+                    executor.recordCauseOfInterruption(WorkflowRun.this, getListener());
+                    printLater(StopState.TERM, "Click here to forcibly terminate running steps");
                 });
             }
             @Override public boolean blocksRestart() {
@@ -379,21 +377,19 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
     }
 
     private void printLater(final StopState state, final String message) {
-        Timer.get().schedule(new Runnable() {
-            @Override public void run() {
-                if (!isInProgress()) {
-                    return;
-                }
-                switch (state) {
-                    case TERM:
-                        allowTerm = true;
-                        break;
-                    case KILL:
-                        allowKill = true;
-                        break;
-                }
-                getListener().getLogger().println(POSTHyperlinkNote.encodeTo("/" + getUrl() + state.url(), message));
+        Timer.get().schedule(() -> {
+            if (!isInProgress()) {
+                return;
             }
+            switch (state) {
+                case TERM:
+                    allowTerm = true;
+                    break;
+                case KILL:
+                    allowKill = true;
+                    break;
+            }
+            getListener().getLogger().println(POSTHyperlinkNote.encodeTo("/" + getUrl() + state.url(), message));
         }, 15, TimeUnit.SECONDS);
     }
 
