@@ -212,7 +212,7 @@ public class WorkflowRunTest {
         assertFalse(b2.hasntStartedYet());
         assertColor(b2, BallColor.BLUE);
     }
-    private void assertColor(WorkflowRun b, BallColor color) throws IOException {
+    private void assertColor(WorkflowRun b, BallColor color) {
         assertSame(color, b.getIconColor());
         assertSame(color, b.getParent().getIconColor());
     }

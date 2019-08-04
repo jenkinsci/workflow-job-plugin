@@ -86,7 +86,7 @@ public final class GraphVizAction implements Action {
         IOUtils.copy(p.getInputStream(), rsp.getOutputStream());
     }
 
-    private void writeDot(PrintWriter w) throws IOException {
+    private void writeDot(PrintWriter w) {
         try {
             w.println("digraph G {");
             FlowGraphWalker walker = new FlowGraphWalker(run.getExecution());
