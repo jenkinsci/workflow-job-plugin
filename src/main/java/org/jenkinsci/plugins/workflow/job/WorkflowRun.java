@@ -665,7 +665,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
                             Result finalResult = Result.FAILURE;
                             List<FlowNode> heads = fetchedExecution.getCurrentHeads();
                             if (!heads.isEmpty() && heads.get(0) instanceof FlowEndNode) {
-                                finalResult = ((FlowEndNode)(heads.get(0))).getResult();
+                                finalResult = ((FlowEndNode) heads.get(0)).getResult();
                             }
                             setResult(finalResult);
                             fetchedExecution.removeListener(finishListener);

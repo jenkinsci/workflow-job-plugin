@@ -134,7 +134,7 @@ public class CpsPersistenceTest {
     }
 
     static void assertResultMatchExecutionAndRun(WorkflowRun run, Result[] executionAndBuildResult) throws Exception {
-        Assert.assertEquals(executionAndBuildResult[0], ((CpsFlowExecution)(run.getExecution())).getResult());
+        Assert.assertEquals(executionAndBuildResult[0], ((CpsFlowExecution) run.getExecution()).getResult());
         Assert.assertEquals(executionAndBuildResult[1], run.getResult());
     }
 
@@ -198,10 +198,10 @@ public class CpsPersistenceTest {
             String finalId = run.getExecution().getCurrentHeads().get(0).getId();
 
             // Hack but deletes the file from disk
-            CpsFlowExecution cpsExec = (CpsFlowExecution)(run.getExecution());
+            CpsFlowExecution cpsExec = (CpsFlowExecution) run.getExecution();
             File f = new File(cpsExec.getStorageDir(), finalId+".xml");
             Files.delete(f.toPath());
-            executionAndBuildResult[0] = ((CpsFlowExecution)(run.getExecution())).getResult();
+            executionAndBuildResult[0] = ((CpsFlowExecution) run.getExecution()).getResult();
             executionAndBuildResult[1] = run.getResult();
         });
         story.then(j-> {
@@ -220,8 +220,8 @@ public class CpsPersistenceTest {
         final Result[] executionAndBuildResult = new Result[2];
         story.thenWithHardShutdown( j -> {
             WorkflowRun run = runBasicBuild(j, DEFAULT_JOBNAME, build);
-            FileUtils.deleteDirectory(((CpsFlowExecution)(run.getExecution())).getStorageDir());
-            executionAndBuildResult[0] = ((CpsFlowExecution)(run.getExecution())).getResult();
+            FileUtils.deleteDirectory(((CpsFlowExecution) run.getExecution()).getStorageDir());
+            executionAndBuildResult[0] = ((CpsFlowExecution) run.getExecution()).getResult();
             executionAndBuildResult[1] = run.getResult();
         });
         story.then(j-> {
@@ -244,10 +244,10 @@ public class CpsPersistenceTest {
             String finalId = run.getExecution().getCurrentHeads().get(0).getId();
 
             // Hack but deletes the FlowNodeStorage from disk
-            CpsFlowExecution cpsExec = (CpsFlowExecution)(run.getExecution());
+            CpsFlowExecution cpsExec = (CpsFlowExecution) run.getExecution();
             setCpsDoneFlag(cpsExec, false);
             run.save();
-            executionAndBuildResult[0] = ((CpsFlowExecution)(run.getExecution())).getResult();
+            executionAndBuildResult[0] = ((CpsFlowExecution) run.getExecution()).getResult();
             executionAndBuildResult[1] = run.getResult();
         });
         story.then(j-> {
@@ -327,8 +327,8 @@ public class CpsPersistenceTest {
         final int[] build = new int[1];
         story.thenWithHardShutdown( j -> {
             WorkflowRun run = runBasicPauseOnInput(j, DEFAULT_JOBNAME, build);
-            CpsFlowExecution cpsExec = (CpsFlowExecution)(run.getExecution());
-            FileUtils.deleteDirectory(((CpsFlowExecution)(run.getExecution())).getStorageDir());
+            CpsFlowExecution cpsExec = (CpsFlowExecution) run.getExecution();
+            FileUtils.deleteDirectory(((CpsFlowExecution) run.getExecution()).getStorageDir());
         });
         story.then( j->{
             WorkflowJob r = j.jenkins.getItemByFullName(DEFAULT_JOBNAME, WorkflowJob.class);
@@ -343,10 +343,10 @@ public class CpsPersistenceTest {
         final int[] build = new int[1];
         story.thenWithHardShutdown( j -> {
             WorkflowRun run = runBasicPauseOnInput(j, DEFAULT_JOBNAME, build);
-            CpsFlowExecution cpsExec = (CpsFlowExecution)(run.getExecution());
+            CpsFlowExecution cpsExec = (CpsFlowExecution) run.getExecution();
             Method m = cpsExec.getClass().getDeclaredMethod("getProgramDataFile", null);
             m.setAccessible(true);
-            File f = (File)(m.invoke(cpsExec, null));
+            File f = (File) m.invoke(cpsExec, null);
             Files.delete(f.toPath());
         });
         story.then( j->{
@@ -362,7 +362,7 @@ public class CpsPersistenceTest {
         final int[] build = new int[1];
         story.thenWithHardShutdown( j -> {
             WorkflowRun run = runBasicPauseOnInput(j, DEFAULT_JOBNAME, build);
-            CpsFlowExecution cpsExec = (CpsFlowExecution)(run.getExecution());
+            CpsFlowExecution cpsExec = (CpsFlowExecution) run.getExecution();
             getCpsBlockStartNodes(cpsExec).push(new FlowStartNode(cpsExec, cpsExec.iotaStr()));
             run.save();
         });
@@ -380,7 +380,7 @@ public class CpsPersistenceTest {
         final int[] build = new int[1];
         story.thenWithHardShutdown( j -> {
             WorkflowRun run = runBasicPauseOnInput(j, DEFAULT_JOBNAME, build);
-            CpsFlowExecution cpsExec = (CpsFlowExecution)(run.getExecution());
+            CpsFlowExecution cpsExec = (CpsFlowExecution) run.getExecution();
             InputStepExecution exec = getInputStepExecution(run, "pause");
             exec.doProceedEmpty();
             j.waitForCompletion(run);
