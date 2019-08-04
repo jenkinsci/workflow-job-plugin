@@ -409,8 +409,7 @@ public class WorkflowRunTest {
     }
 
     private void assertCulprits(WorkflowRun b, String... expectedIds) throws IOException, SAXException {
-        Set<String> actual = new TreeSet<>();
-        actual.addAll(b.getCulpritIds());
+        Set<String> actual = new TreeSet<>(b.getCulpritIds());
         assertEquals(actual, new TreeSet<>(Arrays.asList(expectedIds)));
 
         if (expectedIds.length > 0) {
