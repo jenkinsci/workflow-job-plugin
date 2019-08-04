@@ -83,7 +83,7 @@ public class WorkflowJobTest {
         assertFalse(p.isDisabled());
         assertTrue(p.isBuildable());
         JenkinsRule.WebClient wc = j.createWebClient();
-        j.submit(wc.getPage(p).<HtmlForm>getHtmlElementById("disable-project"));
+        j.submit(wc.getPage(p).getHtmlElementById("disable-project"));
         assertTrue(p.isDisabled());
         assertFalse(p.isBuildable());
         HtmlForm form = wc.getPage(p, "configure").getFormByName("config");
