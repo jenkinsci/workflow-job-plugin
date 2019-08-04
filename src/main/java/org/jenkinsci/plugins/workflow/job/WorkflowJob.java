@@ -318,11 +318,11 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements L
     }
 
     @Exported
-    public boolean isResumeBlocked() {
+    @Override public boolean isResumeBlocked() {
         return getProperty(DisableResumeJobProperty.class) != null;
     }
 
-    public void setResumeBlocked(boolean resumeBlocked)  {
+    @Override public void setResumeBlocked(boolean resumeBlocked)  {
         try {
             boolean previousState = isResumeBlocked();
             if (resumeBlocked != previousState) {
