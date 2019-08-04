@@ -336,8 +336,8 @@ public class CpsPersistenceTest {
         });
     }
 
-    @Test
     /** Build okay but program fails to load */
+    @Test
     public void inProgressButProgramLoadFailure() throws Exception {
         final int[] build = new int[1];
         story.thenWithHardShutdown( j -> {
@@ -355,8 +355,8 @@ public class CpsPersistenceTest {
         });
     }
 
-    @Test
     /** Build okay but then the start nodes get screwed up */
+    @Test
     public void inProgressButStartBlocksLost() throws Exception {
         final int[] build = new int[1];
         story.thenWithHardShutdown( j -> {
@@ -372,9 +372,9 @@ public class CpsPersistenceTest {
         });
     }
 
+    /** Replicates case where builds resume when the should not due to build's completion not being saved. */
     @Test
     @Issue("JENKINS-50199")
-    /** Replicates case where builds resume when the should not due to build's completion not being saved. */
     public void completedExecutionButRunIncomplete() throws Exception {
         final int[] build = new int[1];
         story.thenWithHardShutdown( j -> {
