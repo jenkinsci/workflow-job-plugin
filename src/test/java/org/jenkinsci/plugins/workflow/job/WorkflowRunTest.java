@@ -102,7 +102,7 @@ public class WorkflowRunTest {
         assertTrue(b1.getDuration() > 0);
         WorkflowRun b2 = r.assertBuildStatusSuccess(p.scheduleBuild2(0));
         assertEquals(b1, b2.getPreviousBuild());
-        assertEquals(null, b1.getPreviousBuild());
+        assertNull(b1.getPreviousBuild());
         r.assertLogContains("hello", b1);
     }
 
