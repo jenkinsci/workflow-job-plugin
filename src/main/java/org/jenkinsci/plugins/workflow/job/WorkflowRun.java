@@ -1045,7 +1045,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
     }
 
     @FunctionalInterface private interface WriteMethod {
-        public long writeLogTo(long start, OutputStream os) throws IOException;
+        long writeLogTo(long start, OutputStream os) throws IOException;
     }
 
     private void writeLogTo(WriteMethod method, OutputStream os) throws IOException {
