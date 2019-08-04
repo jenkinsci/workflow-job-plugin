@@ -28,6 +28,7 @@ import org.jvnet.hudson.test.RestartableJenkinsRule;
 import java.io.File;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
+import java.nio.file.Files;
 import java.util.List;
 import java.util.Stack;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -199,7 +200,7 @@ public class CpsPersistenceTest {
             // Hack but deletes the file from disk
             CpsFlowExecution cpsExec = (CpsFlowExecution)(run.getExecution());
             File f = new File(cpsExec.getStorageDir(), finalId+".xml");
-            f.delete();
+            Files.delete(f.toPath());
             executionAndBuildResult[0] = ((CpsFlowExecution)(run.getExecution())).getResult();
             executionAndBuildResult[1] = run.getResult();
         });
@@ -346,7 +347,7 @@ public class CpsPersistenceTest {
             Method m = cpsExec.getClass().getDeclaredMethod("getProgramDataFile", null);
             m.setAccessible(true);
             File f = (File)(m.invoke(cpsExec, null));
-            f.delete();
+            Files.delete(f.toPath());
         });
         story.then( j->{
             WorkflowJob r = j.jenkins.getItemByFullName(DEFAULT_JOBNAME, WorkflowJob.class);
