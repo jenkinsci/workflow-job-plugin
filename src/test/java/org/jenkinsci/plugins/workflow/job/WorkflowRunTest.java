@@ -35,7 +35,6 @@ import hudson.security.ACLContext;
 import hudson.security.Permission;
 import java.io.File;
 import java.io.IOException;
-import java.io.StringWriter;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -57,17 +56,13 @@ import net.sf.json.JSONObject;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.jenkinsci.plugins.scriptsecurity.scripts.ScriptApproval;
-import org.jenkinsci.plugins.workflow.actions.LogAction;
 import org.jenkinsci.plugins.workflow.cps.CpsFlowDefinition;
 import org.jenkinsci.plugins.workflow.cps.CpsFlowExecution;
-import org.jenkinsci.plugins.workflow.cps.nodes.StepNode;
 import org.jenkinsci.plugins.workflow.flow.FlowExecution;
 import org.jenkinsci.plugins.workflow.graph.FlowGraphWalker;
 import org.jenkinsci.plugins.workflow.graph.FlowNode;
-import org.jenkinsci.plugins.workflow.graphanalysis.DepthFirstScanner;
-import org.jenkinsci.plugins.workflow.graphanalysis.NodeStepTypePredicate;
+import org.jenkinsci.plugins.workflow.graph.StepNode;
 import org.jenkinsci.plugins.workflow.test.steps.SemaphoreStep;
-import static org.hamcrest.Matchers.*;
 import static org.junit.Assert.*;
 import org.junit.ClassRule;
 import org.junit.Rule;
@@ -78,7 +73,6 @@ import org.jvnet.hudson.test.JenkinsRule;
 import org.jvnet.hudson.test.LoggerRule;
 import org.jvnet.hudson.test.MockAuthorizationStrategy;
 import org.jvnet.hudson.test.MockQueueItemAuthenticator;
-import org.jvnet.hudson.test.recipes.LocalData;
 import org.xml.sax.SAXException;
 
 import javax.annotation.Nonnull;
@@ -102,7 +96,7 @@ public class WorkflowRunTest {
         assertTrue(b1.getDuration() > 0);
         WorkflowRun b2 = r.assertBuildStatusSuccess(p.scheduleBuild2(0));
         assertEquals(b1, b2.getPreviousBuild());
-        assertEquals(null, b1.getPreviousBuild());
+        assertNull(b1.getPreviousBuild());
         r.assertLogContains("hello", b1);
     }
 
@@ -212,7 +206,7 @@ public class WorkflowRunTest {
         assertFalse(b2.hasntStartedYet());
         assertColor(b2, BallColor.BLUE);
     }
-    private void assertColor(WorkflowRun b, BallColor color) throws IOException {
+    private void assertColor(WorkflowRun b, BallColor color) {
         assertSame(color, b.getIconColor());
         assertSame(color, b.getParent().getIconColor());
     }
@@ -409,10 +403,7 @@ public class WorkflowRunTest {
     }
 
     private void assertCulprits(WorkflowRun b, String... expectedIds) throws IOException, SAXException {
-        Set<String> actual = new TreeSet<>();
-        for (String u : b.getCulpritIds()) {
-            actual.add(u);
-        }
+        Set<String> actual = new TreeSet<>(b.getCulpritIds());
         assertEquals(actual, new TreeSet<>(Arrays.asList(expectedIds)));
 
         if (expectedIds.length > 0) {

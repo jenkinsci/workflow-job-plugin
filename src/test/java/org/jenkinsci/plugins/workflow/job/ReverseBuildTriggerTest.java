@@ -53,7 +53,9 @@ public class ReverseBuildTriggerTest {
             us.addProperty(new SlowToLoad()); // force it to load after ds when we restart
             WorkflowJob ds = r.jenkins.createProject(WorkflowJob.class, "ds");
             ds.setDefinition(new CpsFlowDefinition("", true));
-            ds.addTrigger(new ReverseBuildTrigger("us", Result.SUCCESS));
+            ReverseBuildTrigger trigger = new ReverseBuildTrigger("us");
+            trigger.setThreshold(Result.SUCCESS);
+            ds.addTrigger(trigger);
             r.assertBuildStatusSuccess(us.scheduleBuild2(0));
             r.waitUntilNoActivity();
             WorkflowRun ds1 = ds.getLastCompletedBuild();

@@ -199,8 +199,7 @@ public class PipelineTriggersJobPropertyTest {
                         "/org/jenkinsci/plugins/workflow/job/properties/PipelineTriggersJobPropertyTest/triggerPresentDuringStart.json"), "UTF-8");
         WebRequest request = new WebRequest(new URL(p.getAbsoluteUrl() + "configSubmit"), HttpMethod.POST);
         wc.addCrumb(request);
-        List<NameValuePair> params = new ArrayList<>();
-        params.addAll(request.getRequestParameters());
+        List<NameValuePair> params = new ArrayList<>(request.getRequestParameters());
         params.add(new NameValuePair("json", newConfig));
         request.setRequestParameters(params);
         wc.getPage(request);

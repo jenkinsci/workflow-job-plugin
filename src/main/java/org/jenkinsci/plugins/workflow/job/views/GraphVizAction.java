@@ -27,7 +27,6 @@ package org.jenkinsci.plugins.workflow.job.views;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import hudson.Extension;
 import hudson.model.Action;
-import hudson.util.HttpResponses;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.StringWriter;
@@ -41,6 +40,7 @@ import org.jenkinsci.plugins.workflow.graph.FlowGraphWalker;
 import org.jenkinsci.plugins.workflow.graph.FlowNode;
 import org.jenkinsci.plugins.workflow.job.WorkflowRun;
 import org.kohsuke.stapler.HttpResponse;
+import org.kohsuke.stapler.HttpResponses;
 import org.kohsuke.stapler.StaplerResponse;
 
 /**
@@ -74,7 +74,7 @@ public final class GraphVizAction implements Action {
     public HttpResponse doDot() throws IOException {
         StringWriter sw = new StringWriter();
         writeDot(new PrintWriter(sw));
-        return HttpResponses.plainText(sw.toString());
+        return HttpResponses.text(sw.toString());
     }
 
     @SuppressFBWarnings("DM_DEFAULT_ENCODING")
@@ -86,7 +86,7 @@ public final class GraphVizAction implements Action {
         IOUtils.copy(p.getInputStream(), rsp.getOutputStream());
     }
 
-    private void writeDot(PrintWriter w) throws IOException {
+    private void writeDot(PrintWriter w) {
         try {
             w.println("digraph G {");
             FlowGraphWalker walker = new FlowGraphWalker(run.getExecution());

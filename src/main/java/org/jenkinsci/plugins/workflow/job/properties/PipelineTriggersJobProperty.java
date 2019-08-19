@@ -165,7 +165,7 @@ public class PipelineTriggersJobProperty extends JobProperty<WorkflowJob> {
 
         try {
             owner.removeProperty(this);
-            PipelineTriggersJobProperty thisProp = new PipelineTriggersJobProperty(new ArrayList<Trigger>(trigList.toList()));
+            PipelineTriggersJobProperty thisProp = new PipelineTriggersJobProperty(new ArrayList<>(trigList.toList()));
 
             owner.addTriggersJobPropertyWithoutStart(thisProp);
 

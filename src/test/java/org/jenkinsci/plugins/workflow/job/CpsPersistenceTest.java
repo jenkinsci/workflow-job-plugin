@@ -28,6 +28,7 @@ import org.jvnet.hudson.test.RestartableJenkinsRule;
 import java.io.File;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
+import java.nio.file.Files;
 import java.util.List;
 import java.util.Stack;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -133,7 +134,7 @@ public class CpsPersistenceTest {
     }
 
     static void assertResultMatchExecutionAndRun(WorkflowRun run, Result[] executionAndBuildResult) throws Exception {
-        Assert.assertEquals(executionAndBuildResult[0], ((CpsFlowExecution)(run.getExecution())).getResult());
+        Assert.assertEquals(executionAndBuildResult[0], ((CpsFlowExecution) run.getExecution()).getResult());
         Assert.assertEquals(executionAndBuildResult[1], run.getResult());
     }
 
@@ -197,10 +198,10 @@ public class CpsPersistenceTest {
             String finalId = run.getExecution().getCurrentHeads().get(0).getId();
 
             // Hack but deletes the file from disk
-            CpsFlowExecution cpsExec = (CpsFlowExecution)(run.getExecution());
+            CpsFlowExecution cpsExec = (CpsFlowExecution) run.getExecution();
             File f = new File(cpsExec.getStorageDir(), finalId+".xml");
-            f.delete();
-            executionAndBuildResult[0] = ((CpsFlowExecution)(run.getExecution())).getResult();
+            Files.delete(f.toPath());
+            executionAndBuildResult[0] = ((CpsFlowExecution) run.getExecution()).getResult();
             executionAndBuildResult[1] = run.getResult();
         });
         story.then(j-> {
@@ -219,8 +220,8 @@ public class CpsPersistenceTest {
         final Result[] executionAndBuildResult = new Result[2];
         story.thenWithHardShutdown( j -> {
             WorkflowRun run = runBasicBuild(j, DEFAULT_JOBNAME, build);
-            FileUtils.deleteDirectory(((CpsFlowExecution)(run.getExecution())).getStorageDir());
-            executionAndBuildResult[0] = ((CpsFlowExecution)(run.getExecution())).getResult();
+            FileUtils.deleteDirectory(((CpsFlowExecution) run.getExecution()).getStorageDir());
+            executionAndBuildResult[0] = ((CpsFlowExecution) run.getExecution()).getResult();
             executionAndBuildResult[1] = run.getResult();
         });
         story.then(j-> {
@@ -243,10 +244,10 @@ public class CpsPersistenceTest {
             String finalId = run.getExecution().getCurrentHeads().get(0).getId();
 
             // Hack but deletes the FlowNodeStorage from disk
-            CpsFlowExecution cpsExec = (CpsFlowExecution)(run.getExecution());
+            CpsFlowExecution cpsExec = (CpsFlowExecution) run.getExecution();
             setCpsDoneFlag(cpsExec, false);
             run.save();
-            executionAndBuildResult[0] = ((CpsFlowExecution)(run.getExecution())).getResult();
+            executionAndBuildResult[0] = ((CpsFlowExecution) run.getExecution()).getResult();
             executionAndBuildResult[1] = run.getResult();
         });
         story.then(j-> {
@@ -326,8 +327,8 @@ public class CpsPersistenceTest {
         final int[] build = new int[1];
         story.thenWithHardShutdown( j -> {
             WorkflowRun run = runBasicPauseOnInput(j, DEFAULT_JOBNAME, build);
-            CpsFlowExecution cpsExec = (CpsFlowExecution)(run.getExecution());
-            FileUtils.deleteDirectory(((CpsFlowExecution)(run.getExecution())).getStorageDir());
+            CpsFlowExecution cpsExec = (CpsFlowExecution) run.getExecution();
+            FileUtils.deleteDirectory(((CpsFlowExecution) run.getExecution()).getStorageDir());
         });
         story.then( j->{
             WorkflowJob r = j.jenkins.getItemByFullName(DEFAULT_JOBNAME, WorkflowJob.class);
@@ -336,17 +337,17 @@ public class CpsPersistenceTest {
         });
     }
 
-    @Test
     /** Build okay but program fails to load */
+    @Test
     public void inProgressButProgramLoadFailure() throws Exception {
         final int[] build = new int[1];
         story.thenWithHardShutdown( j -> {
             WorkflowRun run = runBasicPauseOnInput(j, DEFAULT_JOBNAME, build);
-            CpsFlowExecution cpsExec = (CpsFlowExecution)(run.getExecution());
+            CpsFlowExecution cpsExec = (CpsFlowExecution) run.getExecution();
             Method m = cpsExec.getClass().getDeclaredMethod("getProgramDataFile", null);
             m.setAccessible(true);
-            File f = (File)(m.invoke(cpsExec, null));
-            f.delete();
+            File f = (File) m.invoke(cpsExec, null);
+            Files.delete(f.toPath());
         });
         story.then( j->{
             WorkflowJob r = j.jenkins.getItemByFullName(DEFAULT_JOBNAME, WorkflowJob.class);
@@ -355,13 +356,13 @@ public class CpsPersistenceTest {
         });
     }
 
-    @Test
     /** Build okay but then the start nodes get screwed up */
+    @Test
     public void inProgressButStartBlocksLost() throws Exception {
         final int[] build = new int[1];
         story.thenWithHardShutdown( j -> {
             WorkflowRun run = runBasicPauseOnInput(j, DEFAULT_JOBNAME, build);
-            CpsFlowExecution cpsExec = (CpsFlowExecution)(run.getExecution());
+            CpsFlowExecution cpsExec = (CpsFlowExecution) run.getExecution();
             getCpsBlockStartNodes(cpsExec).push(new FlowStartNode(cpsExec, cpsExec.iotaStr()));
             run.save();
         });
@@ -372,14 +373,14 @@ public class CpsPersistenceTest {
         });
     }
 
+    /** Replicates case where builds resume when the should not due to build's completion not being saved. */
     @Test
     @Issue("JENKINS-50199")
-    /** Replicates case where builds resume when the should not due to build's completion not being saved. */
     public void completedExecutionButRunIncomplete() throws Exception {
         final int[] build = new int[1];
         story.thenWithHardShutdown( j -> {
             WorkflowRun run = runBasicPauseOnInput(j, DEFAULT_JOBNAME, build);
-            CpsFlowExecution cpsExec = (CpsFlowExecution)(run.getExecution());
+            CpsFlowExecution cpsExec = (CpsFlowExecution) run.getExecution();
             InputStepExecution exec = getInputStepExecution(run, "pause");
             exec.doProceedEmpty();
             j.waitForCompletion(run);
