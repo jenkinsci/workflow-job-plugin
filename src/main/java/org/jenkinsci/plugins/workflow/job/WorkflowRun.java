@@ -214,6 +214,10 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
         // Un-synchronized to prevent deadlocks (combination of run and metadataGuard)
         // Note that in portions where multithreaded access is possible we are already synchronizing on metadataGuard
         if (listener == null) {
+            if (Boolean.TRUE.equals(completed)) {
+                LOGGER.log(Level.WARNING, null, new IllegalStateException("trying to open a build log on " + this + " after it has completed"));
+                return NULL_LISTENER;
+            }
             try {
                 // TODO to better handle in-VM restart (e.g. in JenkinsRule), move CpsFlowExecution.suspendAll logic into a FlowExecution.notifyShutdown override, then make FlowExecutionOwner.notifyShutdown also overridable, which for WorkflowRun.Owner should listener.close() as needed
                 listener = TaskListenerDecorator.apply(LogStorage.of(asFlowExecutionOwner()).overallListener(), asFlowExecutionOwner(), null);
@@ -594,7 +598,6 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
                         LOGGER.log(Level.WARNING, "could not close build log for " + this, x);
                     }
                 }
-                listener = null;
             }
             saveWithoutFailing(); // TODO useless if we are inside a BulkChange
             Timer.get().submit(() -> {
@@ -607,6 +610,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
             onEndBuilding();
         } finally {  // Ensure this is ALWAYS removed from FlowExecutionList
             FlowExecutionList.get().unregister(new Owner(this));
+            listener = null;
         }
 
         try {
