@@ -171,13 +171,15 @@ public class CpsPersistenceTest {
             System.out.println("Waiting for input action to get attached to run");
             Thread.sleep(50);
         }
-        CpsFlowExecution execution = (CpsFlowExecution) run.getExecution();
-        Method m = execution.getClass().getDeclaredMethod("getProgramDataFile", null);
-        m.setAccessible(true);
-        File f = (File) m.invoke(execution, null);
-        while (!Files.exists(f.toPath())) {
-            System.out.println("Waiting for program to be persisted");
-            Thread.sleep(50);
+        if (durabilityHint != FlowDurabilityHint.PERFORMANCE_OPTIMIZED) {
+            CpsFlowExecution execution = (CpsFlowExecution) run.getExecution();
+            Method m = execution.getClass().getDeclaredMethod("getProgramDataFile", null);
+            m.setAccessible(true);
+            File f = (File) m.invoke(execution, null);
+            while (!Files.exists(f.toPath())) {
+                System.out.println("Waiting for program to be persisted");
+                Thread.sleep(50);
+            }
         }
         jobIdNumber[0] = run.getNumber();
         return run;
