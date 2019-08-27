@@ -467,8 +467,10 @@ public class WorkflowRunTest {
         logging.record(WorkflowRun.class, Level.WARNING).capture(1);
         WorkflowJob p = r.createProject(WorkflowJob.class);
         p.setDefinition(new CpsFlowDefinition("env.KEY = 'value'", true));
-        assertEquals("value", r.buildAndAssertSuccess(p).getAction(EnvironmentAction.class).getEnvironment().get("KEY"));
+        WorkflowRun b = r.buildAndAssertSuccess(p);
+        assertEquals("value", b.getAction(EnvironmentAction.class).getEnvironment().get("KEY"));
         assertFalse(logging.getRecords().stream().findAny().isPresent());
+        assertFalse(b.isLogUpdated());
     }
 
 }
