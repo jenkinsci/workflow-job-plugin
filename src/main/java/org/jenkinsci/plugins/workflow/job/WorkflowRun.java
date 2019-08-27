@@ -214,9 +214,11 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
         // Un-synchronized to prevent deadlocks (combination of run and metadataGuard)
         // Note that in portions where multithreaded access is possible we are already synchronizing on metadataGuard
         if (listener == null) {
-            if (Boolean.TRUE.equals(completed)) {
-                LOGGER.log(Level.WARNING, null, new IllegalStateException("trying to open a build log on " + this + " after it has completed"));
-                return NULL_LISTENER;
+            synchronized (getMetadataGuard()) {
+                if (Boolean.TRUE.equals(completed)) {
+                    LOGGER.log(Level.WARNING, null, new IllegalStateException("trying to open a build log on " + this + " after it has completed"));
+                    return NULL_LISTENER;
+                }
             }
             try {
                 // TODO to better handle in-VM restart (e.g. in JenkinsRule), move CpsFlowExecution.suspendAll logic into a FlowExecution.notifyShutdown override, then make FlowExecutionOwner.notifyShutdown also overridable, which for WorkflowRun.Owner should listener.close() as needed
