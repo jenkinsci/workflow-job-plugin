@@ -171,6 +171,7 @@ public class CpsPersistenceTest {
             System.out.println("Waiting for input action to get attached to run");
             Thread.sleep(50);
         }
+        Thread.sleep(100L);  // A little extra buffer for persistence etc
         if (durabilityHint != FlowDurabilityHint.PERFORMANCE_OPTIMIZED) {
             CpsFlowExecution execution = (CpsFlowExecution) run.getExecution();
             Method m = execution.getClass().getDeclaredMethod("getProgramDataFile", null);
