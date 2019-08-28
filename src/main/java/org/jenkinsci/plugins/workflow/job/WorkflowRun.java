@@ -216,7 +216,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
         if (listener == null) {
             synchronized (getMetadataGuard()) {
                 if (Boolean.TRUE.equals(completed)) {
-                    LOGGER.log(Level.FINE, null, new IllegalStateException("trying to open a build log on " + this + " after it has completed"));
+                    LOGGER.log(Level.WARNING, null, new IllegalStateException("trying to open a build log on " + this + " after it has completed"));
                     return NULL_LISTENER;
                 }
             }
