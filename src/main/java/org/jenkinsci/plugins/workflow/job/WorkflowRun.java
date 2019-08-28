@@ -85,6 +85,7 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.annotation.CheckForNull;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import jenkins.model.CauseOfInterruption;
 import jenkins.model.Jenkins;
 import jenkins.model.lazy.BuildReference;
@@ -774,6 +775,17 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
         return checkouts;
     }
 
+    public synchronized @Nullable List<SCM> getCheckouts() {
+       if (checkouts == null) {
+           return null;
+       }
+       List<SCM> scmList = new ArrayList<>();
+       for (SCMCheckout aCheckout : checkouts) {
+           scmList.add(aCheckout.getScm());
+       }
+       return scmList;
+    }
+
     @Override
     @Exported
     public synchronized List<ChangeLogSet<? extends ChangeLogSet.Entry>> getChangeSets() {
@@ -860,6 +872,9 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
             this.workspace = workspace;
             this.changelogFile = changelogFile;
             this.pollingBaseline = pollingBaseline;
+        }
+        public SCM getScm() {
+            return scm;
         }
         // TODO replace with Run.XSTREAM2.addCriticalField(SCMCheckout.class, "scm") when not @Restricted(NoExternalUse.class)
         private Object readResolve() {
