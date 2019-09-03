@@ -47,6 +47,8 @@ import hudson.slaves.EnvironmentVariablesNodeProperty;
 import hudson.slaves.NodeProperty;
 import hudson.slaves.NodePropertyDescriptor;
 import hudson.util.DescribableList;
+import java.util.logging.Level;
+import java.util.logging.LogRecord;
 import jenkins.model.CauseOfInterruption;
 import jenkins.model.InterruptedBuildAction;
 import jenkins.model.Jenkins;
@@ -77,6 +79,7 @@ import org.xml.sax.SAXException;
 
 import javax.annotation.Nonnull;
 import org.apache.commons.io.IOUtils;
+import org.jenkinsci.plugins.workflow.support.actions.EnvironmentAction;
 
 public class WorkflowRunTest {
 
@@ -457,6 +460,17 @@ public class WorkflowRunTest {
         p.setDefinition(new CpsFlowDefinition("echo 'sample text'", true));
         WorkflowRun b = r.buildAndAssertSuccess(p);
         assertEquals(IOUtils.toString(b.getLogInputStream()), FileUtils.readFileToString(b.getLogFile()));
+    }
+
+    @Issue("JENKINS-59083")
+    @Test public void logAfterBuildComplete() throws Exception {
+        logging.record(WorkflowRun.class, Level.WARNING).capture(1);
+        WorkflowJob p = r.createProject(WorkflowJob.class);
+        p.setDefinition(new CpsFlowDefinition("env.KEY = 'value'", true));
+        WorkflowRun b = r.buildAndAssertSuccess(p);
+        assertEquals("value", b.getAction(EnvironmentAction.class).getEnvironment().get("KEY"));
+        assertFalse(logging.getRecords().stream().findAny().isPresent());
+        assertFalse(b.isLogUpdated());
     }
 
 }
