@@ -593,6 +593,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
                     Functions.printStackTrace(t, getListener().getLogger());
                 }
                 getListener().finished(getResult());
+                fireBeforeCompletedFlowExecutionListener();
                 if (listener instanceof AutoCloseable) {
                     try {
                         ((AutoCloseable) listener).close();
@@ -620,6 +621,17 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
         } catch (IOException | InterruptedException x) {
             LOGGER.log(Level.WARNING, "failed to clean up stashes from " + this, x);
         }
+        fireOnCompletedFlowExecutionListener();
+    }
+
+    private void fireBeforeCompletedFlowExecutionListener(){
+        FlowExecution exec = getExecution();
+        if (exec != null) {
+            FlowExecutionListener.fireBeforeCompleted(exec);
+        }
+    }
+
+    private void fireOnCompletedFlowExecutionListener(){
         FlowExecution exec = getExecution();
         if (exec != null) {
             FlowExecutionListener.fireCompleted(exec);
