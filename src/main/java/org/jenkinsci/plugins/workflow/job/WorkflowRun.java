@@ -585,6 +585,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
                 LOGGER.log(Level.WARNING, this + " failed to start", t);
             } else {
                 RunListener.fireCompleted(WorkflowRun.this, getListener());
+                fireCompleted();
                 if (t instanceof AbortException) {
                     getListener().error(t.getMessage());
                 } else if (t instanceof FlowInterruptedException) {
@@ -620,12 +621,14 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
         } catch (IOException | InterruptedException x) {
             LOGGER.log(Level.WARNING, "failed to clean up stashes from " + this, x);
         }
+    }
+
+    private void fireCompleted(){
         FlowExecution exec = getExecution();
         if (exec != null) {
             FlowExecutionListener.fireCompleted(exec);
         }
     }
-
     @Override public void deleteArtifacts() throws IOException {
         super.deleteArtifacts();
         try {
