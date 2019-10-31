@@ -775,15 +775,13 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
         return checkouts;
     }
 
-    public synchronized @Nullable List<SCM> getCheckouts() {
-       if (checkouts == null) {
-           return null;
-       }
-       List<SCM> scmList = new ArrayList<>();
-       for (SCMCheckout aCheckout : checkouts) {
-           scmList.add(aCheckout.getScm());
-       }
-       return scmList;
+    public @Nonnull List<SCM> getCheckouts() {
+        List<SCMCheckout> scmCheckouts = checkouts(TaskListener.NULL);
+        List<SCM> scmList = new ArrayList<>();
+        for (SCMCheckout checkout : scmCheckouts) {
+            scmList.add(checkout.getScm());
+        }
+        return scmList;
     }
 
     @Override
