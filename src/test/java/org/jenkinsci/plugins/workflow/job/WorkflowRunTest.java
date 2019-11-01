@@ -30,6 +30,8 @@ import hudson.Extension;
 import hudson.model.*;
 import hudson.model.listeners.RunListener;
 import hudson.model.queue.QueueTaskFuture;
+import hudson.plugins.git.GitSCM;
+import hudson.scm.SCM;
 import hudson.security.ACL;
 import hudson.security.ACLContext;
 import hudson.security.Permission;
@@ -52,6 +54,7 @@ import java.util.logging.LogRecord;
 import jenkins.model.CauseOfInterruption;
 import jenkins.model.InterruptedBuildAction;
 import jenkins.model.Jenkins;
+import jenkins.plugins.git.GitSampleRepoRule;
 import jenkins.security.QueueItemAuthenticatorConfiguration;
 import net.sf.json.JSONArray;
 import net.sf.json.JSONObject;
@@ -60,6 +63,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.jenkinsci.plugins.scriptsecurity.scripts.ScriptApproval;
 import org.jenkinsci.plugins.workflow.cps.CpsFlowDefinition;
 import org.jenkinsci.plugins.workflow.cps.CpsFlowExecution;
+import org.jenkinsci.plugins.workflow.cps.CpsScmFlowDefinition;
 import org.jenkinsci.plugins.workflow.flow.FlowExecution;
 import org.jenkinsci.plugins.workflow.graph.FlowGraphWalker;
 import org.jenkinsci.plugins.workflow.graph.FlowNode;
@@ -86,6 +90,7 @@ public class WorkflowRunTest {
     @ClassRule public static BuildWatcher buildWatcher = new BuildWatcher();
     @Rule public JenkinsRule r = new JenkinsRule();
     @Rule public LoggerRule logging = new LoggerRule();
+    @Rule public GitSampleRepoRule sampleRepo = new GitSampleRepoRule();
 
     @Test public void basics() throws Exception {
         WorkflowJob p = r.jenkins.createProject(WorkflowJob.class, "p");
@@ -473,4 +478,17 @@ public class WorkflowRunTest {
         assertFalse(b.isLogUpdated());
     }
 
+    @Test public void getScms() throws Exception {
+        sampleRepo.init();
+        sampleRepo.write("Jenkinsfile", "echo 'hello'");
+        sampleRepo.git("add", "Jenkinsfile");
+        sampleRepo.git("commit", "--message=files");
+        WorkflowJob p = r.jenkins.createProject(WorkflowJob.class, "p");
+        CpsScmFlowDefinition def = new CpsScmFlowDefinition(new GitSCM(sampleRepo.toString()), "Jenkinsfile");
+        p.setDefinition(def);
+        WorkflowRun b = r.buildAndAssertSuccess(p);
+        List<SCM> checkouts = b.getSCMs();
+        assertEquals(1, checkouts.size());
+        assertEquals(GitSCM.class, checkouts.get(0).getClass());
+    }
 }

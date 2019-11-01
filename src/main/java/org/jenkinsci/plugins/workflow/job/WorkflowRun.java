@@ -774,6 +774,15 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
         return checkouts;
     }
 
+    public @Nonnull List<SCM> getSCMs() {
+        List<SCMCheckout> scmCheckouts = checkouts(TaskListener.NULL);
+        List<SCM> scmList = new ArrayList<>();
+        for (SCMCheckout checkout : scmCheckouts) {
+            scmList.add(checkout.getScm());
+        }
+        return scmList;
+    }
+
     @Override
     @Exported
     public synchronized List<ChangeLogSet<? extends ChangeLogSet.Entry>> getChangeSets() {
@@ -860,6 +869,9 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
             this.workspace = workspace;
             this.changelogFile = changelogFile;
             this.pollingBaseline = pollingBaseline;
+        }
+        public SCM getScm() {
+            return scm;
         }
         // TODO replace with Run.XSTREAM2.addCriticalField(SCMCheckout.class, "scm") when not @Restricted(NoExternalUse.class)
         private Object readResolve() {
