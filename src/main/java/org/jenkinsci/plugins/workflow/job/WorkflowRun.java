@@ -774,7 +774,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
         return checkouts;
     }
 
-    public @Nonnull List<SCM> getCheckouts() {
+    public @Nonnull List<SCM> getSCMs() {
         List<SCMCheckout> scmCheckouts = checkouts(TaskListener.NULL);
         List<SCM> scmList = new ArrayList<>();
         for (SCMCheckout checkout : scmCheckouts) {

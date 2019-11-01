@@ -55,7 +55,6 @@ import jenkins.model.CauseOfInterruption;
 import jenkins.model.InterruptedBuildAction;
 import jenkins.model.Jenkins;
 import jenkins.plugins.git.GitSampleRepoRule;
-import jenkins.plugins.git.GitStep;
 import jenkins.security.QueueItemAuthenticatorConfiguration;
 import net.sf.json.JSONArray;
 import net.sf.json.JSONObject;
@@ -485,11 +484,11 @@ public class WorkflowRunTest {
         sampleRepo.git("add", "Jenkinsfile");
         sampleRepo.git("commit", "--message=files");
         WorkflowJob p = r.jenkins.createProject(WorkflowJob.class, "p");
-        CpsScmFlowDefinition def = new CpsScmFlowDefinition(new GitStep(sampleRepo.toString()).createSCM(), "Jenkinsfile");
+        CpsScmFlowDefinition def = new CpsScmFlowDefinition(new GitSCM(sampleRepo.toString()), "Jenkinsfile");
         p.setDefinition(def);
         WorkflowRun b = r.buildAndAssertSuccess(p);
-        List<SCM> checkouts = b.getCheckouts();
-        assertTrue(checkouts.size() == 1);
-        assertTrue(checkouts.get(0).getClass().getName().equals(GitSCM.class.getName()));
+        List<SCM> checkouts = b.getSCMs();
+        assertEquals(1, checkouts.size());
+        assertEquals(GitSCM.class, checkouts.get(0).getClass());
     }
 }
