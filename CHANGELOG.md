@@ -1,5 +1,13 @@
 ## Changelog
 
+### 2.36
+
+Release date: 2019-11-04
+
+- Fix: Call `FlowExecutionListener.onCompleted` on `FlowExecutionListener` extensions directly after calling `RunListener.onCompleted` on `RunListener` extensions (earlier than previously), so that `FlowExecutionLister.onCompleted` is called before the build log has been closed. ([PR 143](https://github.com/jenkinsci/workflow-job-plugin/pull/143))
+- Developer: Add a new method `WorkflowRun.getSCMs` to obtain the list of SCMs used in a Pipeline build. ([PR 141](https://github.com/jenkinsci/workflow-job-plugin/pull/141))
+- Internal: Migrate Wiki content to GitHub. ([PR 144](https://github.com/jenkinsci/workflow-job-plugin/pull/144))
+
 ### 2.35
 
 Release date: 2019-09-10
