@@ -69,6 +69,15 @@ public class WorkflowJobTest {
         j.assertLogContains("second version", b2);
     }
 
+    @Issue("JENKINS-38669")
+    @Test public void nonEmptySCMListForGitSCMJobBeforeBuild() throws Exception {
+        WorkflowJob p = j.jenkins.createProject(WorkflowJob.class, "p");
+        CpsScmFlowDefinition def = new CpsScmFlowDefinition(new GitSCM("I don't care"), "Jenkinsfile");
+        assertEquals("Expecting one SCM for definition", 1, def.getSCMs().size());
+        p.setDefinition(def);
+        assertEquals("Expecting one SCM", 1, p.getSCMs().size());
+    }
+
     @Test
     public void addAction() throws Exception {
         WorkflowJob p = j.jenkins.createProject(WorkflowJob.class, "p");

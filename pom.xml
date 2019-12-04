@@ -82,7 +82,7 @@
         <dependency>
             <groupId>org.jenkins-ci.plugins.workflow</groupId>
             <artifactId>workflow-api</artifactId>
-            <version>2.36</version>
+            <version>2.38-rc974.2eb15c40fbf9</version>
         </dependency>
         <dependency>
             <groupId>org.jenkins-ci.plugins.workflow</groupId>
@@ -99,7 +99,7 @@
         <dependency>
             <groupId>org.jenkins-ci.plugins.workflow</groupId>
             <artifactId>workflow-cps</artifactId>
-            <version>2.74</version>
+            <version>2.78-rc2461.89fa3a91a5e8</version>
             <scope>test</scope>
         </dependency>
         <dependency>
