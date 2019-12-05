@@ -406,7 +406,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
         if (!isInProgress() || /* redundant, but make FindBugs happy */ execution == null) {
             return;
         }
-        final Throwable x = new FlowInterruptedException(Result.ABORTED);
+        final Throwable x = new FlowInterruptedException(Result.ABORTED, true);
         FlowExecution exec = getExecution();
         if (exec == null) { // Already dead, just make sure statuses reflect that.
             synchronized (getMetadataGuard()) {
@@ -461,7 +461,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
             execution = null; // ensures isInProgress returns false
             executionLoaded = true;
         }
-        FlowInterruptedException suddenDeath = new FlowInterruptedException(Result.ABORTED);
+        FlowInterruptedException suddenDeath = new FlowInterruptedException(Result.ABORTED, true);
         finish(Result.ABORTED, suddenDeath);
         getSettableExecutionPromise().setException(suddenDeath);
         // TODO CpsFlowExecution.onProgramEnd does some cleanup which we cannot access here; perhaps need a FlowExecution.halt(Throwable) API?
