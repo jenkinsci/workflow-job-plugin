@@ -28,7 +28,7 @@
     <parent>
         <groupId>org.jenkins-ci.plugins</groupId>
         <artifactId>plugin</artifactId>
-        <version>3.43</version>
+        <version>3.54</version>
         <relativePath />
     </parent>
     <groupId>org.jenkins-ci.plugins.workflow</groupId>
@@ -71,7 +71,6 @@
         <workflow-support-plugin.version>3.3</workflow-support-plugin.version>
         <scm-api-plugin.version>2.2.6</scm-api-plugin.version>
         <git-plugin.version>3.2.0</git-plugin.version>
-        <jenkins-test-harness.version>2.48</jenkins-test-harness.version>
     </properties>
     <dependencies>
         <dependency>
