@@ -78,6 +78,23 @@ public class WorkflowJobTest {
         assertEquals("Expecting one SCM", 1, p.getSCMs().size());
     }
 
+    @Issue("JENKINS-38669")
+    @Test public void neverBuiltSCMBasedJobMustBeTriggerableByHook() throws Exception {
+        sampleRepo.init();
+        sampleRepo.write("Jenkinsfile", "echo 'first version'");
+        sampleRepo.git("add", "Jenkinsfile");
+        sampleRepo.git("commit", "-m", "init");
+        WorkflowJob p = j.jenkins.createProject(WorkflowJob.class, "p");
+        p.addTrigger(new SCMTrigger(""));
+        p.setDefinition(new CpsScmFlowDefinition(new GitSCM(sampleRepo.toString()), "Jenkinsfile"));
+        j.jenkins.setQuietPeriod(0);
+        j.createWebClient().getPage(new WebRequest(j.createWebClient().createCrumbedUrl(p.getUrl() + "polling"), HttpMethod.POST));
+        j.waitUntilNoActivity();
+        WorkflowRun b1 = p.getLastBuild();
+        assertEquals(1, b1.getNumber());
+        j.assertLogContains("first version", b1);
+    }
+
     @Test
     public void addAction() throws Exception {
         WorkflowJob p = j.jenkins.createProject(WorkflowJob.class, "p");
