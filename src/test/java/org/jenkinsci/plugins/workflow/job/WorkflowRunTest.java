@@ -96,6 +96,7 @@ public class WorkflowRunTest {
     @Rule public GitSampleRepoRule sampleRepo = new GitSampleRepoRule();
     @Rule public GitSampleRepoRule sampleRepo2 = new GitSampleRepoRule();
 
+
     @Test public void basics() throws Exception {
         WorkflowJob p = r.jenkins.createProject(WorkflowJob.class, "p");
         p.setDefinition(new CpsFlowDefinition("println('hello')", true));
@@ -507,7 +508,7 @@ public class WorkflowRunTest {
                 "node {\n" +
                 "    checkout(changelog:" + true +", poll:" + true + ", scm: [$class: 'GitSCM', branches: [[name: '*/master']], " +
                 "doGenerateSubmoduleConfigurations: false, extensions: [], " +
-                "gitTool: 'Default', submoduleCfg: [], userRemoteConfigs: [[url: '" + sampleRepo + "']]])" +
+                "gitTool: 'Default', submoduleCfg: [], userRemoteConfigs: [[url: $/" + sampleRepo + "/$]]])" +
                 "}\n", false /* for org.jvnet.hudson.test.FakeChangeLogSCM */));
 
         WorkflowRun b1 = p.scheduleBuild2(0).waitForStart();
@@ -524,7 +525,7 @@ public class WorkflowRunTest {
                 "node {\n" +
                 "    checkout(changelog:" + false +", poll:" + false + ", scm: [$class: 'GitSCM', branches: [[name: '*/master']], " +
                 "doGenerateSubmoduleConfigurations: false, extensions: [], " +
-                "gitTool: 'Default', submoduleCfg: [], userRemoteConfigs: [[url: '" + sampleRepo + "']]])" +
+                "gitTool: 'Default', submoduleCfg: [], userRemoteConfigs: [[url: $/" + sampleRepo + "/$]]])" +
                 "}\n", false /* for org.jvnet.hudson.test.FakeChangeLogSCM */));
 
 
@@ -550,7 +551,7 @@ public class WorkflowRunTest {
                 "node {\n" +
                 "    checkout(changelog:" + true +", poll:" + true + ", scm: [$class: 'GitSCM', branches: [[name: '*/master']], " +
                 "doGenerateSubmoduleConfigurations: false, extensions: [], " +
-                "gitTool: 'Default', submoduleCfg: [], userRemoteConfigs: [[url: '" + sampleRepo + "']]])" +
+                "gitTool: 'Default', submoduleCfg: [], userRemoteConfigs: [[url: $/" + sampleRepo + "/$]]])" +
                 "}\n", false /* for org.jvnet.hudson.test.FakeChangeLogSCM */));
 
         WorkflowRun b1 = p.scheduleBuild2(0).waitForStart();
@@ -567,7 +568,7 @@ public class WorkflowRunTest {
                 "node {\n" +
                 "    checkout(changelog:" + false +", poll:" + true + ", scm: [$class: 'GitSCM', branches: [[name: '*/master']], " +
                 "doGenerateSubmoduleConfigurations: false, extensions: [], " +
-                "gitTool: 'Default', submoduleCfg: [], userRemoteConfigs: [[url: '" + sampleRepo + "']]])" +
+                "gitTool: 'Default', submoduleCfg: [], userRemoteConfigs: [[url: $/" + sampleRepo + "/$]]])" +
                 "}\n", false /* for org.jvnet.hudson.test.FakeChangeLogSCM */));
 
 
@@ -584,7 +585,7 @@ public class WorkflowRunTest {
                 "node {\n" +
                 "    checkout(changelog:" + true +", poll:" + false + ", scm: [$class: 'GitSCM', branches: [[name: '*/master']], " +
                 "doGenerateSubmoduleConfigurations: false, extensions: [], " +
-                "gitTool: 'Default', submoduleCfg: [], userRemoteConfigs: [[url: '" + sampleRepo + "']]])" +
+                "gitTool: 'Default', submoduleCfg: [], userRemoteConfigs: [[url: $/" + sampleRepo + "/$]]])" +
                 "}\n", false /* for org.jvnet.hudson.test.FakeChangeLogSCM */));
 
 
@@ -601,7 +602,7 @@ public class WorkflowRunTest {
                 "node {\n" +
                 "    checkout(changelog:" + false +", poll:" + false + ", scm: [$class: 'GitSCM', branches: [[name: '*/master']], " +
                 "doGenerateSubmoduleConfigurations: false, extensions: [], " +
-                "gitTool: 'Default', submoduleCfg: [], userRemoteConfigs: [[url: '" + sampleRepo + "']]])" +
+                "gitTool: 'Default', submoduleCfg: [], userRemoteConfigs: [[url: $/" + sampleRepo + "/$]]])" +
                 "}\n", false /* for org.jvnet.hudson.test.FakeChangeLogSCM */));
 
 
@@ -628,10 +629,10 @@ public class WorkflowRunTest {
                 "node {\n" +
                 "    checkout(changelog:" + true +", poll:" + true + ", scm: [$class: 'GitSCM', branches: [[name: '*/master']], " +
                 "doGenerateSubmoduleConfigurations: false, extensions: [], " +
-                "gitTool: 'Default', submoduleCfg: [], userRemoteConfigs: [[url: '" + sampleRepo + "']]])\n" +
+                "gitTool: 'Default', submoduleCfg: [], userRemoteConfigs: [[url: $/" + sampleRepo + "/$]]])\n" +
                 "    checkout(changelog:" + true +", poll:" + true + ", scm: [$class: 'GitSCM', branches: [[name: '*/master']], " +
                 "doGenerateSubmoduleConfigurations: false, extensions: [], " +
-                "gitTool: 'Default', submoduleCfg: [], userRemoteConfigs: [[url: '" + sampleRepo2 + "']]])" +
+                "gitTool: 'Default', submoduleCfg: [], userRemoteConfigs: [[url: $/" + sampleRepo2 + "/$]]])" +
                 "}\n", false /* for org.jvnet.hudson.test.FakeChangeLogSCM */));
 
         WorkflowRun b1 = p.scheduleBuild2(0).waitForStart();
@@ -648,10 +649,10 @@ public class WorkflowRunTest {
                 "node {\n" +
                 "    checkout(changelog:" + false +", poll:" + false + ", scm: [$class: 'GitSCM', branches: [[name: '*/master']], " +
                 "doGenerateSubmoduleConfigurations: false, extensions: [], " +
-                "gitTool: 'Default', submoduleCfg: [], userRemoteConfigs: [[url: '" + sampleRepo + "']]])\n" +
+                "gitTool: 'Default', submoduleCfg: [], userRemoteConfigs: [[url: $/" + sampleRepo + "/$]]])\n" +
                 "    checkout(changelog:" + true +", poll:" + true + ", scm: [$class: 'GitSCM', branches: [[name: '*/master']], " +
                 "doGenerateSubmoduleConfigurations: false, extensions: [], " +
-                "gitTool: 'Default', submoduleCfg: [], userRemoteConfigs: [[url: '" + sampleRepo2 + "']]])" +
+                "gitTool: 'Default', submoduleCfg: [], userRemoteConfigs: [[url: $/" + sampleRepo2 + "/$]]])" +
                 "}\n", false /* for org.jvnet.hudson.test.FakeChangeLogSCM */));
 
 
@@ -675,10 +676,10 @@ public class WorkflowRunTest {
                 "node {\n" +
                 "    checkout(changelog:" + false +", poll:" + false + ", scm: [$class: 'GitSCM', branches: [[name: '*/master']], " +
                 "doGenerateSubmoduleConfigurations: false, extensions: [], " +
-                "gitTool: 'Default', submoduleCfg: [], userRemoteConfigs: [[url: '" + sampleRepo + "']]])\n" +
+                "gitTool: 'Default', submoduleCfg: [], userRemoteConfigs: [[url: $/" + sampleRepo + "/$]]])\n" +
                 "    checkout(changelog:" + false +", poll:" + false + ", scm: [$class: 'GitSCM', branches: [[name: '*/master']], " +
                 "doGenerateSubmoduleConfigurations: false, extensions: [], " +
-                "gitTool: 'Default', submoduleCfg: [], userRemoteConfigs: [[url: '" + sampleRepo2 + "']]])" +
+                "gitTool: 'Default', submoduleCfg: [], userRemoteConfigs: [[url: $/" + sampleRepo2 + "/$]]])" +
                 "}\n", false /* for org.jvnet.hudson.test.FakeChangeLogSCM */));
 
 
