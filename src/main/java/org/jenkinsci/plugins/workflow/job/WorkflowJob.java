@@ -591,6 +591,7 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements L
                 FilePath workspace;
                 Launcher launcher;
                 WorkspaceList.Lease lease;
+
                 if (co.scm.requiresWorkspaceForPolling()) {
                     Jenkins j = Jenkins.getInstanceOrNull();
                     if (j == null) {
@@ -634,12 +635,22 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements L
     }
     @Extension public static final class SCMListenerImpl extends SCMListener {
         @Override public void onCheckout(Run<?,?> build, SCM scm, FilePath workspace, TaskListener listener, File changelogFile, SCMRevisionState pollingBaseline) throws Exception {
-            if (build instanceof WorkflowRun && pollingBaseline != null) {
+            if (build instanceof WorkflowRun) {
                 WorkflowJob job = ((WorkflowRun) build).getParent();
-                if (job.pollingBaselines == null) {
-                    job.pollingBaselines = new ConcurrentHashMap<>();
+                if (pollingBaseline != null) {
+                    if (job.pollingBaselines == null) {
+                        job.pollingBaselines = new ConcurrentHashMap<>();
+                    }
+                    job.pollingBaselines.put(scm.getKey(), pollingBaseline);
                 }
-                job.pollingBaselines.put(scm.getKey(), pollingBaseline);
+                else{
+                    //pollingBaseline is null here
+                    if (job.pollingBaselines != null) {
+                        // We need to remove the polling baseline if the baseline goes back to null
+                        // this is caused by the checkout/polling values becoming false
+                        job.pollingBaselines.remove(scm.getKey());
+                    }
+                }
             }
         }
     }
