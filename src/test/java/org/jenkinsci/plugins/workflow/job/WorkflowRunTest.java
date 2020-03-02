@@ -72,6 +72,8 @@ import org.jenkinsci.plugins.workflow.graph.FlowGraphWalker;
 import org.jenkinsci.plugins.workflow.graph.FlowNode;
 import org.jenkinsci.plugins.workflow.graph.StepNode;
 import org.jenkinsci.plugins.workflow.test.steps.SemaphoreStep;
+
+import static org.hamcrest.Matchers.*;
 import static org.junit.Assert.*;
 import org.junit.ClassRule;
 import org.junit.Rule;
@@ -504,40 +506,27 @@ public class WorkflowRunTest {
         sampleRepo.init();
         TaskListener listener = StreamTaskListener.fromStdout();
         WorkflowJob p = r.jenkins.createProject(WorkflowJob.class, "p");
-        p.setDefinition(new CpsFlowDefinition("semaphore 'waitFirst'\n" +
+        p.setDefinition(new CpsFlowDefinition(
                 "node {\n" +
-                "    checkout(changelog:" + true +", poll:" + true + ", scm: [$class: 'GitSCM', branches: [[name: '*/master']], " +
-                "doGenerateSubmoduleConfigurations: false, extensions: [], " +
-                "gitTool: 'Default', submoduleCfg: [], userRemoteConfigs: [[url: $/" + sampleRepo + "/$]]])" +
+                checkoutString(sampleRepo, true, true) +
                 "}\n", false /* for org.jvnet.hudson.test.FakeChangeLogSCM */));
 
         WorkflowRun b1 = p.scheduleBuild2(0).waitForStart();
-
-        SemaphoreStep.waitForStart("waitFirst/1", b1);
-        SemaphoreStep.success("waitFirst/1", null);
         r.assertBuildStatusSuccess(r.waitForCompletion(b1));
-        for (WorkflowRun.SCMCheckout co : b1.checkouts(listener)){
-            System.out.println("Checkout: " + co.toString());
-            assertTrue(co.pollingBaseline != null);
-        }
+        assertThat(b1.checkouts(listener).size(), equalTo(1));
+        assertThat(b1.checkouts(listener).get(0).pollingBaseline, notNullValue());
 
-        p.setDefinition(new CpsFlowDefinition("semaphore 'waitFirst'\n" +
+        p.setDefinition(new CpsFlowDefinition(
                 "node {\n" +
-                "    checkout(changelog:" + false +", poll:" + false + ", scm: [$class: 'GitSCM', branches: [[name: '*/master']], " +
-                "doGenerateSubmoduleConfigurations: false, extensions: [], " +
-                "gitTool: 'Default', submoduleCfg: [], userRemoteConfigs: [[url: $/" + sampleRepo + "/$]]])" +
+                checkoutString(sampleRepo, false, false) +
                 "}\n", false /* for org.jvnet.hudson.test.FakeChangeLogSCM */));
 
 
         WorkflowRun b2 = p.scheduleBuild2(0).waitForStart();
 
-        SemaphoreStep.waitForStart("waitFirst/2", b2);
-        SemaphoreStep.success("waitFirst/2", null);
-
         r.assertBuildStatusSuccess(r.waitForCompletion(b2));
-        for (WorkflowRun.SCMCheckout co : b2.checkouts(listener)){
-            assertTrue(co.pollingBaseline == null);
-        }
+        assertThat(b2.checkouts(listener).size(), equalTo(1));
+        assertThat(b2.checkouts(listener).get(0).pollingBaseline, nullValue());
     }
 
     @Test
@@ -547,74 +536,50 @@ public class WorkflowRunTest {
         sampleRepo.init();
         TaskListener listener = StreamTaskListener.fromStdout();
         WorkflowJob p = r.jenkins.createProject(WorkflowJob.class, "p");
-        p.setDefinition(new CpsFlowDefinition("semaphore 'waitFirst'\n" +
+        p.setDefinition(new CpsFlowDefinition(
                 "node {\n" +
-                "    checkout(changelog:" + true +", poll:" + true + ", scm: [$class: 'GitSCM', branches: [[name: '*/master']], " +
-                "doGenerateSubmoduleConfigurations: false, extensions: [], " +
-                "gitTool: 'Default', submoduleCfg: [], userRemoteConfigs: [[url: $/" + sampleRepo + "/$]]])" +
+                checkoutString(sampleRepo, true, true) +
                 "}\n", false /* for org.jvnet.hudson.test.FakeChangeLogSCM */));
 
         WorkflowRun b1 = p.scheduleBuild2(0).waitForStart();
-
-        SemaphoreStep.waitForStart("waitFirst/1", b1);
-        SemaphoreStep.success("waitFirst/1", null);
         r.assertBuildStatusSuccess(r.waitForCompletion(b1));
-        for (WorkflowRun.SCMCheckout co : b1.checkouts(listener)){
-            System.out.println("Checkout: " + co.toString());
-            assertTrue(co.pollingBaseline != null);
-        }
+        assertThat(b1.checkouts(listener).size(), equalTo(1));
+        assertThat(b1.checkouts(listener).get(0).pollingBaseline, notNullValue());
 
-        p.setDefinition(new CpsFlowDefinition("semaphore 'waitFirst'\n" +
+        p.setDefinition(new CpsFlowDefinition(
                 "node {\n" +
-                "    checkout(changelog:" + false +", poll:" + true + ", scm: [$class: 'GitSCM', branches: [[name: '*/master']], " +
-                "doGenerateSubmoduleConfigurations: false, extensions: [], " +
-                "gitTool: 'Default', submoduleCfg: [], userRemoteConfigs: [[url: $/" + sampleRepo + "/$]]])" +
+                checkoutString(sampleRepo, false, true) +
                 "}\n", false /* for org.jvnet.hudson.test.FakeChangeLogSCM */));
 
 
         WorkflowRun b2 = p.scheduleBuild2(0).waitForStart();
 
-        SemaphoreStep.waitForStart("waitFirst/2", b2);
-        SemaphoreStep.success("waitFirst/2", null);
-
         r.assertBuildStatusSuccess(r.waitForCompletion(b2));
-        for (WorkflowRun.SCMCheckout co : b2.checkouts(listener)){
-            assertTrue(co.pollingBaseline != null);
-        }
-        p.setDefinition(new CpsFlowDefinition("semaphore 'waitFirst'\n" +
+        assertThat(b2.checkouts(listener).size(), equalTo(1));
+        assertThat(b2.checkouts(listener).get(0).pollingBaseline, notNullValue());
+        p.setDefinition(new CpsFlowDefinition(
                 "node {\n" +
-                "    checkout(changelog:" + true +", poll:" + false + ", scm: [$class: 'GitSCM', branches: [[name: '*/master']], " +
-                "doGenerateSubmoduleConfigurations: false, extensions: [], " +
-                "gitTool: 'Default', submoduleCfg: [], userRemoteConfigs: [[url: $/" + sampleRepo + "/$]]])" +
+                checkoutString(sampleRepo, true, false) +
                 "}\n", false /* for org.jvnet.hudson.test.FakeChangeLogSCM */));
 
 
         WorkflowRun b3 = p.scheduleBuild2(0).waitForStart();
 
-        SemaphoreStep.waitForStart("waitFirst/3", b3);
-        SemaphoreStep.success("waitFirst/3", null);
-
         r.assertBuildStatusSuccess(r.waitForCompletion(b3));
-        for (WorkflowRun.SCMCheckout co : b3.checkouts(listener)){
-            assertTrue(co.pollingBaseline != null);
-        }
-        p.setDefinition(new CpsFlowDefinition("semaphore 'waitFirst'\n" +
+        assertThat(b3.checkouts(listener).size(), equalTo(1));
+        assertThat(b3.checkouts(listener).get(0).pollingBaseline, notNullValue());
+
+        p.setDefinition(new CpsFlowDefinition(
                 "node {\n" +
-                "    checkout(changelog:" + false +", poll:" + false + ", scm: [$class: 'GitSCM', branches: [[name: '*/master']], " +
-                "doGenerateSubmoduleConfigurations: false, extensions: [], " +
-                "gitTool: 'Default', submoduleCfg: [], userRemoteConfigs: [[url: $/" + sampleRepo + "/$]]])" +
+                checkoutString(sampleRepo, false, false) +
                 "}\n", false /* for org.jvnet.hudson.test.FakeChangeLogSCM */));
 
 
         WorkflowRun b4 = p.scheduleBuild2(0).waitForStart();
 
-        SemaphoreStep.waitForStart("waitFirst/4", b4);
-        SemaphoreStep.success("waitFirst/4", null);
-
         r.assertBuildStatusSuccess(r.waitForCompletion(b4));
-        for (WorkflowRun.SCMCheckout co : b4.checkouts(listener)){
-            assertTrue(co.pollingBaseline == null);
-        }
+        assertThat(b4.checkouts(listener).size(), equalTo(1));
+        assertThat(b4.checkouts(listener).get(0).pollingBaseline, nullValue());
     }
 
     @Test
@@ -623,75 +588,102 @@ public class WorkflowRunTest {
     public void baselineResetMultipleRepos() throws Exception {
         sampleRepo.init();
         sampleRepo2.init();
+        System.out.println("Repo file URL at: " + sampleRepo.fileUrl());
         TaskListener listener = StreamTaskListener.fromStdout();
         WorkflowJob p = r.jenkins.createProject(WorkflowJob.class, "p");
-        p.setDefinition(new CpsFlowDefinition("semaphore 'waitFirst'\n" +
+        p.setDefinition(new CpsFlowDefinition(
                 "node {\n" +
-                "    checkout(changelog:" + true +", poll:" + true + ", scm: [$class: 'GitSCM', branches: [[name: '*/master']], " +
-                "doGenerateSubmoduleConfigurations: false, extensions: [], " +
-                "gitTool: 'Default', submoduleCfg: [], userRemoteConfigs: [[url: $/" + sampleRepo + "/$]]])\n" +
-                "    checkout(changelog:" + true +", poll:" + true + ", scm: [$class: 'GitSCM', branches: [[name: '*/master']], " +
-                "doGenerateSubmoduleConfigurations: false, extensions: [], " +
-                "gitTool: 'Default', submoduleCfg: [], userRemoteConfigs: [[url: $/" + sampleRepo2 + "/$]]])" +
+                checkoutString(sampleRepo, true, true) +
+                checkoutString(sampleRepo2, true, true) +
                 "}\n", false /* for org.jvnet.hudson.test.FakeChangeLogSCM */));
 
         WorkflowRun b1 = p.scheduleBuild2(0).waitForStart();
-
-        SemaphoreStep.waitForStart("waitFirst/1", b1);
-        SemaphoreStep.success("waitFirst/1", null);
         r.assertBuildStatusSuccess(r.waitForCompletion(b1));
-        for (WorkflowRun.SCMCheckout co : b1.checkouts(listener)){
-            System.out.println("Checkout: " + co.toString());
-            assertTrue(co.pollingBaseline != null);
-        }
+        assertThat(b1.checkouts(listener).size(), equalTo(2));
+        assertThat(b1.checkouts(listener).get(0).pollingBaseline, notNullValue());
+        assertThat(b1.checkouts(listener).get(1).pollingBaseline, notNullValue());
 
-        p.setDefinition(new CpsFlowDefinition("semaphore 'waitFirst'\n" +
+        p.setDefinition(new CpsFlowDefinition(
                 "node {\n" +
-                "    checkout(changelog:" + false +", poll:" + false + ", scm: [$class: 'GitSCM', branches: [[name: '*/master']], " +
-                "doGenerateSubmoduleConfigurations: false, extensions: [], " +
-                "gitTool: 'Default', submoduleCfg: [], userRemoteConfigs: [[url: $/" + sampleRepo + "/$]]])\n" +
-                "    checkout(changelog:" + true +", poll:" + true + ", scm: [$class: 'GitSCM', branches: [[name: '*/master']], " +
-                "doGenerateSubmoduleConfigurations: false, extensions: [], " +
-                "gitTool: 'Default', submoduleCfg: [], userRemoteConfigs: [[url: $/" + sampleRepo2 + "/$]]])" +
-                "}\n", false /* for org.jvnet.hudson.test.FakeChangeLogSCM */));
+                checkoutString(sampleRepo, false, false) +
+                checkoutString(sampleRepo2, true, true) +
+                "}\n", false));
 
 
         WorkflowRun b2 = p.scheduleBuild2(0).waitForStart();
 
-        SemaphoreStep.waitForStart("waitFirst/2", b2);
-        SemaphoreStep.success("waitFirst/2", null);
-
         r.assertBuildStatusSuccess(r.waitForCompletion(b2));
-        int count = 0;
-        for (WorkflowRun.SCMCheckout co : b2.checkouts(listener)){
-            if(count == 0) {
-                assertTrue(co.pollingBaseline == null);
-                count++;
-            } else {
-                assertTrue(co.pollingBaseline != null);
-            }
-        }
+        assertThat(b2.checkouts(listener).size(), equalTo(2));
+        assertThat(b2.checkouts(listener).get(0).pollingBaseline, nullValue());
+        assertThat(b2.checkouts(listener).get(1).pollingBaseline, notNullValue());
 
-        p.setDefinition(new CpsFlowDefinition("semaphore 'waitFirst'\n" +
+        p.setDefinition(new CpsFlowDefinition(
                 "node {\n" +
-                "    checkout(changelog:" + false +", poll:" + false + ", scm: [$class: 'GitSCM', branches: [[name: '*/master']], " +
-                "doGenerateSubmoduleConfigurations: false, extensions: [], " +
-                "gitTool: 'Default', submoduleCfg: [], userRemoteConfigs: [[url: $/" + sampleRepo + "/$]]])\n" +
-                "    checkout(changelog:" + false +", poll:" + false + ", scm: [$class: 'GitSCM', branches: [[name: '*/master']], " +
-                "doGenerateSubmoduleConfigurations: false, extensions: [], " +
-                "gitTool: 'Default', submoduleCfg: [], userRemoteConfigs: [[url: $/" + sampleRepo2 + "/$]]])" +
-                "}\n", false /* for org.jvnet.hudson.test.FakeChangeLogSCM */));
+                checkoutString(sampleRepo, false, false) +
+                checkoutString(sampleRepo2, false, false) +
+                "}\n", false));
 
 
         WorkflowRun b3 = p.scheduleBuild2(0).waitForStart();
-
-        SemaphoreStep.waitForStart("waitFirst/3", b3);
-        SemaphoreStep.success("waitFirst/3", null);
-
         r.assertBuildStatusSuccess(r.waitForCompletion(b3));
-        for (WorkflowRun.SCMCheckout co : b3.checkouts(listener)){
-            assertTrue(co.pollingBaseline == null);
-        }
+        assertThat(b3.checkouts(listener).size(), equalTo(2));
+        assertThat(b3.checkouts(listener).get(0).pollingBaseline, nullValue());
+        assertThat(b3.checkouts(listener).get(1).pollingBaseline, nullValue());
+    }
+
+    @Test
+    @Issue("NGPIPELINE-917")
+    // Basic test to prove that checkout gets individually set for each checkout
+    public void baselineResetMultipleSameRepo() throws Exception {
+        sampleRepo.init();
+        sampleRepo2.init();
+        System.out.println("Repo file URL at: " + sampleRepo.fileUrl());
+        TaskListener listener = StreamTaskListener.fromStdout();
+        WorkflowJob p = r.jenkins.createProject(WorkflowJob.class, "p");
+        p.setDefinition(new CpsFlowDefinition(
+                "node {\n" +
+                        checkoutString(sampleRepo, true, true) +
+                        checkoutString(sampleRepo, true, true) +
+                        "}\n", false /* for org.jvnet.hudson.test.FakeChangeLogSCM */));
+
+        WorkflowRun b1 = p.scheduleBuild2(0).waitForStart();
+        r.assertBuildStatusSuccess(r.waitForCompletion(b1));
+        assertThat(b1.checkouts(listener).size(), equalTo(2));
+        assertThat(b1.checkouts(listener).get(0).pollingBaseline, notNullValue());
+        assertThat(b1.checkouts(listener).get(1).pollingBaseline, notNullValue());
+
+        p.setDefinition(new CpsFlowDefinition(
+                "node {\n" +
+                        checkoutString(sampleRepo, false, false) +
+                        checkoutString(sampleRepo, true, true) +
+                        "}\n", false));
+
+
+        WorkflowRun b2 = p.scheduleBuild2(0).waitForStart();
+
+        r.assertBuildStatusSuccess(r.waitForCompletion(b2));
+        assertThat(b2.checkouts(listener).size(), equalTo(2));
+        assertThat(b2.checkouts(listener).get(0).pollingBaseline, nullValue());
+        assertThat(b2.checkouts(listener).get(1).pollingBaseline, notNullValue());
+
+        p.setDefinition(new CpsFlowDefinition(
+                "node {\n" +
+                        checkoutString(sampleRepo, false, false) +
+                        checkoutString(sampleRepo, false, false) +
+                        "}\n", false));
+
+
+        WorkflowRun b3 = p.scheduleBuild2(0).waitForStart();
+        r.assertBuildStatusSuccess(r.waitForCompletion(b3));
+        assertThat(b3.checkouts(listener).size(), equalTo(2));
+        assertThat(b3.checkouts(listener).get(0).pollingBaseline, nullValue());
+        assertThat(b3.checkouts(listener).get(1).pollingBaseline, nullValue());
+    }
+
+    String checkoutString(GitSampleRepoRule repo, boolean changelog, boolean polling) throws Exception {
+        return "    checkout(changelog:" + changelog +", poll:" + polling +
+                ", scm: [$class: 'GitSCM', branches: [[name: '*/master']], " +
+                ", userRemoteConfigs: [[url: $/" + repo.fileUrl() + "/$]]])\n";
     }
 
 }
