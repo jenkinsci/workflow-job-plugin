@@ -642,8 +642,7 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements L
                         job.pollingBaselines = new ConcurrentHashMap<>();
                     }
                     job.pollingBaselines.put(scm.getKey(), pollingBaseline);
-                }
-                else{
+                } else {
                     //pollingBaseline is null here
                     if (job.pollingBaselines != null) {
                         // We need to remove the polling baseline if the baseline goes back to null
