@@ -501,31 +501,36 @@ public class WorkflowRunTest {
 
     @Test
     @Issue("NGPIPELINE-917")
-    // Basic test to prove that checkout gets turned off correctly
+    // Test proves that turning on changelog/polling and then turning it off again will remove the polling baseline
     public void baselineResetSingleRepo() throws Exception {
         sampleRepo.init();
         TaskListener listener = StreamTaskListener.fromStdout();
+        //Creating the job
         WorkflowJob p = r.jenkins.createProject(WorkflowJob.class, "p");
+        //Setting definition with changelog and polling true
         p.setDefinition(new CpsFlowDefinition(
                 "node {\n" +
                 checkoutString(sampleRepo, true, true) +
-                "}\n", false /* for org.jvnet.hudson.test.FakeChangeLogSCM */));
+                "}\n", false));
 
         WorkflowRun b1 = p.scheduleBuild2(0).waitForStart();
         r.assertBuildStatusSuccess(r.waitForCompletion(b1));
         assertThat(b1.checkouts(listener).size(), equalTo(1));
+        // Checking that the polling baseline is correctly established
         assertThat(b1.checkouts(listener).get(0).pollingBaseline, notNullValue());
 
+        //Resetting the definition to turn off changelog and polling
         p.setDefinition(new CpsFlowDefinition(
                 "node {\n" +
                 checkoutString(sampleRepo, false, false) +
-                "}\n", false /* for org.jvnet.hudson.test.FakeChangeLogSCM */));
+                "}\n", false));
 
 
         WorkflowRun b2 = p.scheduleBuild2(0).waitForStart();
 
         r.assertBuildStatusSuccess(r.waitForCompletion(b2));
         assertThat(b2.checkouts(listener).size(), equalTo(1));
+        //proving the baseline is removed
         assertThat(b2.checkouts(listener).get(0).pollingBaseline, nullValue());
     }
 
@@ -536,20 +541,22 @@ public class WorkflowRunTest {
         sampleRepo.init();
         TaskListener listener = StreamTaskListener.fromStdout();
         WorkflowJob p = r.jenkins.createProject(WorkflowJob.class, "p");
+        //pipeline definition with both true
         p.setDefinition(new CpsFlowDefinition(
                 "node {\n" +
                 checkoutString(sampleRepo, true, true) +
-                "}\n", false /* for org.jvnet.hudson.test.FakeChangeLogSCM */));
+                "}\n", false));
 
         WorkflowRun b1 = p.scheduleBuild2(0).waitForStart();
         r.assertBuildStatusSuccess(r.waitForCompletion(b1));
         assertThat(b1.checkouts(listener).size(), equalTo(1));
         assertThat(b1.checkouts(listener).get(0).pollingBaseline, notNullValue());
 
+        // Definition when one is false and one is true
         p.setDefinition(new CpsFlowDefinition(
                 "node {\n" +
                 checkoutString(sampleRepo, false, true) +
-                "}\n", false /* for org.jvnet.hudson.test.FakeChangeLogSCM */));
+                "}\n", false));
 
 
         WorkflowRun b2 = p.scheduleBuild2(0).waitForStart();
@@ -557,10 +564,12 @@ public class WorkflowRunTest {
         r.assertBuildStatusSuccess(r.waitForCompletion(b2));
         assertThat(b2.checkouts(listener).size(), equalTo(1));
         assertThat(b2.checkouts(listener).get(0).pollingBaseline, notNullValue());
+
+        // The reverse
         p.setDefinition(new CpsFlowDefinition(
                 "node {\n" +
                 checkoutString(sampleRepo, true, false) +
-                "}\n", false /* for org.jvnet.hudson.test.FakeChangeLogSCM */));
+                "}\n", false));
 
 
         WorkflowRun b3 = p.scheduleBuild2(0).waitForStart();
@@ -569,22 +578,24 @@ public class WorkflowRunTest {
         assertThat(b3.checkouts(listener).size(), equalTo(1));
         assertThat(b3.checkouts(listener).get(0).pollingBaseline, notNullValue());
 
+        // Now it should finally be cleaned up
         p.setDefinition(new CpsFlowDefinition(
                 "node {\n" +
                 checkoutString(sampleRepo, false, false) +
-                "}\n", false /* for org.jvnet.hudson.test.FakeChangeLogSCM */));
+                "}\n", false));
 
 
         WorkflowRun b4 = p.scheduleBuild2(0).waitForStart();
 
         r.assertBuildStatusSuccess(r.waitForCompletion(b4));
         assertThat(b4.checkouts(listener).size(), equalTo(1));
+        //Proving it is reset
         assertThat(b4.checkouts(listener).get(0).pollingBaseline, nullValue());
     }
 
     @Test
     @Issue("NGPIPELINE-917")
-    // Basic test to prove that checkout gets individually set for each checkout
+    // Basic test to prove that checkout/poll gets individually set for each checkout
     public void baselineResetMultipleRepos() throws Exception {
         sampleRepo.init();
         sampleRepo2.init();
@@ -595,11 +606,12 @@ public class WorkflowRunTest {
                 "node {\n" +
                 checkoutString(sampleRepo, true, true) +
                 checkoutString(sampleRepo2, true, true) +
-                "}\n", false /* for org.jvnet.hudson.test.FakeChangeLogSCM */));
+                "}\n", false));
 
         WorkflowRun b1 = p.scheduleBuild2(0).waitForStart();
         r.assertBuildStatusSuccess(r.waitForCompletion(b1));
         assertThat(b1.checkouts(listener).size(), equalTo(2));
+        //Both come back with baselines
         assertThat(b1.checkouts(listener).get(0).pollingBaseline, notNullValue());
         assertThat(b1.checkouts(listener).get(1).pollingBaseline, notNullValue());
 
@@ -614,6 +626,7 @@ public class WorkflowRunTest {
 
         r.assertBuildStatusSuccess(r.waitForCompletion(b2));
         assertThat(b2.checkouts(listener).size(), equalTo(2));
+        //One comes back with a baseline and the other not
         assertThat(b2.checkouts(listener).get(0).pollingBaseline, nullValue());
         assertThat(b2.checkouts(listener).get(1).pollingBaseline, notNullValue());
 
@@ -627,13 +640,14 @@ public class WorkflowRunTest {
         WorkflowRun b3 = p.scheduleBuild2(0).waitForStart();
         r.assertBuildStatusSuccess(r.waitForCompletion(b3));
         assertThat(b3.checkouts(listener).size(), equalTo(2));
+        //Both have their baselines wiped
         assertThat(b3.checkouts(listener).get(0).pollingBaseline, nullValue());
         assertThat(b3.checkouts(listener).get(1).pollingBaseline, nullValue());
     }
 
     @Test
     @Issue("NGPIPELINE-917")
-    // Basic test to prove that checkout gets individually set for each checkout
+    // Basic test to prove that checkout gets individually set for each checkout even with the same URL
     public void baselineResetMultipleSameRepo() throws Exception {
         sampleRepo.init();
         sampleRepo2.init();
@@ -649,7 +663,7 @@ public class WorkflowRunTest {
         WorkflowRun b1 = p.scheduleBuild2(0).waitForStart();
         r.assertBuildStatusSuccess(r.waitForCompletion(b1));
         assertThat(b1.checkouts(listener).size(), equalTo(2));
-        assertThat(b1.checkouts(listener).get(0).pollingBaseline, notNullValue());
+        assertThat("First checkout has changelog true", b1.checkouts(listener).get(0).pollingBaseline, notNullValue());
         assertThat(b1.checkouts(listener).get(1).pollingBaseline, notNullValue());
 
         p.setDefinition(new CpsFlowDefinition(
@@ -663,6 +677,7 @@ public class WorkflowRunTest {
 
         r.assertBuildStatusSuccess(r.waitForCompletion(b2));
         assertThat(b2.checkouts(listener).size(), equalTo(2));
+        //One comes back with a baseline and the other not
         assertThat(b2.checkouts(listener).get(0).pollingBaseline, nullValue());
         assertThat(b2.checkouts(listener).get(1).pollingBaseline, notNullValue());
 
@@ -676,6 +691,7 @@ public class WorkflowRunTest {
         WorkflowRun b3 = p.scheduleBuild2(0).waitForStart();
         r.assertBuildStatusSuccess(r.waitForCompletion(b3));
         assertThat(b3.checkouts(listener).size(), equalTo(2));
+        //Both have their baselines wiped
         assertThat(b3.checkouts(listener).get(0).pollingBaseline, nullValue());
         assertThat(b3.checkouts(listener).get(1).pollingBaseline, nullValue());
     }
