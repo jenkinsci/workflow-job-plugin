@@ -32,7 +32,6 @@ import hudson.model.listeners.RunListener;
 import hudson.model.queue.QueueTaskFuture;
 import hudson.plugins.git.GitSCM;
 import hudson.scm.SCM;
-import hudson.scm.SCMRevisionState;
 import hudson.security.ACL;
 import hudson.security.ACLContext;
 import hudson.security.Permission;
@@ -87,6 +86,7 @@ import org.xml.sax.SAXException;
 
 import javax.annotation.Nonnull;
 import org.apache.commons.io.IOUtils;
+import org.hamcrest.Matcher;
 import org.jenkinsci.plugins.workflow.support.actions.EnvironmentAction;
 
 public class WorkflowRunTest {
@@ -497,129 +497,66 @@ public class WorkflowRunTest {
         assertEquals(GitSCM.class, checkouts.get(0).getClass());
     }
 
-    @Test
-    // Test proves that turning on changelog/polling and then turning it off again will remove the polling baseline
-    public void baselineResetSingleRepo() throws Exception {
+    @Test public void baselineResetSingleRepo() throws Exception {
         sampleRepo.init();
         TaskListener listener = StreamTaskListener.fromStdout();
         WorkflowJob p = r.createProject(WorkflowJob.class);
-        p.setDefinition(new CpsFlowDefinition(
-                "node {\n" +
-                checkoutString(sampleRepo, true, true) +
-                "}\n", true));
-
-        WorkflowRun b1 = r.buildAndAssertSuccess(p);
-        assertThat(b1.checkouts(listener).size(), equalTo(1));
-        assertThat("Polling baseline should be established", b1.checkouts(listener).get(0).pollingBaseline, notNullValue());
-
-        //Resetting the definition to turn off changelog and polling
-        p.setDefinition(new CpsFlowDefinition(
-                "node {\n" +
-                checkoutString(sampleRepo, false, false) +
-                "}\n", true));
-
-
-        WorkflowRun b2 = r.buildAndAssertSuccess(p);
-        assertThat(b2.checkouts(listener).size(), equalTo(1));
-        assertThat("Polling baseline should be removed", b2.checkouts(listener).get(0).pollingBaseline, nullValue());
+        for (boolean changelog : new boolean[] { true, false }) {
+            for (boolean polling : new boolean[] { true, false }) {
+                p.setDefinition(new CpsFlowDefinition(
+                        "node {\n" +
+                        checkoutString(sampleRepo, changelog, polling) +
+                        "}\n", true));
+                WorkflowRun b = r.buildAndAssertSuccess(p);
+                assertThat(b.checkouts(listener).size(), equalTo(1));
+                assertThat("Unexpected baseline with changelog: " + changelog + "and polling: " + polling,
+                        b.checkouts(listener).get(0).pollingBaseline,
+                        // Setting either changelog or polling to true causes polling to be enabled.
+                        changelog || polling ? notNullValue() : nullValue());
+            }
+        }
     }
 
-    @Test
-    // Showing how only with both changelog/poll false is when it removes the checkout
-    public void baselineResetSingleRepoEdgeCases() throws Exception {
+    // Polling baselines are specific to individual checkouts, even if the same repo is checked out more than once.
+    @Test public void baselineResetMultipleSameRepo() throws Exception {
         sampleRepo.init();
         TaskListener listener = StreamTaskListener.fromStdout();
         WorkflowJob p = r.createProject(WorkflowJob.class);
-        //pipeline definition with both true
         p.setDefinition(new CpsFlowDefinition(
                 "node {\n" +
                 checkoutString(sampleRepo, true, true) +
+                checkoutString(sampleRepo, true, true) +
                 "}\n", true));
-
         WorkflowRun b1 = r.buildAndAssertSuccess(p);
-        assertThat(b1.checkouts(listener).size(), equalTo(1));
-        assertThat(b1.checkouts(listener).get(0).pollingBaseline, notNullValue());
-
-        // Definition when one is false and one is true
-        p.setDefinition(new CpsFlowDefinition(
-                "node {\n" +
-                checkoutString(sampleRepo, false, true) +
-                "}\n", true));
-
-
-        WorkflowRun b2 = r.buildAndAssertSuccess(p);
-        assertThat(b2.checkouts(listener).size(), equalTo(1));
-        assertThat(b2.checkouts(listener).get(0).pollingBaseline, notNullValue());
-
-        // The reverse
-        p.setDefinition(new CpsFlowDefinition(
-                "node {\n" +
-                checkoutString(sampleRepo, true, false) +
-                "}\n", true));
-
-
-        WorkflowRun b3 = r.buildAndAssertSuccess(p);
-        assertThat(b3.checkouts(listener).size(), equalTo(1));
-        assertThat(b3.checkouts(listener).get(0).pollingBaseline, notNullValue());
-
-        // Now it should finally be cleaned up
-        p.setDefinition(new CpsFlowDefinition(
-                "node {\n" +
-                checkoutString(sampleRepo, false, false) +
-                "}\n", true));
-
-
-        WorkflowRun b4 = r.buildAndAssertSuccess(p);
-        assertThat(b4.checkouts(listener).size(), equalTo(1));
-        assertThat("Polling baseline should be removed finally", b4.checkouts(listener).get(0).pollingBaseline, nullValue());
-    }
-
-    @Test
-    // Basic test to prove that checkout gets individually set for each checkout even with the same URL
-    public void baselineResetMultipleSameRepo() throws Exception {
-        sampleRepo.init();
-        System.out.println("Repo file URL at: " + sampleRepo.fileUrl());
-        TaskListener listener = StreamTaskListener.fromStdout();
-        WorkflowJob p = r.createProject(WorkflowJob.class);
-        p.setDefinition(new CpsFlowDefinition(
-                "node {\n" +
-                checkoutString(sampleRepo, true, true) +
-                checkoutString(sampleRepo, true, true) +
-                "}\n", true));
-
-        WorkflowRun b1 = r.buildAndAssertSuccess(p);
-        assertThat(b1.checkouts(listener).size(), equalTo(2));
-        assertThat("First checkout has changelog true", b1.checkouts(listener).get(0).pollingBaseline, notNullValue());
-        assertThat(b1.checkouts(listener).get(1).pollingBaseline, notNullValue());
+        assertPollingBaselines(b1.checkouts(listener), notNullValue(), notNullValue());
 
         p.setDefinition(new CpsFlowDefinition(
                 "node {\n" +
                 checkoutString(sampleRepo, false, false) +
                 checkoutString(sampleRepo, true, true) +
                 "}\n", true));
-
-
         WorkflowRun b2 = r.buildAndAssertSuccess(p);
-        assertThat(b2.checkouts(listener).size(), equalTo(2));
         //One comes back with a baseline and the other not
-        assertThat(b2.checkouts(listener).get(0).pollingBaseline, nullValue());
-        assertThat(b2.checkouts(listener).get(1).pollingBaseline, notNullValue());
+        assertPollingBaselines(b2.checkouts(listener), nullValue(), notNullValue());
 
         p.setDefinition(new CpsFlowDefinition(
                 "node {\n" +
                 checkoutString(sampleRepo, false, false) +
                 checkoutString(sampleRepo, false, false) +
                 "}\n", true));
-
-
         WorkflowRun b3 = r.buildAndAssertSuccess(p);
-        assertThat(b3.checkouts(listener).size(), equalTo(2));
         //Both have their baselines wiped
-        assertThat(b3.checkouts(listener).get(0).pollingBaseline, nullValue());
-        assertThat(b3.checkouts(listener).get(1).pollingBaseline, nullValue());
+        assertPollingBaselines(b3.checkouts(listener), nullValue(), nullValue());
     }
 
-    String checkoutString(GitSampleRepoRule repo, boolean changelog, boolean polling) throws Exception {
+    private static void assertPollingBaselines(List<WorkflowRun.SCMCheckout> checkouts, Matcher<Object>... indexedMatchers) {
+        assertThat("Number of checkouts should match number of matchers", checkouts.size(), equalTo(indexedMatchers.length));
+        for (int i = 0; i < checkouts.size(); i++) {
+            assertThat("Unexpected baseline for checkout at index " + i, checkouts.get(i).pollingBaseline, indexedMatchers[i]);
+        }
+    }
+
+    private static String checkoutString(GitSampleRepoRule repo, boolean changelog, boolean polling) throws Exception {
         return "    checkout(changelog:" + changelog +", poll:" + polling +
                 ", scm: [$class: 'GitSCM', branches: [[name: '*/master']], " +
                 ", userRemoteConfigs: [[url: $/" + repo.fileUrl() + "/$]]])\n";
