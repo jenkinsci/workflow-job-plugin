@@ -497,6 +497,7 @@ public class WorkflowRunTest {
         assertEquals(GitSCM.class, checkouts.get(0).getClass());
     }
 
+    @Issue("JENKINS-61415")
     @Test public void baselineResetSingleRepo() throws Exception {
         sampleRepo.init();
         TaskListener listener = StreamTaskListener.fromStdout();
@@ -518,6 +519,7 @@ public class WorkflowRunTest {
     }
 
     // Polling baselines are specific to individual checkouts, even if the same repo is checked out more than once.
+    @Issue("JENKINS-61415")
     @Test public void baselineResetMultipleSameRepo() throws Exception {
         sampleRepo.init();
         TaskListener listener = StreamTaskListener.fromStdout();
