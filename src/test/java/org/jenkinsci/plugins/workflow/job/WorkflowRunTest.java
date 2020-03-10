@@ -84,6 +84,7 @@ import org.xml.sax.SAXException;
 import javax.annotation.Nonnull;
 import org.apache.commons.io.IOUtils;
 import org.jenkinsci.plugins.workflow.support.actions.EnvironmentAction;
+import org.junit.Ignore;
 
 public class WorkflowRunTest {
 
@@ -116,6 +117,15 @@ public class WorkflowRunTest {
         r.assertLogContains("param=value", r.assertBuildStatusSuccess(p.scheduleBuild2(0, new ParametersAction(new StringParameterValue("PARAM", "value")))));
         p.setDefinition(new CpsFlowDefinition("echo \"param=${env.PARAM}\"",true));
         r.assertLogContains("param=value", r.assertBuildStatusSuccess(p.scheduleBuild2(0, new ParametersAction(new StringParameterValue("PARAM", "value")))));
+    }
+
+    @Ignore("TODO broken by call to EnvVars.resolve in WorkflowRun.getEnvironment")
+    @Issue("JENKINS-60724")
+    @Test public void recursiveEnv() throws Exception {
+        WorkflowJob p = r.jenkins.createProject(WorkflowJob.class, "p");
+        p.addProperty(new ParametersDefinitionProperty(new StringParameterDefinition("VAR", "val$$")));
+        p.setDefinition(new CpsFlowDefinition("echo(/VAR=$VAR/)", true));
+        r.assertLogContains("VAR=val$$", r.buildAndAssertSuccess(p));
     }
 
     @Issue("JENKINS-46945")
