@@ -50,7 +50,8 @@ import hudson.slaves.NodeProperty;
 import hudson.slaves.NodePropertyDescriptor;
 import hudson.util.DescribableList;
 import java.util.logging.Level;
-import java.util.logging.LogRecord;
+
+import hudson.util.StreamTaskListener;
 import jenkins.model.CauseOfInterruption;
 import jenkins.model.InterruptedBuildAction;
 import jenkins.model.Jenkins;
@@ -69,6 +70,8 @@ import org.jenkinsci.plugins.workflow.graph.FlowGraphWalker;
 import org.jenkinsci.plugins.workflow.graph.FlowNode;
 import org.jenkinsci.plugins.workflow.graph.StepNode;
 import org.jenkinsci.plugins.workflow.test.steps.SemaphoreStep;
+
+import static org.hamcrest.Matchers.*;
 import static org.junit.Assert.*;
 import org.junit.ClassRule;
 import org.junit.Rule;
@@ -83,6 +86,7 @@ import org.xml.sax.SAXException;
 
 import javax.annotation.Nonnull;
 import org.apache.commons.io.IOUtils;
+import org.hamcrest.Matcher;
 import org.jenkinsci.plugins.workflow.support.actions.EnvironmentAction;
 import org.junit.Ignore;
 
@@ -92,6 +96,7 @@ public class WorkflowRunTest {
     @Rule public JenkinsRule r = new JenkinsRule();
     @Rule public LoggerRule logging = new LoggerRule();
     @Rule public GitSampleRepoRule sampleRepo = new GitSampleRepoRule();
+
 
     @Test public void basics() throws Exception {
         WorkflowJob p = r.jenkins.createProject(WorkflowJob.class, "p");
@@ -501,4 +506,72 @@ public class WorkflowRunTest {
         assertEquals(1, checkouts.size());
         assertEquals(GitSCM.class, checkouts.get(0).getClass());
     }
+
+    @Issue("JENKINS-61415")
+    @Test public void baselineResetSingleRepo() throws Exception {
+        sampleRepo.init();
+        TaskListener listener = StreamTaskListener.fromStdout();
+        WorkflowJob p = r.createProject(WorkflowJob.class);
+        for (boolean changelog : new boolean[] { true, false }) {
+            for (boolean polling : new boolean[] { true, false }) {
+                p.setDefinition(new CpsFlowDefinition(
+                        "node {\n" +
+                        checkoutString(sampleRepo, changelog, polling) +
+                        "}\n", true));
+                WorkflowRun b = r.buildAndAssertSuccess(p);
+                assertThat(b.checkouts(listener).size(), equalTo(1));
+                assertThat("Unexpected baseline with changelog: " + changelog + "and polling: " + polling,
+                        b.checkouts(listener).get(0).pollingBaseline,
+                        // Setting either changelog or polling to true causes polling to be enabled.
+                        changelog || polling ? notNullValue() : nullValue());
+            }
+        }
+    }
+
+    // Polling baselines are specific to individual checkouts, even if the same repo is checked out more than once.
+    @Issue("JENKINS-61415")
+    @Test public void baselineResetMultipleSameRepo() throws Exception {
+        sampleRepo.init();
+        TaskListener listener = StreamTaskListener.fromStdout();
+        WorkflowJob p = r.createProject(WorkflowJob.class);
+        p.setDefinition(new CpsFlowDefinition(
+                "node {\n" +
+                checkoutString(sampleRepo, true, true) +
+                checkoutString(sampleRepo, true, true) +
+                "}\n", true));
+        WorkflowRun b1 = r.buildAndAssertSuccess(p);
+        assertPollingBaselines(b1.checkouts(listener), notNullValue(), notNullValue());
+
+        p.setDefinition(new CpsFlowDefinition(
+                "node {\n" +
+                checkoutString(sampleRepo, false, false) +
+                checkoutString(sampleRepo, true, true) +
+                "}\n", true));
+        WorkflowRun b2 = r.buildAndAssertSuccess(p);
+        //One comes back with a baseline and the other not
+        assertPollingBaselines(b2.checkouts(listener), nullValue(), notNullValue());
+
+        p.setDefinition(new CpsFlowDefinition(
+                "node {\n" +
+                checkoutString(sampleRepo, false, false) +
+                checkoutString(sampleRepo, false, false) +
+                "}\n", true));
+        WorkflowRun b3 = r.buildAndAssertSuccess(p);
+        //Both have their baselines wiped
+        assertPollingBaselines(b3.checkouts(listener), nullValue(), nullValue());
+    }
+
+    private static void assertPollingBaselines(List<WorkflowRun.SCMCheckout> checkouts, Matcher<Object>... indexedMatchers) {
+        assertThat("Number of checkouts should match number of matchers", checkouts.size(), equalTo(indexedMatchers.length));
+        for (int i = 0; i < checkouts.size(); i++) {
+            assertThat("Unexpected baseline for checkout at index " + i, checkouts.get(i).pollingBaseline, indexedMatchers[i]);
+        }
+    }
+
+    private static String checkoutString(GitSampleRepoRule repo, boolean changelog, boolean polling) throws Exception {
+        return "    checkout(changelog:" + changelog +", poll:" + polling +
+                ", scm: [$class: 'GitSCM', branches: [[name: '*/master']], " +
+                ", userRemoteConfigs: [[url: $/" + repo.fileUrl() + "/$]]])\n";
+    }
+
 }
