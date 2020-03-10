@@ -1,5 +1,14 @@
 ## Changelog
 
+### 2.37
+
+Release date: 2020-03-10
+
+- Fix: Show branch names for parallel branches in truncated build logs when the parallel branch began before the current truncation point of the log. ([JENKINS-60862](https://issues.jenkins-ci.org/browse/JENKINS-60862))
+- Fix: Remove polling baselines for Pipelines jobs immediately when an SCM is checked out in a build with polling and changelogs disabled. Previously, Jenkins needed to be restarted for the changes to polling to take effect. ([JENKINS-61415](https://issues.jenkins-ci.org/browse/JENKINS-61415))
+- Internal: Add ignored test case for JENKINS-60724. ([JENKINS-60724](https://issues.jenkins-ci.org/browse/JENKINS-60724))
+- Internal: Update parent POM and jenkins-test-harness dependency. ([PR 149](https://github.com/jenkinsci/workflow-job-plugin/pull/149)
+
 ### 2.36
 
 Release date: 2019-11-04
