@@ -386,7 +386,7 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements L
      */
     @Deprecated
     public static final Permission ABORT = CANCEL;
-
+    
     @Override public Collection<? extends SubTask> getSubTasks() {
         // TODO mostly copied from AbstractProject, except SubTaskContributor is not available:
         List<SubTask> subTasks = new ArrayList<>();
