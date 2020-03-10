@@ -386,7 +386,7 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements L
      */
     @Deprecated
     public static final Permission ABORT = CANCEL;
-    
+
     @Override public Collection<? extends SubTask> getSubTasks() {
         // TODO mostly copied from AbstractProject, except SubTaskContributor is not available:
         List<SubTask> subTasks = new ArrayList<>();
@@ -591,7 +591,6 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements L
                 FilePath workspace;
                 Launcher launcher;
                 WorkspaceList.Lease lease;
-
                 if (co.scm.requiresWorkspaceForPolling()) {
                     Jenkins j = Jenkins.getInstanceOrNull();
                     if (j == null) {
@@ -637,19 +636,10 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements L
         @Override public void onCheckout(Run<?,?> build, SCM scm, FilePath workspace, TaskListener listener, File changelogFile, SCMRevisionState pollingBaseline) throws Exception {
             if (build instanceof WorkflowRun) {
                 WorkflowJob job = ((WorkflowRun) build).getParent();
-                if (pollingBaseline != null) {
-                    if (job.pollingBaselines == null) {
-                        job.pollingBaselines = new ConcurrentHashMap<>();
-                    }
-                    job.pollingBaselines.put(scm.getKey(), pollingBaseline);
-                } else {
-                    //pollingBaseline is null here
-                    if (job.pollingBaselines != null) {
-                        // We need to remove the polling baseline if the baseline goes back to null
-                        // this is caused by the checkout/polling values becoming false
-                        job.pollingBaselines.remove(scm.getKey());
-                    }
+                if (job.pollingBaselines == null) {
+                    job.pollingBaselines = new ConcurrentHashMap<>();
                 }
+                job.pollingBaselines.compute(scm.getKey(), (key, oldBaseline) -> pollingBaseline);
             }
         }
     }
