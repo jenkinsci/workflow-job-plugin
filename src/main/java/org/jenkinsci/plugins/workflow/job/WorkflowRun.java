@@ -74,6 +74,7 @@ import java.util.Collection;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Locale;
@@ -106,8 +107,11 @@ import org.jenkinsci.plugins.workflow.flow.FlowExecutionListener;
 import org.jenkinsci.plugins.workflow.flow.FlowExecutionOwner;
 import org.jenkinsci.plugins.workflow.flow.GraphListener;
 import org.jenkinsci.plugins.workflow.flow.StashManager;
+import org.jenkinsci.plugins.workflow.graph.BlockEndNode;
+import org.jenkinsci.plugins.workflow.graph.BlockStartNode;
 import org.jenkinsci.plugins.workflow.graph.FlowEndNode;
 import org.jenkinsci.plugins.workflow.graph.FlowNode;
+import org.jenkinsci.plugins.workflow.graphanalysis.DepthFirstScanner;
 import org.jenkinsci.plugins.workflow.job.console.NewNodeConsoleNote;
 import org.jenkinsci.plugins.workflow.log.LogStorage;
 import org.jenkinsci.plugins.workflow.log.TaskListenerDecorator;
@@ -1032,6 +1036,35 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
     @SuppressWarnings("rawtypes")
     @Override public AnnotatedLargeText getLogText() {
         return LogStorage.of(asFlowExecutionOwner()).overallLog(this, !isLogUpdated());
+    }
+
+    /**
+     * For use by Jelly only.
+     */
+    @Restricted(DoNotUse.class)
+    public String getFlowGraphDataAsHtml() {
+        FlowExecution exec = getExecution();
+        if (exec != null) {
+            DepthFirstScanner scanner = new DepthFirstScanner();
+            if (scanner.setup(exec.getCurrentHeads())) {
+                StringBuilder html = new StringBuilder();
+                for (FlowNode node : scanner) {
+                    String startId;
+                    String enclosingId;
+                    if (node instanceof BlockEndNode) {
+                        enclosingId = null;
+                        startId = ((BlockEndNode) node).getStartNode().getId();
+                    } else {
+                        Iterator<BlockStartNode> it = node.iterateEnclosingBlocks().iterator();
+                        enclosingId = it.hasNext() ? it.next().getId() : null;
+                        startId = node instanceof BlockStartNode ? node.getId() : null;
+                    }
+                    html.append(NewNodeConsoleNote.startTagFor(this, node.getId(), startId, enclosingId)).append("Test</span>");
+                }
+                return html.toString();
+            }
+        }
+        return null;
     }
 
     // TODO log-related overrides pending JEP-207:
