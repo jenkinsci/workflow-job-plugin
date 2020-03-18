@@ -537,7 +537,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
                             completed = Boolean.valueOf(fetchedExecution.isComplete());
                         }
 
-                        if (completed == Boolean.FALSE) {
+                        if (Boolean.FALSE.equals(completed)) {
                             // we've been restarted while we were running. let's get the execution going again.
                             FlowExecutionListener.fireResumed(fetchedExecution);
 
