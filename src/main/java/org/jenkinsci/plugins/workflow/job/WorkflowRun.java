@@ -421,7 +421,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
                     setResult(Result.FAILURE);
                     modified = true;
                 }
-                if (completed != Boolean.TRUE) {
+                if (!Boolean.TRUE.equals(completed)) {
                     completed = true;
                     modified = true;
                 }
@@ -521,7 +521,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
                 boolean needsToPersist = completed == null;
                 super.onLoad();
 
-                if (completed == Boolean.TRUE && result == null) {
+                if (Boolean.TRUE.equals(completed) && result == null) {
                     LOGGER.log(Level.FINE, "Completed build with no result set, defaulting to failure for "+this);
                     setResult(Result.FAILURE);
                     needsToPersist = true;
@@ -529,7 +529,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
 
                 // TODO See if we can simplify this, especially around interactions with 'completed'.
 
-                if (execution != null && completed != Boolean.TRUE) {
+                if (execution != null && !Boolean.TRUE.equals(completed)) {
                     FlowExecution fetchedExecution = getExecution();  // Triggers execution.onLoad so we can resume running if not done
 
                     if (fetchedExecution != null) {
@@ -665,12 +665,12 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
                         }
                     }
                     GraphListener finishListener = null;
-                    if (this.completed != Boolean.TRUE) {
+                    if (!Boolean.TRUE.equals(this.completed)) {
                         finishListener = new FailOnLoadListener();
                         fetchedExecution.addListener(finishListener);  // So we can still ensure build finishes if onLoad generates a FlowEndNode
                     }
                     fetchedExecution.onLoad(new Owner(this));
-                    if (this.completed != Boolean.TRUE) {
+                    if (!Boolean.TRUE.equals(this.completed)) {
                         if (fetchedExecution.isComplete()) {  // See JENKINS-50199 for cases where the execution is marked complete but build is not
                             // Somehow arrived at one of those weird states
                             LOGGER.log(Level.WARNING, "Found incomplete build with completed execution - display name: "+this.getFullDisplayName());
@@ -752,7 +752,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
 
     @Exported
     @Override protected boolean isInProgress() {
-        if (completed == Boolean.TRUE) {  // Has a persisted completion state
+        if (Boolean.TRUE.equals(completed)) {  // Has a persisted completion state
             return false;
         } else {
             // This may seem gratuitous but we MUST to check the execution in case 'completed' has not been set yet
