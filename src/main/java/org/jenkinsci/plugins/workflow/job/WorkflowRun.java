@@ -207,9 +207,11 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
      *  Synchronizing this helps ensure that fields are not mutated during a {@link #save()} operation, since that locks on the Run.
      */
     private Object getMetadataGuard() {
-        synchronized (this) {
-            if (metadataGuard == null) {
-                metadataGuard = new Object();
+        if (metadataGuard == null) {
+            synchronized (this) {
+                if (metadataGuard == null) {
+                    metadataGuard = new Object();
+                }
             }
         }
         assert !Thread.holdsLock(this) || Thread.holdsLock(metadataGuard): "Synchronizing on WorkflowRun before metadataGuard may cause deadlocks";
