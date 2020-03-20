@@ -192,7 +192,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
      * Protects access to {@link #completed} etc.
      * @see #getMetadataGuard
      */
-    private transient Object metadataGuard = new Object();
+    private transient volatile Object metadataGuard = new Object();
 
     /** JENKINS-26761: supposed to always be set but sometimes is not. Access only through {@link #checkouts(TaskListener)}. */
     private @CheckForNull List<SCMCheckout> checkouts;
