@@ -186,10 +186,13 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
      * Flag for whether or not the build has completed somehow.
      * This was previously a transient field, so we may need to recompute in {@link #onLoad} based on {@link FlowExecution#isComplete}.
      */
-    Boolean completed;  // Non-private for testing
+    volatile Boolean completed;  // Non-private for testing
 
-    /** Protects access to {@link #completed} etc. */
-    private transient Object metadataGuard = new Object();
+    /**
+     * Protects access to {@link #completed} etc.
+     * @see #getMetadataGuard
+     */
+    private transient volatile Object metadataGuard = new Object();
 
     /** JENKINS-26761: supposed to always be set but sometimes is not. Access only through {@link #checkouts(TaskListener)}. */
     private @CheckForNull List<SCMCheckout> checkouts;
@@ -203,10 +206,15 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
      *  Note: to avoid deadlocks, when nesting locks we ALWAYS need to lock on the guard first, THEN the WorkflowRun.
      *  Synchronizing this helps ensure that fields are not mutated during a {@link #save()} operation, since that locks on the Run.
      */
-    private synchronized Object getMetadataGuard() {
+    private Object getMetadataGuard() {
         if (metadataGuard == null) {
-            metadataGuard = new Object();
+            synchronized (this) {
+                if (metadataGuard == null) {
+                    metadataGuard = new Object();
+                }
+            }
         }
+        assert !Thread.holdsLock(this) || Thread.holdsLock(metadataGuard): "Synchronizing on WorkflowRun before metadataGuard may cause deadlocks";
         return metadataGuard;
     }
 
@@ -218,11 +226,9 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
         // Un-synchronized to prevent deadlocks (combination of run and metadataGuard)
         // Note that in portions where multithreaded access is possible we are already synchronizing on metadataGuard
         if (listener == null) {
-            synchronized (getMetadataGuard()) {
-                if (Boolean.TRUE.equals(completed)) {
-                    LOGGER.log(Level.WARNING, null, new IllegalStateException("trying to open a build log on " + this + " after it has completed"));
-                    return NULL_LISTENER;
-                }
+            if (Boolean.TRUE.equals(completed)) {
+                LOGGER.log(Level.WARNING, null, new IllegalStateException("trying to open a build log on " + this + " after it has completed"));
+                return NULL_LISTENER;
             }
             try {
                 // TODO to better handle in-VM restart (e.g. in JenkinsRule), move CpsFlowExecution.suspendAll logic into a FlowExecution.notifyShutdown override, then make FlowExecutionOwner.notifyShutdown also overridable, which for WorkflowRun.Owner should listener.close() as needed
@@ -579,28 +585,30 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
     private void finish(@Nonnull Result r, @CheckForNull Throwable t) {
         try {
             setResult(r);
+            BuildListener myListener;
             synchronized (getMetadataGuard()) {
+                myListener = getListener();
                 completed = true;
             }
             duration = Math.max(0, System.currentTimeMillis() - getStartTimeInMillis());
             LOGGER.log(Level.INFO, "{0} completed: {1}", new Object[]{toString(), getResult()});
-            if (listener == null) {
+            if (myListener == null) {
                 // Never even made it to running, either failed when fresh-started or resumed -- otherwise getListener would have run
                 LOGGER.log(Level.WARNING, this + " failed to start", t);
             } else {
-                RunListener.fireCompleted(WorkflowRun.this, getListener());
+                RunListener.fireCompleted(WorkflowRun.this, myListener);
                 fireCompleted();
                 if (t instanceof AbortException) {
-                    getListener().error(t.getMessage());
+                    myListener.error(t.getMessage());
                 } else if (t instanceof FlowInterruptedException) {
-                    ((FlowInterruptedException) t).handle(this, getListener());
+                    ((FlowInterruptedException) t).handle(this, myListener);
                 } else if (t != null) {
-                    Functions.printStackTrace(t, getListener().getLogger());
+                    Functions.printStackTrace(t, myListener.getLogger());
                 }
-                getListener().finished(getResult());
-                if (listener instanceof AutoCloseable) {
+                myListener.finished(getResult());
+                if (myListener instanceof AutoCloseable) {
                     try {
-                        ((AutoCloseable) listener).close();
+                        ((AutoCloseable) myListener).close();
                     } catch (Exception x) {
                         LOGGER.log(Level.WARNING, "could not close build log for " + this, x);
                     }
