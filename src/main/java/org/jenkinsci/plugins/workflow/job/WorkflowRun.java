@@ -589,6 +589,11 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
             synchronized (getMetadataGuard()) {
                 myListener = getListener();
                 completed = true;
+                try {
+                    Thread.sleep(1000);
+                } catch (InterruptedException x) {
+                    x.printStackTrace();
+                }
             }
             duration = Math.max(0, System.currentTimeMillis() - getStartTimeInMillis());
             LOGGER.log(Level.INFO, "{0} completed: {1}", new Object[]{toString(), getResult()});
