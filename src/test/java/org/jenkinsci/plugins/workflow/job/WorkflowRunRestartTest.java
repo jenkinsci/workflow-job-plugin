@@ -292,6 +292,7 @@ public class WorkflowRunRestartTest {
             SemaphoreStep.success("post-resume/1", null);
 
             r.assertBuildStatus(Result.FAILURE, r.waitForCompletion(b));
+            r.waitForMessage("Finished: FAILURE", b);
             r.assertLogContains("Running for listener", b);
 
             assertEquals(0, listener.created);
