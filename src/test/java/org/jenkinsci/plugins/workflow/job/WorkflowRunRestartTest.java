@@ -99,7 +99,6 @@ public class WorkflowRunRestartTest {
             assertTrue(p.isResumeBlocked());
             WorkflowRun b = p.getBuildByNumber(1);
             r.waitForCompletion(b);
-            assertFalse(b.executionLoaded);
             assertTrue(b.completed);
             assertFalse(b.isBuilding());
             assertEquals(Result.ABORTED, b.getResult());
