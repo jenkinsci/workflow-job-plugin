@@ -7,7 +7,7 @@ Behaviour.specify("span.pipeline-new-node", 'NewNodeConsoleNote', 0, function(e)
     if (label != null) {
         var html = e.innerHTML
         var suffix = ' (' + label.escapeHTML() + ')';
-        if (!html.includes(suffix)) {
+        if (html.indexOf(suffix)<0) {
             e.innerHTML = e.innerHTML.replace(/.+/, '$&' + suffix) // insert before EOL
         }
     }
