@@ -43,7 +43,7 @@ Behaviour.specify("span.pipeline-new-node", 'NewNodeConsoleNote', 0, function(e)
             break
         }
         var label = labels.get(id)
-        if (label != null && label.startsWith('Branch: ')) {
+        if (label != null && label.indexOf('Branch: ') == 0) {
             var branch = label.substring(8)
             var ss = document.styleSheets[0]
             // TODO https://stackoverflow.com/a/18990994/12916 does not scale well to add width: 25em; text-align: right
