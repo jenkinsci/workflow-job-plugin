@@ -1,10 +1,16 @@
 ## Changelog
 
+### 2.39
+
+Release date: 2020-04-26
+
+- Fix: The Pipeline console view did not work correctly in Internet Explorer 11 due to use of unsupported JavaScript functions. ([JENKINS-62025](https://issues.jenkins.io/browse/JENKINS-62025))
+
 ### 2.38
 
 Release date: 2020-03-26
 
-- Fix: Refactor locking in `WorkflowRun` to prevent deadlock, which could cause Jenkins to hang forever in some cases. ([JENKIN-61604](https://issues.jenkins-ci.org/browse/JENKINS-61604))
+- Fix: Refactor locking in `WorkflowRun` to prevent deadlock, which could cause Jenkins to hang forever in some cases. ([JENKINS-61604](https://issues.jenkins-ci.org/browse/JENKINS-61604))
 - Fix: Remove "Custom" prefix on the console output page. This text was used for debugging and was not intended to be added to the plugin. ([PR 156](https://github.com/jenkinsci/workflow-job-plugin/pull/156))
 - Internal: Use `Boolean.equals` when comparing `Boolean` objects instead of `==`. Previous usage of `==` appears to have been safe in practice, so this is only a refactoring. ([PR 154](https://github.com/jenkinsci/workflow-job-plugin/pull/154))
 
