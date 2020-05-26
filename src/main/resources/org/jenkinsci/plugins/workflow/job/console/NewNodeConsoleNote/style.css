@@ -1,5 +1,6 @@
 span.pipeline-new-node {
-    color: #9A9999
+    color: #9A9999;
+    display: flex !important;
 }
 span.pipeline-show-hide {
     visibility: hidden

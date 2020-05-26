@@ -92,7 +92,7 @@ public class DefaultLogStorageTest {
         assertLogContains(page, hudson.model.Messages.Cause_UserIdCause_ShortDescription(alice.getDisplayName()), alice.getUrl());
         assertLogContains(page, "Running inside " + b.getDisplayName(), b.getUrl());
         assertThat(page.getWebResponse().getContentAsString().replace("\r\n", "\n"),
-            containsString("<span class=\"pipeline-new-node\" nodeId=\"3\" enclosingId=\"2\">[Pipeline] hyperlink\n</span><span class=\"pipeline-node-3\">Running inside <a href="));
+            containsString("<span class=\"pipeline-new-node\" nodeId=\"3\" enclosingId=\"2\">[Pipeline] hyperlink\n<span class=\"pipeline-show-hide\"> (<a href=\"#\" onclick=\"showHidePipelineSection(this); return false\">hide</a>)</span></span><span class=\"pipeline-node-3\">Running inside <a href="));
         DepthFirstScanner scanner = new DepthFirstScanner();
         scanner.setup(b.getExecution().getCurrentHeads());
         List<FlowNode> nodes = Lists.newArrayList(scanner.filter(FlowScanningUtils.hasActionPredicate(LogAction.class)));

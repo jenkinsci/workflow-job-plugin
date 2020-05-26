@@ -100,7 +100,8 @@ public class NewNodeConsoleNote extends ConsoleNote<WorkflowRun> {
     @Override
     public ConsoleAnnotator<?> annotate(WorkflowRun context, MarkupText text, int charPos) {
         StringBuilder startTag = startTagFor(context, id, start, enclosing);
-        text.addMarkup(0, text.length(), startTag.toString(), "</span>");
+        text.addMarkup(0, text.length(), startTag.toString(),
+                "<span class=\"pipeline-show-hide\"> (<a href=\"#\" onclick=\"showHidePipelineSection(this); return false\">hide</a>)</span></span>");
         return null;
     }
 
