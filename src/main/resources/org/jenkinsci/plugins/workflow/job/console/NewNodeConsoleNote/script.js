@@ -1,19 +1,13 @@
-/**
- * The setTimeout() method calls a function or evaluates an expression after a specified number of milliseconds.
- * It is used to prevent a browser freeze that might occur if a very big log is being evaluated.
- */
-setTimeout(() => {
+Behaviour.specify("span.pipeline-new-node", 'NewNodeConsoleNote', 0, function (e) {
     /**
-     * Specifies something to do when an element matching a CSS selector is encountered.
-     *
-     * @param {String} selector a CSS selector triggering your behavior
-     * @param {String} id combined with selector, uniquely identifies this behavior; prevents duplicate registrations
-     * @param {Number} priority relative position of this behavior in case multiple apply to a given element; lower numbers applied first (sorted by id then selector in case of tie); choose 0 if you do not care
-     * @param {Function} behavior callback function taking one parameter, a (DOM) {@link Element}, and returning void
+     * The setTimeout() method calls a function or evaluates an expression after a specified number of milliseconds.
+     * It is used here to prevent a browser freeze that might occur if a very big log is being evaluated.
      */
-    Behaviour.specify("span.pipeline-new-node", 'NewNodeConsoleNote', 0, function (e) {
+    setTimeout(() => {
         var nodeId = e.getAttribute('nodeId')
         var oid = e.getAttribute('nodeId')
+        var startId = e.getAttribute('startId')
+        var label = e.getAttribute('label')
         var nodes = $$('.pipeline-new-node')
         var enclosings = new Map() // id → enclosingId
         var labels = new Map() // id → label
@@ -23,13 +17,18 @@ setTimeout(() => {
         }
         e.processedNewNodeConsoleNote = true
 
-        var label = e.getAttribute('label')
         if (label != null) {
             var html = e.innerHTML
             var suffix = ' (' + label.escapeHTML() + ')';
             if (html.indexOf(suffix) < 0) {
                 e.innerHTML = e.innerHTML.replace(/.+/, '$&' + suffix) // insert before EOL
             }
+        }
+
+        // generate hide/show hyperlinks
+        if (startId == null || startId == nodeId) {
+            e.innerHTML = e.innerHTML.replace(/.+/, '$&<span class="pipeline-show-hide"> (<a href="#" onclick="showHidePipelineSection(this); return false">hide</a>)</span>')
+            // TODO automatically hide second and subsequent branches: namely, in case a node has the same parent as an earlier one
         }
 
         // The CSS rule for branch names only needs to be added once per node, so we
@@ -61,8 +60,9 @@ setTimeout(() => {
                 break
             }
         }
-    });
-}, 2000)
+    }, 5000)
+});
+
 
 /**
  * Functionality to show/hide a pipeline step (label)
