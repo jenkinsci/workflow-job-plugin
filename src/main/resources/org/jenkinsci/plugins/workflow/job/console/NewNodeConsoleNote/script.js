@@ -28,7 +28,6 @@ Behaviour.specify("span.pipeline-new-node", 'NewNodeConsoleNote', 0, function (e
         // generate hide/show hyperlinks
         if (startId == null || startId == nodeId) {
             e.innerHTML = e.innerHTML.replace(/.+/, '$&<span class="pipeline-show-hide"> (<a href="#" onclick="showHidePipelineSection(this); return false">hide</a>)</span>')
-            // TODO automatically hide second and subsequent branches: namely, in case a node has the same parent as an earlier one
         }
 
         // The CSS rule for branch names only needs to be added once per node, so we
