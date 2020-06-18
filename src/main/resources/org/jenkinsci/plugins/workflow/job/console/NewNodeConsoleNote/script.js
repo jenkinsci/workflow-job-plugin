@@ -1,29 +1,47 @@
-var isParallel = false
-var nodes = $$('.pipeline-new-node')
-var pipelineElements = document.getElementsByClassName("pipeline-new-node")
+var enclosings = new Map() // id → enclosingId
+var labels = new Map() // id → label
 
 /**
- * Generate links to show/hide steps from the pipeline,
- * visualize branch names when using parallel builds
+ * Fix label attributes
  */
-function generatePipelineLinks (elements) {
-    for (var i = 0; i < elements.length; i++) {
-        pipelineElement = elements[i]
-
-        fixLabels(pipelineElement)
-        addLinks(pipelineElement)
-    }
-    generateEnclosings(elements);
+function fixLabels(pipelineElement) {
+    var label = pipelineElement.getAttribute('label')
+    if (label != null) {
+        var html = pipelineElement.innerHTML
+        var suffix = ' (' + label.escapeHTML() + ')';
+        if (html.indexOf(suffix)<0) {
+            pipelineElement.innerHTML = pipelineElement.innerHTML.replace(/.+/, '$&' + suffix) // insert before EOL
+        }
+     }
 }
 
 /**
- * Generate enclosings and labels for the pipeline elements
- *
- * @param nodes
+ * Generate hide/show links for all of the pipeline elements
  */
-function generateEnclosings (nodes) {
+function addLinks (pipelineElement) {
+       var nodeId = pipelineElement.getAttribute('nodeId')
+       var startId = pipelineElement.getAttribute('startId')
+       if (startId == null || startId == nodeId) {
+            pipelineElement.innerHTML = pipelineElement.innerHTML.replace(/.+/, '$&<span class="pipeline-show-hide"> (<a href="#" onclick="showHidePipelineSection(this); return false">hide</a>)</span>')
+       }
+}
+
+/**
+ * Generate enclosings for a element
+ */
+function generateEnclosing (node) {
+    var oid = node.getAttribute('nodeId')
+    enclosings.set(oid, node.getAttribute('enclosingId'))
+    labels.set(oid, node.getAttribute('label'))
+}
+
+/**
+ * Generate enclosings and labels for all of the pipeline elements
+ */
+function generateEnclosings () {
     var enclosings = new Map() // id → enclosingId
     var labels = new Map() // id → label
+    var nodes = $$(".pipeline-new-node")
 
     for (var i = 0; i < nodes.length; i++) {
         var node = nodes[i]
@@ -31,20 +49,12 @@ function generateEnclosings (nodes) {
 
         enclosings.set(oid, node.getAttribute('enclosingId'))
         labels.set(oid, node.getAttribute('label'))
-
-        // only if the build has parallel steps
-        if (isParallel) {
-            appendBranchNames(oid, enclosings, labels)
-        }
+        appendBranchNames(oid, enclosings, labels)
     }
 }
 
 /**
- * If the pipeline has a parallel step, inject the branch name
- *
- * @param nodeId
- * @param enclosings
- * @param labels
+ * Inject the branch name in the pipeline label
  */
 function appendBranchNames(nodeId, enclosings, labels) {
     var id = nodeId
@@ -65,43 +75,11 @@ function appendBranchNames(nodeId, enclosings, labels) {
 }
 
 /**
- * Generate hide/show links for all of the pipeline elements
- *
- * @param pipelineElement
- */
-function addLinks (pipelineElement) {
-       var nodeId = pipelineElement.getAttribute('nodeId')
-       var startId = pipelineElement.getAttribute('startId')
-       if (startId == null || startId == nodeId) {
-            pipelineElement.innerHTML = pipelineElement.innerHTML.replace(/.+/, '$&<span class="pipeline-show-hide"> (<a href="#" onclick="showHidePipelineSection(this); return false">hide</a>)</span>')
-       }
-}
-
-/**
- * Fix label attributes
- *
- * @param element
- */
-function fixLabels(pipelineElement) {
-    var label = pipelineElement.getAttribute('label')
-    if (label != null) {
-        var html = pipelineElement.innerHTML
-        var suffix = ' (' + label.escapeHTML() + ')';
-        if (html.indexOf(suffix)<0) {
-            pipelineElement.innerHTML = pipelineElement.innerHTML.replace(/.+/, '$&' + suffix) // insert before EOL
-        }
-     }
-}
-
-/**
  * Determine if the pipeline contains parallel steps
  */
-function isParallelBuild(nodes) {
-    for (var i = 0; i < nodes.length; i++) {
-        if (nodes[i].innerHTML.includes('parallel')) {
-            isParallel = true;
-            break;
-        }
+function isParallelBuild(node) {
+    if (node.innerHTML.includes('parallel')) {
+       return true
     }
 }
 
@@ -190,7 +168,21 @@ function showHidePipelineSection(link) {
     }
 }
 
-window.addEventListener('load', function() {
-    isParallelBuild($$('.pipeline-new-node'));
-    generatePipelineLinks($$('.pipeline-new-node'));
+Behaviour.specify("span.pipeline-new-node", 'NewNodeConsoleNote', 0, function(e) {
+        // check if the current element has already been processed
+        if (e.processedNewNodeConsoleNote) {
+            return
+        }
+        e.processedNewNodeConsoleNote = true
+
+        // fix labels, generate hide/show links and generate enclosings for each element
+        fixLabels(e)
+        addLinks(e)
+        generateEnclosing(e);
+
+        // if a parallel build is underway, append branch names to the elements
+        // Note: we need to traverse all of the elements in parallel builds
+        if (isParallelBuild(e)) {
+            generateEnclosings()
+        }
 });
