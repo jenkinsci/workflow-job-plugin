@@ -340,7 +340,18 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
         } catch (Throwable x) {
             execution = null; // ensures isInProgress returns false
             executionLoaded = true;
-            finish(Result.FAILURE, x);
+            Executor executor = Executor.currentExecutor();
+            if (Thread.interrupted() && executor != null) {
+                if (LOGGER.isLoggable(Level.FINE)) {
+                    // In general, the exception thrown by whatever code noticed that the thread was interrupted is not useful.
+                    LOGGER.log(Level.FINE, this + " was interrupted during startup", x);
+                }
+                Result result = executor.abortResult();
+                Collection<CauseOfInterruption> causes = executor.getCausesOfInterruption();
+                finish(result, new FlowInterruptedException(result, causes.toArray(new CauseOfInterruption[causes.size()])));
+            } else {
+                finish(Result.FAILURE, x);
+            }
             try {
                 SettableFuture<FlowExecution> exec = getSettableExecutionPromise();
                 if (!exec.isDone()) {

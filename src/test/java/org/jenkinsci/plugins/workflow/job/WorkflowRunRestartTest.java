@@ -213,6 +213,51 @@ public class WorkflowRunRestartTest {
         });
     }
 
+    @Issue("JENKINS-46961")
+    @Test public void interruptedWhileStartingMaxSurvivability() throws Exception {
+        story.then(r -> {
+            WorkflowJob p = r.createProject(WorkflowJob.class, "p");
+            p.setDefinition(new CpsFlowDefinition(
+                "import groovy.transform.*\n" +
+                "import hudson.model.Executor\n" +
+                "import hudson.model.Result\n" +
+                "import jenkins.model.CauseOfInterruption\n" +
+                // This runs during CpsFlowExecution.parseScript which runs during CpsFlowExecution.start.
+                "@ASTTest(value={\n" +
+                "  def cause = new CauseOfInterruption.UserInterruption('unknown')\n" +
+                "  Executor.currentExecutor().interrupt(Result.ABORTED, cause) }) _\n", false));
+            WorkflowRun b = r.buildAndAssertStatus(Result.ABORTED, p);
+            r.assertLogContains("Aborted by unknown", b);
+        });
+        story.then(r -> {
+            WorkflowJob p = r.jenkins.getItemByFullName("p", WorkflowJob.class);
+            WorkflowRun b = p.getLastBuild();
+            assertFalse("Build should be completed", b.isBuilding());
+        });
+    }
+
+    @Issue("JENKINS-46961")
+    @Test public void interruptedWhileStartingPerformanceOptimized() throws Exception {
+        story.then(r -> {
+            WorkflowJob p = r.createProject(WorkflowJob.class, "p");
+            p.addProperty(new DurabilityHintJobProperty(FlowDurabilityHint.PERFORMANCE_OPTIMIZED));
+            p.setDefinition(new CpsFlowDefinition(
+                "import groovy.transform.*\n" +
+                "import hudson.model.Executor\n" +
+                "import hudson.model.Result\n" +
+                "import jenkins.model.CauseOfInterruption\n" +
+                // This runs during CpsFlowExecution.parseScript which runs during CpsFlowExecution.start.
+                "@ASTTest(value={ Executor.currentExecutor().interrupt(Result.ABORTED, new CauseOfInterruption.UserInterruption('unknown')) }) _\n", false));
+            WorkflowRun b = r.buildAndAssertStatus(Result.ABORTED, p);
+            r.assertLogContains("Aborted by unknown", b);
+        });
+        story.then(r -> {
+            WorkflowJob p = r.jenkins.getItemByFullName("p", WorkflowJob.class);
+            WorkflowRun b = p.getLastBuild();
+            assertFalse("Build should be completed", b.isBuilding());
+        });
+    }
+
     private boolean hasTermOrKillLink(WorkflowRun b, String termOrKill) throws Exception {
         return !story.j.createWebClient().getPage(b)
                 .getByXPath("//a[@href = '#' and contains(@onclick, '/" + b.getUrl() + termOrKill + "')]").isEmpty();
