@@ -225,7 +225,8 @@ public class WorkflowRunRestartTest {
                 // This runs during CpsFlowExecution.parseScript which runs during CpsFlowExecution.start.
                 "@ASTTest(value={\n" +
                 "  def cause = new CauseOfInterruption.UserInterruption('unknown')\n" +
-                "  Executor.currentExecutor().interrupt(Result.ABORTED, cause) }) _\n", false));
+                "  Executor.currentExecutor().interrupt(Result.ABORTED, cause)\n" +
+                "}) _\n", false));
             WorkflowRun b = r.buildAndAssertStatus(Result.ABORTED, p);
             r.assertLogContains("Aborted by unknown", b);
         });
@@ -247,7 +248,10 @@ public class WorkflowRunRestartTest {
                 "import hudson.model.Result\n" +
                 "import jenkins.model.CauseOfInterruption\n" +
                 // This runs during CpsFlowExecution.parseScript which runs during CpsFlowExecution.start.
-                "@ASTTest(value={ Executor.currentExecutor().interrupt(Result.ABORTED, new CauseOfInterruption.UserInterruption('unknown')) }) _\n", false));
+                "@ASTTest(value={\n" +
+                "  def cause = new CauseOfInterruption.UserInterruption('unknown')\n" +
+                "  Executor.currentExecutor().interrupt(Result.ABORTED, cause)\n" +
+                "}) _\n", false));
             WorkflowRun b = r.buildAndAssertStatus(Result.ABORTED, p);
             r.assertLogContains("Aborted by unknown", b);
         });
