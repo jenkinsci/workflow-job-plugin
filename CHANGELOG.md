@@ -1,5 +1,14 @@
 ## Changelog
 
+### 2.40
+
+Release date: 2020-09-03
+
+- Fix: Prevent Pipeline builds from resuming after being aborted while starting (fix also requires Pipeline: Groovy plugin version 2.83 or newer) ([JENKINS-46961](https://issues.jenkins-ci.org/browse/JENKINS-46961))
+- Fix: Make background of "Keep this build forever" button transparent to improve appearance when using [Dark Theme plugin](https://plugins.jenkins.io/dark-theme/) ([PR 166](https://github.com/jenkinsci/workflow-job-plugin/pull/166))
+- Internal: Fix flaky test (`WorkflowRunRestartTest.resumeDisabled`) ([PR 160](https://github.com/jenkinsci/workflow-job-plugin/pull/160))
+- Internal: Update minimum required Jenkins version to 2.176.4, update parent POM, update dependencies, and update CI build configuration ([PR 163](https://github.com/jenkinsci/workflow-job-plugin/pull/163), [PR 165](https://github.com/jenkinsci/workflow-job-plugin/pull/165))
+
 ### 2.39
 
 Release date: 2020-04-26
