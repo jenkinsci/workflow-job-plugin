@@ -42,7 +42,6 @@ import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.InputStream;
 import java.io.StringWriter;
-import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Set;
@@ -172,7 +171,7 @@ public class DefaultLogStorageTest {
         System.out.printf("Took %dms to write plain text of whole build%n", (System.nanoTime() - start) / 1000 / 1000);
         // Raw:
         assertThat(baos.toString(), containsString("\n456789\n"));
-        String rawLog = FileUtils.readFileToString(new File(b.getRootDir(), "log"), Charset.defaultCharset());
+        String rawLog = FileUtils.readFileToString(new File(b.getRootDir(), "log"), StandardCharsets.UTF_8);
         assertThat(rawLog, containsString("0\n"));
         assertThat(rawLog, containsString("\n999999\n"));
         assertThat(rawLog, containsString("sleep any longer"));

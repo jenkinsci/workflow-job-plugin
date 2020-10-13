@@ -37,7 +37,7 @@ import hudson.security.ACLContext;
 import hudson.security.Permission;
 import java.io.File;
 import java.io.IOException;
-import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -293,7 +293,7 @@ public class WorkflowRunTest {
             assertNotNull(p);
             WorkflowRun b = p.getLastBuild();
             assertNotNull(b);
-            System.out.println(FileUtils.readFileToString(new File(b.getRootDir(), "build.xml"), Charset.defaultCharset()));
+            System.out.println(FileUtils.readFileToString(new File(b.getRootDir(), "build.xml"), StandardCharsets.UTF_8));
             r.assertLogContains("hello world", b);
             FlowExecution exec = b.getExecution();
             assertNotNull(exec);

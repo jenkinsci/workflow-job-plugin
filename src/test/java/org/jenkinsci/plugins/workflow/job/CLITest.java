@@ -26,7 +26,7 @@ package org.jenkinsci.plugins.workflow.job;
 
 import hudson.cli.CLICommandInvoker;
 import java.io.File;
-import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 
 import org.apache.commons.io.FileUtils;
 import static org.hamcrest.Matchers.*;
@@ -80,7 +80,7 @@ public class CLITest {
         p.setDefinition(new CpsFlowDefinition("echo 'first version'", true));
         r.assertLogContains("first version", r.buildAndAssertSuccess(p));
         File configXml = new File(p.getRootDir(), "config.xml");
-        FileUtils.write(configXml, FileUtils.readFileToString(configXml, Charset.defaultCharset()).replace("first version", "second version"), Charset.defaultCharset());
+        FileUtils.write(configXml, FileUtils.readFileToString(configXml, StandardCharsets.UTF_8).replace("first version", "second version"), StandardCharsets.UTF_8);
         assertThat(new CLICommandInvoker(r, "reload-job").invokeWithArgs("p"), CLICommandInvoker.Matcher.succeededSilently());
         r.assertLogContains("second version", r.buildAndAssertSuccess(p));
         CLICommandInvoker.Result res = new CLICommandInvoker(r, "reload-job").invokeWithArgs("q");
