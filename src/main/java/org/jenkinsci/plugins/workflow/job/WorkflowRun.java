@@ -25,6 +25,7 @@
 package org.jenkinsci.plugins.workflow.job;
 
 import com.google.common.collect.ImmutableSortedSet;
+import com.google.common.collect.Iterables;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
@@ -42,6 +43,7 @@ import hudson.console.ModelHyperlinkNote;
 import hudson.model.BuildListener;
 import hudson.model.Executor;
 import hudson.model.Item;
+import hudson.model.Node;
 import hudson.model.Queue;
 import hudson.model.Result;
 import hudson.model.Run;
@@ -96,6 +98,7 @@ import jenkins.util.Timer;
 import org.acegisecurity.Authentication;
 import org.jenkinsci.plugins.workflow.FilePathUtils;
 import org.jenkinsci.plugins.workflow.actions.TimingAction;
+import org.jenkinsci.plugins.workflow.actions.WorkspaceAction;
 import org.jenkinsci.plugins.workflow.flow.BlockableResume;
 import org.jenkinsci.plugins.workflow.flow.DurabilityHintProvider;
 import org.jenkinsci.plugins.workflow.flow.FlowCopier;
@@ -1084,6 +1087,36 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
             }
         }
         return null;
+    }
+    
+    public String getBuiltOnStr() {
+        FlowExecution exec = getExecution();
+        Set<String> nodes = new HashSet<>();
+        if (exec != null) {
+            DepthFirstScanner scanner = new DepthFirstScanner();
+            if (scanner.setup(exec.getCurrentHeads())) {
+                for (FlowNode node : scanner) {
+                    WorkspaceAction action = node.getAction(WorkspaceAction.class);                    
+                    if(action != null) {
+                        nodes.add(action.getNode());
+                    }
+                }
+            }
+        }
+        
+        if(nodes.size() == 1) {
+            return Iterables.getOnlyElement(nodes);
+        } else {
+            return null;
+        }
+    }
+    
+    public @CheckForNull Node getBuiltOn() {
+        String builtOn = getBuiltOnStr();
+        if (builtOn==null || builtOn.equals(""))
+            return Jenkins.get();
+        else
+            return Jenkins.get().getNode(builtOn);
     }
 
     // TODO log-related overrides pending JEP-207:

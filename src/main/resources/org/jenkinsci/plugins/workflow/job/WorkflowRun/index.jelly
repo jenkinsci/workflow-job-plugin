@@ -39,6 +39,9 @@
                     <j:if test="${!it.building}">
                         ${%Took} <a href="${rootURL}/${it.parent.url}buildTimeTrend">${it.durationString}</a>
                     </j:if>
+                    <j:if test="${it.builtOnStr != null and it.builtOnStr != ''}">
+                        ${%on} <t:node value="${it.builtOn}" valueStr="${it.builtOnStr}"/>
+                    </j:if>
                 </div>
             </div>
             <!-- TODO this calls t:buildProgressBar, which after a restart shows the wrong start time (and expected duration) for the build, since Executor.startTime is meaningless for an AfterRestartTask -->
