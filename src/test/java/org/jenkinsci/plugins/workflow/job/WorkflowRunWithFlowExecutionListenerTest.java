@@ -25,7 +25,6 @@
 package org.jenkinsci.plugins.workflow.job;
 
 import hudson.ExtensionList;
-import hudson.model.Action;
 import hudson.model.Queue;
 import hudson.model.Result;
 import org.jenkinsci.plugins.workflow.cps.CpsFlowDefinition;
@@ -38,7 +37,6 @@ import org.jvnet.hudson.test.BuildWatcher;
 import org.jvnet.hudson.test.RestartableJenkinsRule;
 import org.jvnet.hudson.test.TestExtension;
 
-import javax.annotation.CheckForNull;
 import javax.annotation.Nonnull;
 import java.io.IOException;
 import java.io.PrintStream;

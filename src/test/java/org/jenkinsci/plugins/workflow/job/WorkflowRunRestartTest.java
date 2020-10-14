@@ -274,6 +274,8 @@ public class WorkflowRunRestartTest {
             return new Execution(context, id);
         }
         private static class Execution extends StepExecution {
+            private static final long serialVersionUID = 1L;
+            
             int id;
             int count;
             Execution(StepContext context, int id) {

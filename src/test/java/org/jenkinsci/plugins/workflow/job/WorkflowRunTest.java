@@ -37,6 +37,7 @@ import hudson.security.ACLContext;
 import hudson.security.Permission;
 import java.io.File;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -73,6 +74,7 @@ import org.jenkinsci.plugins.workflow.test.steps.SemaphoreStep;
 
 import static org.hamcrest.Matchers.*;
 import static org.junit.Assert.*;
+import static org.hamcrest.MatcherAssert.assertThat;
 import org.junit.ClassRule;
 import org.junit.Rule;
 import org.junit.Test;
@@ -142,10 +144,10 @@ public class WorkflowRunTest {
     }
 
     @Extension
-    public static final class DurationRunListener extends RunListener<Run> {
+    public static final class DurationRunListener extends RunListener<Run<?, ?>> {
         static long duration = 0L;
         @Override
-        public void onCompleted(Run run, @Nonnull TaskListener listener) {
+        public void onCompleted(Run<?, ?> run, @Nonnull TaskListener listener) {
             duration = run.getDuration();
         }
     }
@@ -291,7 +293,7 @@ public class WorkflowRunTest {
             assertNotNull(p);
             WorkflowRun b = p.getLastBuild();
             assertNotNull(b);
-            System.out.println(FileUtils.readFileToString(new File(b.getRootDir(), "build.xml")));
+            System.out.println(FileUtils.readFileToString(new File(b.getRootDir(), "build.xml"), StandardCharsets.UTF_8));
             r.assertLogContains("hello world", b);
             FlowExecution exec = b.getExecution();
             assertNotNull(exec);
@@ -561,6 +563,7 @@ public class WorkflowRunTest {
         assertPollingBaselines(b3.checkouts(listener), nullValue(), nullValue());
     }
 
+    @SafeVarargs
     private static void assertPollingBaselines(List<WorkflowRun.SCMCheckout> checkouts, Matcher<Object>... indexedMatchers) {
         assertThat("Number of checkouts should match number of matchers", checkouts.size(), equalTo(indexedMatchers.length));
         for (int i = 0; i < checkouts.size(); i++) {

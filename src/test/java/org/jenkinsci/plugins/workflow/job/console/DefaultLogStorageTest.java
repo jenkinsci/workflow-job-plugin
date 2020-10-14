@@ -63,6 +63,7 @@ import org.jenkinsci.plugins.workflow.steps.SynchronousStepExecution;
 import org.jenkinsci.plugins.workflow.test.steps.SemaphoreStep;
 import static org.junit.Assert.*;
 import static org.junit.Assume.*;
+import static org.hamcrest.MatcherAssert.assertThat;
 import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
@@ -113,6 +114,8 @@ public class DefaultLogStorageTest {
             return new Execution(context);
         }
         static class Execution extends SynchronousStepExecution<Void> {
+            private static final long serialVersionUID = 1L;
+            
             Execution(StepContext context) {
                 super(context);
             }
@@ -168,7 +171,7 @@ public class DefaultLogStorageTest {
         System.out.printf("Took %dms to write plain text of whole build%n", (System.nanoTime() - start) / 1000 / 1000);
         // Raw:
         assertThat(baos.toString(), containsString("\n456789\n"));
-        String rawLog = FileUtils.readFileToString(new File(b.getRootDir(), "log"));
+        String rawLog = FileUtils.readFileToString(new File(b.getRootDir(), "log"), StandardCharsets.UTF_8);
         assertThat(rawLog, containsString("0\n"));
         assertThat(rawLog, containsString("\n999999\n"));
         assertThat(rawLog, containsString("sleep any longer"));
