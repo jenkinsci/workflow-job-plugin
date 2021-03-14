@@ -93,6 +93,7 @@
         <dependency>
             <groupId>org.jenkins-ci.plugins.workflow</groupId>
             <artifactId>workflow-support</artifactId>
+            <version>3.9-rc781.e295dc5811b4</version>
         </dependency>
         <dependency>
             <groupId>org.jenkins-ci.plugins</groupId>
@@ -117,6 +118,7 @@
         <dependency>
             <groupId>org.jenkins-ci.plugins.workflow</groupId>
             <artifactId>workflow-support</artifactId>
+            <version>3.9-rc781.e295dc5811b4</version>
             <classifier>tests</classifier>
             <scope>test</scope>
         </dependency>
