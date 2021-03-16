@@ -607,8 +607,6 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
                 // Never even made it to running, either failed when fresh-started or resumed -- otherwise getListener would have run
                 LOGGER.log(Level.WARNING, this + " failed to start", t);
             } else {
-                RunListener.fireCompleted(WorkflowRun.this, myListener);
-                fireCompleted();
                 if (t instanceof AbortException) {
                     myListener.error(t.getMessage());
                 } else if (t instanceof FlowInterruptedException) {
@@ -616,6 +614,8 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
                 } else if (t != null) {
                     Functions.printStackTrace(t, myListener.getLogger());
                 }
+                RunListener.fireCompleted(WorkflowRun.this, myListener);
+                fireCompleted();
                 myListener.finished(getResult());
                 if (myListener instanceof AutoCloseable) {
                     try {
