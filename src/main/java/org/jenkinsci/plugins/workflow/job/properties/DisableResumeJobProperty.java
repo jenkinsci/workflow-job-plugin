@@ -13,7 +13,7 @@ import javax.annotation.CheckForNull;
 import javax.annotation.Nonnull;
 
 /**
- * Disables resuming a pipeline if the master restarts - the run will simply fail instead, just like a FreeStyle job.
+ * Disables resuming a pipeline if the controller restarts - the run will simply fail instead, just like a FreeStyle job.
  * @author Sam Van Oort
  */
 public class DisableResumeJobProperty extends OptionalJobProperty<WorkflowJob> {
