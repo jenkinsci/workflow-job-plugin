@@ -462,7 +462,7 @@ public class WorkflowRunTest {
         // Control case:
         QueueItemAuthenticatorConfiguration.get().getAuthenticators().add(new MockQueueItemAuthenticator(Collections.singletonMap("p", User.getById("admin", true).impersonate())));
         r.buildAndAssertSuccess(p);
-        // Test case: build is never scheduled, queue item hangs with “Waiting for next available executor on master”
+        // Test case: build is never scheduled, queue item hangs with “Waiting for next available executor on controller”
         QueueItemAuthenticatorConfiguration.get().getAuthenticators().replace(new MockQueueItemAuthenticator(Collections.singletonMap("p", User.getById("dev", true).impersonate())));
         r.buildAndAssertSuccess(p);
     }

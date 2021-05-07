@@ -76,7 +76,7 @@ public class TaskListenerDecoratorTest {
         WorkflowRun b = r.buildAndAssertSuccess(p);
         r.assertLogContains("[job/p/1/] Started", b);
         r.assertLogContains("[decorated] [filtered] [job/p/1/] Running on remote in ", b);
-        r.assertLogContains("[decorated via remote] [filtered via remote] [job/p/1/ via remote] printed a message on master=false", b);
+        r.assertLogContains("[decorated via remote] [filtered via remote] [job/p/1/ via remote] printed a message on controller=false", b);
         String log = JenkinsRule.getLog(b);
         assertThat(log, log.indexOf("master=false"), lessThan(log.indexOf("// node")));
     }
@@ -222,7 +222,7 @@ public class TaskListenerDecoratorTest {
                 this.listener = listener;
             }
             @Override public Void call() throws RuntimeException {
-                listener.getLogger().println("printed a message on master=" + JenkinsJVM.isJenkinsJVM());
+                listener.getLogger().println("printed a message on controller=" + JenkinsJVM.isJenkinsJVM());
                 listener.getLogger().flush();
                 return null;
             }
