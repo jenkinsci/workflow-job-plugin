@@ -1,3 +1,5 @@
+## From 2.41 Release notes will are available https://github.com/jenkinsci/workflow-job-plugin/releases
+
 ## Changelog
 
 ### 2.40
