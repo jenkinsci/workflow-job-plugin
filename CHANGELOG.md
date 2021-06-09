@@ -1,4 +1,38 @@
+## From 2.41 Release notes will are available https://github.com/jenkinsci/workflow-job-plugin/releases
+
 ## Changelog
+
+### 2.40
+
+Release date: 2020-09-03
+
+- Fix: Prevent Pipeline builds from resuming after being aborted while starting (fix also requires Pipeline: Groovy plugin version 2.83 or newer) ([JENKINS-46961](https://issues.jenkins-ci.org/browse/JENKINS-46961))
+- Fix: Make background of "Keep this build forever" button transparent to improve appearance when using [Dark Theme plugin](https://plugins.jenkins.io/dark-theme/) ([PR 166](https://github.com/jenkinsci/workflow-job-plugin/pull/166))
+- Internal: Fix flaky test (`WorkflowRunRestartTest.resumeDisabled`) ([PR 160](https://github.com/jenkinsci/workflow-job-plugin/pull/160))
+- Internal: Update minimum required Jenkins version to 2.176.4, update parent POM, update dependencies, and update CI build configuration ([PR 163](https://github.com/jenkinsci/workflow-job-plugin/pull/163), [PR 165](https://github.com/jenkinsci/workflow-job-plugin/pull/165))
+
+### 2.39
+
+Release date: 2020-04-26
+
+- Fix: The Pipeline console view did not work correctly in Internet Explorer 11 due to use of unsupported JavaScript functions. ([JENKINS-62025](https://issues.jenkins.io/browse/JENKINS-62025))
+
+### 2.38
+
+Release date: 2020-03-26
+
+- Fix: Refactor locking in `WorkflowRun` to prevent deadlock, which could cause Jenkins to hang forever in some cases. ([JENKINS-61604](https://issues.jenkins-ci.org/browse/JENKINS-61604))
+- Fix: Remove "Custom" prefix on the console output page. This text was used for debugging and was not intended to be added to the plugin. ([PR 156](https://github.com/jenkinsci/workflow-job-plugin/pull/156))
+- Internal: Use `Boolean.equals` when comparing `Boolean` objects instead of `==`. Previous usage of `==` appears to have been safe in practice, so this is only a refactoring. ([PR 154](https://github.com/jenkinsci/workflow-job-plugin/pull/154))
+
+### 2.37
+
+Release date: 2020-03-10
+
+- Fix: Show branch names for parallel branches in truncated build logs when the parallel branch began before the current truncation point of the log. ([JENKINS-60862](https://issues.jenkins-ci.org/browse/JENKINS-60862))
+- Fix: Remove polling baselines for Pipelines jobs immediately when an SCM is checked out in a build with polling and changelogs disabled. Previously, Jenkins needed to be restarted for the changes to polling to take effect. ([JENKINS-61415](https://issues.jenkins-ci.org/browse/JENKINS-61415))
+- Internal: Add ignored test case for JENKINS-60724. ([JENKINS-60724](https://issues.jenkins-ci.org/browse/JENKINS-60724))
+- Internal: Update parent POM and jenkins-test-harness dependency. ([PR 149](https://github.com/jenkinsci/workflow-job-plugin/pull/149)
 
 ### 2.36
 
