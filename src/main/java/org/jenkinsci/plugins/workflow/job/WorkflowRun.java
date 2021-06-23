@@ -74,6 +74,7 @@ import java.util.Collection;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Locale;
@@ -106,8 +107,11 @@ import org.jenkinsci.plugins.workflow.flow.FlowExecutionListener;
 import org.jenkinsci.plugins.workflow.flow.FlowExecutionOwner;
 import org.jenkinsci.plugins.workflow.flow.GraphListener;
 import org.jenkinsci.plugins.workflow.flow.StashManager;
+import org.jenkinsci.plugins.workflow.graph.BlockEndNode;
+import org.jenkinsci.plugins.workflow.graph.BlockStartNode;
 import org.jenkinsci.plugins.workflow.graph.FlowEndNode;
 import org.jenkinsci.plugins.workflow.graph.FlowNode;
+import org.jenkinsci.plugins.workflow.graphanalysis.DepthFirstScanner;
 import org.jenkinsci.plugins.workflow.job.console.NewNodeConsoleNote;
 import org.jenkinsci.plugins.workflow.log.LogStorage;
 import org.jenkinsci.plugins.workflow.log.TaskListenerDecorator;
@@ -182,10 +186,13 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
      * Flag for whether or not the build has completed somehow.
      * This was previously a transient field, so we may need to recompute in {@link #onLoad} based on {@link FlowExecution#isComplete}.
      */
-    Boolean completed;  // Non-private for testing
+    volatile Boolean completed;  // Non-private for testing
 
-    /** Protects access to {@link #completed} etc. */
-    private transient Object metadataGuard = new Object();
+    /**
+     * Protects access to {@link #completed} etc.
+     * @see #getMetadataGuard
+     */
+    private transient volatile Object metadataGuard = new Object();
 
     /** JENKINS-26761: supposed to always be set but sometimes is not. Access only through {@link #checkouts(TaskListener)}. */
     private @CheckForNull List<SCMCheckout> checkouts;
@@ -199,10 +206,15 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
      *  Note: to avoid deadlocks, when nesting locks we ALWAYS need to lock on the guard first, THEN the WorkflowRun.
      *  Synchronizing this helps ensure that fields are not mutated during a {@link #save()} operation, since that locks on the Run.
      */
-    private synchronized Object getMetadataGuard() {
+    private Object getMetadataGuard() {
         if (metadataGuard == null) {
-            metadataGuard = new Object();
+            synchronized (this) {
+                if (metadataGuard == null) {
+                    metadataGuard = new Object();
+                }
+            }
         }
+        assert !Thread.holdsLock(this) || Thread.holdsLock(metadataGuard): "Synchronizing on WorkflowRun before metadataGuard may cause deadlocks";
         return metadataGuard;
     }
 
@@ -214,11 +226,9 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
         // Un-synchronized to prevent deadlocks (combination of run and metadataGuard)
         // Note that in portions where multithreaded access is possible we are already synchronizing on metadataGuard
         if (listener == null) {
-            synchronized (getMetadataGuard()) {
-                if (Boolean.TRUE.equals(completed)) {
-                    LOGGER.log(Level.WARNING, null, new IllegalStateException("trying to open a build log on " + this + " after it has completed"));
-                    return NULL_LISTENER;
-                }
+            if (Boolean.TRUE.equals(completed)) {
+                LOGGER.log(Level.WARNING, null, new IllegalStateException("trying to open a build log on " + this + " after it has completed"));
+                return NULL_LISTENER;
             }
             try {
                 // TODO to better handle in-VM restart (e.g. in JenkinsRule), move CpsFlowExecution.suspendAll logic into a FlowExecution.notifyShutdown override, then make FlowExecutionOwner.notifyShutdown also overridable, which for WorkflowRun.Owner should listener.close() as needed
@@ -326,7 +336,18 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
         } catch (Throwable x) {
             execution = null; // ensures isInProgress returns false
             executionLoaded = true;
-            finish(Result.FAILURE, x);
+            Executor executor = Executor.currentExecutor();
+            if (Thread.interrupted() && executor != null) {
+                if (LOGGER.isLoggable(Level.FINE)) {
+                    // In general, the exception thrown by whatever code noticed that the thread was interrupted is not useful.
+                    LOGGER.log(Level.FINE, this + " was interrupted during startup", x);
+                }
+                Result result = executor.abortResult();
+                Collection<CauseOfInterruption> causes = executor.getCausesOfInterruption();
+                finish(result, new FlowInterruptedException(result, causes.toArray(new CauseOfInterruption[causes.size()])));
+            } else {
+                finish(Result.FAILURE, x);
+            }
             try {
                 SettableFuture<FlowExecution> exec = getSettableExecutionPromise();
                 if (!exec.isDone()) {
@@ -413,7 +434,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
                     setResult(Result.FAILURE);
                     modified = true;
                 }
-                if (completed != Boolean.TRUE) {
+                if (!Boolean.TRUE.equals(completed)) {
                     completed = true;
                     modified = true;
                 }
@@ -513,7 +534,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
                 boolean needsToPersist = completed == null;
                 super.onLoad();
 
-                if (completed == Boolean.TRUE && result == null) {
+                if (Boolean.TRUE.equals(completed) && result == null) {
                     LOGGER.log(Level.FINE, "Completed build with no result set, defaulting to failure for "+this);
                     setResult(Result.FAILURE);
                     needsToPersist = true;
@@ -521,7 +542,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
 
                 // TODO See if we can simplify this, especially around interactions with 'completed'.
 
-                if (execution != null && completed != Boolean.TRUE) {
+                if (execution != null && !Boolean.TRUE.equals(completed)) {
                     FlowExecution fetchedExecution = getExecution();  // Triggers execution.onLoad so we can resume running if not done
 
                     if (fetchedExecution != null) {
@@ -529,7 +550,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
                             completed = Boolean.valueOf(fetchedExecution.isComplete());
                         }
 
-                        if (!completed == Boolean.TRUE) {
+                        if (Boolean.FALSE.equals(completed)) {
                             // we've been restarted while we were running. let's get the execution going again.
                             FlowExecutionListener.fireResumed(fetchedExecution);
 
@@ -571,28 +592,30 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
     private void finish(@Nonnull Result r, @CheckForNull Throwable t) {
         try {
             setResult(r);
+            BuildListener myListener;
             synchronized (getMetadataGuard()) {
+                myListener = getListener();
                 completed = true;
             }
             duration = Math.max(0, System.currentTimeMillis() - getStartTimeInMillis());
             LOGGER.log(Level.INFO, "{0} completed: {1}", new Object[]{toString(), getResult()});
-            if (listener == null) {
+            if (myListener == null) {
                 // Never even made it to running, either failed when fresh-started or resumed -- otherwise getListener would have run
                 LOGGER.log(Level.WARNING, this + " failed to start", t);
             } else {
-                RunListener.fireCompleted(WorkflowRun.this, getListener());
-                fireCompleted();
                 if (t instanceof AbortException) {
-                    getListener().error(t.getMessage());
+                    myListener.error(t.getMessage());
                 } else if (t instanceof FlowInterruptedException) {
-                    ((FlowInterruptedException) t).handle(this, getListener());
+                    ((FlowInterruptedException) t).handle(this, myListener);
                 } else if (t != null) {
-                    Functions.printStackTrace(t, getListener().getLogger());
+                    Functions.printStackTrace(t, myListener.getLogger());
                 }
-                getListener().finished(getResult());
-                if (listener instanceof AutoCloseable) {
+                RunListener.fireCompleted(WorkflowRun.this, myListener);
+                fireCompleted();
+                myListener.finished(getResult());
+                if (myListener instanceof AutoCloseable) {
                     try {
-                        ((AutoCloseable) listener).close();
+                        ((AutoCloseable) myListener).close();
                     } catch (Exception x) {
                         LOGGER.log(Level.WARNING, "could not close build log for " + this, x);
                     }
@@ -657,12 +680,12 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
                         }
                     }
                     GraphListener finishListener = null;
-                    if (this.completed != Boolean.TRUE) {
+                    if (!Boolean.TRUE.equals(this.completed)) {
                         finishListener = new FailOnLoadListener();
                         fetchedExecution.addListener(finishListener);  // So we can still ensure build finishes if onLoad generates a FlowEndNode
                     }
                     fetchedExecution.onLoad(new Owner(this));
-                    if (this.completed != Boolean.TRUE) {
+                    if (!Boolean.TRUE.equals(this.completed)) {
                         if (fetchedExecution.isComplete()) {  // See JENKINS-50199 for cases where the execution is marked complete but build is not
                             // Somehow arrived at one of those weird states
                             LOGGER.log(Level.WARNING, "Found incomplete build with completed execution - display name: "+this.getFullDisplayName());
@@ -744,7 +767,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
 
     @Exported
     @Override protected boolean isInProgress() {
-        if (completed == Boolean.TRUE) {  // Has a persisted completion state
+        if (Boolean.TRUE.equals(completed)) {  // Has a persisted completion state
             return false;
         } else {
             // This may seem gratuitous but we MUST to check the execution in case 'completed' has not been set yet
@@ -1028,6 +1051,35 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
     @SuppressWarnings("rawtypes")
     @Override public AnnotatedLargeText getLogText() {
         return LogStorage.of(asFlowExecutionOwner()).overallLog(this, !isLogUpdated());
+    }
+
+    /**
+     * For use by Jelly only.
+     */
+    @Restricted(DoNotUse.class)
+    public String getFlowGraphDataAsHtml() {
+        FlowExecution exec = getExecution();
+        if (exec != null) {
+            DepthFirstScanner scanner = new DepthFirstScanner();
+            if (scanner.setup(exec.getCurrentHeads())) {
+                StringBuilder html = new StringBuilder();
+                for (FlowNode node : scanner) {
+                    String startId;
+                    String enclosingId;
+                    if (node instanceof BlockEndNode) {
+                        enclosingId = null;
+                        startId = ((BlockEndNode) node).getStartNode().getId();
+                    } else {
+                        Iterator<BlockStartNode> it = node.iterateEnclosingBlocks().iterator();
+                        enclosingId = it.hasNext() ? it.next().getId() : null;
+                        startId = node instanceof BlockStartNode ? node.getId() : null;
+                    }
+                    html.append(NewNodeConsoleNote.startTagFor(this, node.getId(), startId, enclosingId)).append("Test</span>");
+                }
+                return html.toString();
+            }
+        }
+        return null;
     }
 
     // TODO log-related overrides pending JEP-207:

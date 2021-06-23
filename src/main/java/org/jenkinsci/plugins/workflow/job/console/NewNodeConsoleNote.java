@@ -99,6 +99,13 @@ public class NewNodeConsoleNote extends ConsoleNote<WorkflowRun> {
 
     @Override
     public ConsoleAnnotator<?> annotate(WorkflowRun context, MarkupText text, int charPos) {
+        StringBuilder startTag = startTagFor(context, id, start, enclosing);
+        text.addMarkup(0, text.length(), startTag.toString(), "</span>");
+        return null;
+    }
+
+    @Restricted(NoExternalUse.class)
+    public static StringBuilder startTagFor(@Nonnull WorkflowRun context, @Nonnull String id, @CheckForNull String start, @CheckForNull String enclosing) {
         StringBuilder startTag = new StringBuilder("<span class=\"pipeline-new-node\" nodeId=\"").append(id);
         if (start != null) {
             startTag.append("\" startId=\"").append(start);
@@ -123,8 +130,7 @@ public class NewNodeConsoleNote extends ConsoleNote<WorkflowRun> {
             }
         }
         startTag.append("\">");
-        text.addMarkup(0, text.length(), startTag.toString(), "</span>");
-        return null;
+        return startTag;
     }
 
     private static final long serialVersionUID = 1L;

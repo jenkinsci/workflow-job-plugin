@@ -73,7 +73,9 @@ public class CpsPersistenceTest {
         startField.setAccessible(true);
         Object ob = startField.get(exec);
         if (ob instanceof Stack) {
-            return (Stack<BlockStartNode>)ob;
+            @SuppressWarnings("unchecked")
+            Stack<BlockStartNode> result = (Stack<BlockStartNode>)ob;
+            return result;
         }
         return null;
     }
@@ -174,9 +176,9 @@ public class CpsPersistenceTest {
         Thread.sleep(100L);  // A little extra buffer for persistence etc
         if (durabilityHint != FlowDurabilityHint.PERFORMANCE_OPTIMIZED) {
             CpsFlowExecution execution = (CpsFlowExecution) run.getExecution();
-            Method m = execution.getClass().getDeclaredMethod("getProgramDataFile", null);
+            Method m = execution.getClass().getDeclaredMethod("getProgramDataFile");
             m.setAccessible(true);
-            File f = (File) m.invoke(execution, null);
+            File f = (File) m.invoke(execution);
             while (!Files.exists(f.toPath())) {
                 System.out.println("Waiting for program to be persisted");
                 Thread.sleep(50);
@@ -354,9 +356,9 @@ public class CpsPersistenceTest {
         story.thenWithHardShutdown( j -> {
             WorkflowRun run = runBasicPauseOnInput(j, DEFAULT_JOBNAME, build);
             CpsFlowExecution cpsExec = (CpsFlowExecution) run.getExecution();
-            Method m = cpsExec.getClass().getDeclaredMethod("getProgramDataFile", null);
+            Method m = cpsExec.getClass().getDeclaredMethod("getProgramDataFile");
             m.setAccessible(true);
-            File f = (File) m.invoke(cpsExec, null);
+            File f = (File) m.invoke(cpsExec);
             Files.delete(f.toPath());
         });
         story.then( j->{

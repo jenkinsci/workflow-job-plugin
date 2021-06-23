@@ -37,6 +37,7 @@ import hudson.security.ACLContext;
 import hudson.security.Permission;
 import java.io.File;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -50,7 +51,8 @@ import hudson.slaves.NodeProperty;
 import hudson.slaves.NodePropertyDescriptor;
 import hudson.util.DescribableList;
 import java.util.logging.Level;
-import java.util.logging.LogRecord;
+
+import hudson.util.StreamTaskListener;
 import jenkins.model.CauseOfInterruption;
 import jenkins.model.InterruptedBuildAction;
 import jenkins.model.Jenkins;
@@ -69,7 +71,10 @@ import org.jenkinsci.plugins.workflow.graph.FlowGraphWalker;
 import org.jenkinsci.plugins.workflow.graph.FlowNode;
 import org.jenkinsci.plugins.workflow.graph.StepNode;
 import org.jenkinsci.plugins.workflow.test.steps.SemaphoreStep;
+
+import static org.hamcrest.Matchers.*;
 import static org.junit.Assert.*;
+import static org.hamcrest.MatcherAssert.assertThat;
 import org.junit.ClassRule;
 import org.junit.Rule;
 import org.junit.Test;
@@ -83,7 +88,9 @@ import org.xml.sax.SAXException;
 
 import javax.annotation.Nonnull;
 import org.apache.commons.io.IOUtils;
+import org.hamcrest.Matcher;
 import org.jenkinsci.plugins.workflow.support.actions.EnvironmentAction;
+import org.junit.Ignore;
 
 public class WorkflowRunTest {
 
@@ -91,6 +98,7 @@ public class WorkflowRunTest {
     @Rule public JenkinsRule r = new JenkinsRule();
     @Rule public LoggerRule logging = new LoggerRule();
     @Rule public GitSampleRepoRule sampleRepo = new GitSampleRepoRule();
+
 
     @Test public void basics() throws Exception {
         WorkflowJob p = r.jenkins.createProject(WorkflowJob.class, "p");
@@ -118,6 +126,15 @@ public class WorkflowRunTest {
         r.assertLogContains("param=value", r.assertBuildStatusSuccess(p.scheduleBuild2(0, new ParametersAction(new StringParameterValue("PARAM", "value")))));
     }
 
+    @Ignore("TODO broken by call to EnvVars.resolve in WorkflowRun.getEnvironment")
+    @Issue("JENKINS-60724")
+    @Test public void recursiveEnv() throws Exception {
+        WorkflowJob p = r.jenkins.createProject(WorkflowJob.class, "p");
+        p.addProperty(new ParametersDefinitionProperty(new StringParameterDefinition("VAR", "val$$")));
+        p.setDefinition(new CpsFlowDefinition("echo(/VAR=$VAR/)", true));
+        r.assertLogContains("VAR=val$$", r.buildAndAssertSuccess(p));
+    }
+
     @Issue("JENKINS-46945")
     @Test public void durationIsCalculated() throws Exception {
         WorkflowJob duration = r.jenkins.createProject(WorkflowJob.class, "duration");
@@ -127,10 +144,10 @@ public class WorkflowRunTest {
     }
 
     @Extension
-    public static final class DurationRunListener extends RunListener<Run> {
+    public static final class DurationRunListener extends RunListener<Run<?, ?>> {
         static long duration = 0L;
         @Override
-        public void onCompleted(Run run, @Nonnull TaskListener listener) {
+        public void onCompleted(Run<?, ?> run, @Nonnull TaskListener listener) {
             duration = run.getDuration();
         }
     }
@@ -276,7 +293,7 @@ public class WorkflowRunTest {
             assertNotNull(p);
             WorkflowRun b = p.getLastBuild();
             assertNotNull(b);
-            System.out.println(FileUtils.readFileToString(new File(b.getRootDir(), "build.xml")));
+            System.out.println(FileUtils.readFileToString(new File(b.getRootDir(), "build.xml"), StandardCharsets.UTF_8));
             r.assertLogContains("hello world", b);
             FlowExecution exec = b.getExecution();
             assertNotNull(exec);
@@ -445,7 +462,7 @@ public class WorkflowRunTest {
         // Control case:
         QueueItemAuthenticatorConfiguration.get().getAuthenticators().add(new MockQueueItemAuthenticator(Collections.singletonMap("p", User.getById("admin", true).impersonate())));
         r.buildAndAssertSuccess(p);
-        // Test case: build is never scheduled, queue item hangs with “Waiting for next available executor on master”
+        // Test case: build is never scheduled, queue item hangs with “Waiting for next available executor on controller”
         QueueItemAuthenticatorConfiguration.get().getAuthenticators().replace(new MockQueueItemAuthenticator(Collections.singletonMap("p", User.getById("dev", true).impersonate())));
         r.buildAndAssertSuccess(p);
     }
@@ -491,4 +508,73 @@ public class WorkflowRunTest {
         assertEquals(1, checkouts.size());
         assertEquals(GitSCM.class, checkouts.get(0).getClass());
     }
+
+    @Issue("JENKINS-61415")
+    @Test public void baselineResetSingleRepo() throws Exception {
+        sampleRepo.init();
+        TaskListener listener = StreamTaskListener.fromStdout();
+        WorkflowJob p = r.createProject(WorkflowJob.class);
+        for (boolean changelog : new boolean[] { true, false }) {
+            for (boolean polling : new boolean[] { true, false }) {
+                p.setDefinition(new CpsFlowDefinition(
+                        "node {\n" +
+                        checkoutString(sampleRepo, changelog, polling) +
+                        "}\n", true));
+                WorkflowRun b = r.buildAndAssertSuccess(p);
+                assertThat(b.checkouts(listener).size(), equalTo(1));
+                assertThat("Unexpected baseline with changelog: " + changelog + "and polling: " + polling,
+                        b.checkouts(listener).get(0).pollingBaseline,
+                        // Setting either changelog or polling to true causes polling to be enabled.
+                        changelog || polling ? notNullValue() : nullValue());
+            }
+        }
+    }
+
+    // Polling baselines are specific to individual checkouts, even if the same repo is checked out more than once.
+    @Issue("JENKINS-61415")
+    @Test public void baselineResetMultipleSameRepo() throws Exception {
+        sampleRepo.init();
+        TaskListener listener = StreamTaskListener.fromStdout();
+        WorkflowJob p = r.createProject(WorkflowJob.class);
+        p.setDefinition(new CpsFlowDefinition(
+                "node {\n" +
+                checkoutString(sampleRepo, true, true) +
+                checkoutString(sampleRepo, true, true) +
+                "}\n", true));
+        WorkflowRun b1 = r.buildAndAssertSuccess(p);
+        assertPollingBaselines(b1.checkouts(listener), notNullValue(), notNullValue());
+
+        p.setDefinition(new CpsFlowDefinition(
+                "node {\n" +
+                checkoutString(sampleRepo, false, false) +
+                checkoutString(sampleRepo, true, true) +
+                "}\n", true));
+        WorkflowRun b2 = r.buildAndAssertSuccess(p);
+        //One comes back with a baseline and the other not
+        assertPollingBaselines(b2.checkouts(listener), nullValue(), notNullValue());
+
+        p.setDefinition(new CpsFlowDefinition(
+                "node {\n" +
+                checkoutString(sampleRepo, false, false) +
+                checkoutString(sampleRepo, false, false) +
+                "}\n", true));
+        WorkflowRun b3 = r.buildAndAssertSuccess(p);
+        //Both have their baselines wiped
+        assertPollingBaselines(b3.checkouts(listener), nullValue(), nullValue());
+    }
+
+    @SafeVarargs
+    private static void assertPollingBaselines(List<WorkflowRun.SCMCheckout> checkouts, Matcher<Object>... indexedMatchers) {
+        assertThat("Number of checkouts should match number of matchers", checkouts.size(), equalTo(indexedMatchers.length));
+        for (int i = 0; i < checkouts.size(); i++) {
+            assertThat("Unexpected baseline for checkout at index " + i, checkouts.get(i).pollingBaseline, indexedMatchers[i]);
+        }
+    }
+
+    private static String checkoutString(GitSampleRepoRule repo, boolean changelog, boolean polling) throws Exception {
+        return "    checkout(changelog:" + changelog +", poll:" + polling +
+                ", scm: [$class: 'GitSCM', branches: [[name: '*/master']], " +
+                ", userRemoteConfigs: [[url: $/" + repo.fileUrl() + "/$]]])\n";
+    }
+
 }

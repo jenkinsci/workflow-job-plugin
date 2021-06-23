@@ -26,7 +26,6 @@
 package org.jenkinsci.plugins.workflow.job.properties;
 
 import org.jenkinsci.plugins.workflow.job.WorkflowJob;
-import org.jenkinsci.plugins.workflow.job.properties.DisableConcurrentBuildsJobProperty;
 import org.junit.ClassRule;
 import org.junit.Rule;
 import org.junit.Test;

@@ -50,7 +50,7 @@ import org.jenkinsci.plugins.workflow.steps.StepContext;
 import org.jenkinsci.plugins.workflow.steps.StepDescriptor;
 import org.jenkinsci.plugins.workflow.steps.StepExecution;
 import org.jenkinsci.plugins.workflow.steps.SynchronousNonBlockingStepExecution;
-import static org.junit.Assert.*;
+import static org.hamcrest.MatcherAssert.assertThat;
 import org.junit.ClassRule;
 import org.junit.Rule;
 import org.junit.Test;
@@ -76,12 +76,14 @@ public class TaskListenerDecoratorTest {
         WorkflowRun b = r.buildAndAssertSuccess(p);
         r.assertLogContains("[job/p/1/] Started", b);
         r.assertLogContains("[decorated] [filtered] [job/p/1/] Running on remote in ", b);
-        r.assertLogContains("[decorated via remote] [filtered via remote] [job/p/1/ via remote] printed a message on master=false", b);
+        r.assertLogContains("[decorated via remote] [filtered via remote] [job/p/1/ via remote] printed a message on controller=false", b);
         String log = JenkinsRule.getLog(b);
         assertThat(log, log.indexOf("master=false"), lessThan(log.indexOf("// node")));
     }
 
     private static final class DecoratorImpl extends TaskListenerDecorator {
+        private static final long serialVersionUID = 1L;
+        
         private final String message;
         DecoratorImpl(String message) {
             this.message = message;
@@ -126,6 +128,8 @@ public class TaskListenerDecoratorTest {
             return new Execution(context);
         }
         private static final class Execution extends StepExecution {
+            private static final long serialVersionUID = 1L;
+            
             Execution(StepContext context) {
                 super(context);
             }
@@ -153,6 +157,8 @@ public class TaskListenerDecoratorTest {
             return new Execution(context);
         }
         private static final class Execution extends StepExecution {
+            private static final long serialVersionUID = 1L;
+            
             Execution(StepContext context) {
                 super(context);
             }
@@ -162,6 +168,8 @@ public class TaskListenerDecoratorTest {
             }
         }
         private static final class Filter extends ConsoleLogFilter implements Serializable {
+            private static final long serialVersionUID = 1L;
+            
             private final String message;
             Filter(String message) {
                 this.message = message;
@@ -170,7 +178,7 @@ public class TaskListenerDecoratorTest {
                 Channel ch = Channel.current();
                 return ch != null ? new Filter(message + " via " + ch.getName()) : this;
             }
-            @SuppressWarnings({"rawtypes", "deprecation"})
+            @SuppressWarnings("rawtypes")
             @Override public OutputStream decorateLogger(AbstractBuild _ignore, OutputStream logger) throws IOException, InterruptedException {
                 return new DecoratorImpl(message).decorate(logger);
             }
@@ -197,6 +205,8 @@ public class TaskListenerDecoratorTest {
             return new Execution(context);
         }
         private static final class Execution extends SynchronousNonBlockingStepExecution<Void> {
+            private static final long serialVersionUID = 1L;
+            
             Execution(StepContext context) {
                 super(context);
             }
@@ -204,13 +214,15 @@ public class TaskListenerDecoratorTest {
                 return getContext().get(Node.class).getChannel().call(new PrintCallable(getContext().get(TaskListener.class)));
             }
         }
-        private static final class PrintCallable extends MasterToSlaveCallable<Void, RuntimeException> {
+        private static final class PrintCallable extends MasterToSlaveCallable<Void, RuntimeException> {            
+            private static final long serialVersionUID = 1L;
+            
             private final TaskListener listener;
             PrintCallable(TaskListener listener) {
                 this.listener = listener;
             }
             @Override public Void call() throws RuntimeException {
-                listener.getLogger().println("printed a message on master=" + JenkinsJVM.isJenkinsJVM());
+                listener.getLogger().println("printed a message on controller=" + JenkinsJVM.isJenkinsJVM());
                 listener.getLogger().flush();
                 return null;
             }

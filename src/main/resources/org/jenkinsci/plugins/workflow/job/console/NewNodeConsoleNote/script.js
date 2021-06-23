@@ -7,7 +7,7 @@ Behaviour.specify("span.pipeline-new-node", 'NewNodeConsoleNote', 0, function(e)
     if (label != null) {
         var html = e.innerHTML
         var suffix = ' (' + label.escapeHTML() + ')';
-        if (!html.includes(suffix)) {
+        if (html.indexOf(suffix)<0) {
             e.innerHTML = e.innerHTML.replace(/.+/, '$&' + suffix) // insert before EOL
         }
     }
@@ -16,6 +16,16 @@ Behaviour.specify("span.pipeline-new-node", 'NewNodeConsoleNote', 0, function(e)
     if (startId == null || startId == nodeId) {
         e.innerHTML = e.innerHTML.replace(/.+/, '$&<span class="pipeline-show-hide"> (<a href="#" onclick="showHidePipelineSection(this); return false">hide</a>)</span>')
         // TODO automatically hide second and subsequent branches: namely, in case a node has the same parent as an earlier one
+    }
+    // The CSS rule for branch names only needs to be added once per node, so we
+    // check in case we are viewing the truncated log and have already processed
+    // a duplicate synthetic span element for this node.
+    var maybeDupeNodes = $$('[nodeid=\"'+nodeId+'\"].pipeline-new-node');
+    for (var i = 0; i < maybeDupeNodes.length; i++) {
+        var node = maybeDupeNodes[i];
+        if (node !== e && node.processedNewNodeConsoleNote) {
+            return;
+        }
     }
     var nodes = $$('.pipeline-new-node')
     var enclosings = new Map() // id → enclosingId
@@ -33,7 +43,7 @@ Behaviour.specify("span.pipeline-new-node", 'NewNodeConsoleNote', 0, function(e)
             break
         }
         var label = labels.get(id)
-        if (label != null && label.startsWith('Branch: ')) {
+        if (label != null && label.indexOf('Branch: ') == 0) {
             var branch = label.substring(8)
             var ss = document.styleSheets[0]
             // TODO https://stackoverflow.com/a/18990994/12916 does not scale well to add width: 25em; text-align: right
@@ -101,16 +111,16 @@ function showHidePipelineSection(link) {
             var oid = ids[i]
             if (oid != id && encloses(id, oid, starts, enclosings)) {
                 showHide(oid, display)
-                var header = $$('.pipeline-new-node[nodeId=' + oid + ']')
-                if (header.length > 0) {
-                    header[0].style.display = display
+                var headers = $$('.pipeline-new-node[nodeId=' + oid + ']');
+                for (var j = 0; j < headers.length; j++) {
+                    headers[j].style.display = display;
                 }
-                if (display == 'inline') {
+                if (display === 'inline') {
                     // Mark all children as shown. TODO would be nicer to leave them collapsed if they were before, but this gets complicated.
-                    var link = $$('.pipeline-new-node[nodeId=' + oid + '] span a')
-                    if (link.length > 0) {
-                        link[0].textContent = 'hide'
-                        link[0].parentNode.className = 'pipeline-show-hide'
+                    var links = $$('.pipeline-new-node[nodeId=' + oid + '] span a');
+                    for (var j = 0; j < links.length; j++) {
+                        links[j].textContent = 'hide';
+                        links[j].parentNode.className = 'pipeline-show-hide';
                     }
                 }
             }
