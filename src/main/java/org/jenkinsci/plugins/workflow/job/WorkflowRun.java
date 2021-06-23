@@ -308,18 +308,14 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
             Owner owner = new Owner(this);
             FlowExecution newExecution = definition.create(owner, myListener, getAllActions());
 
-            boolean loggedHintOverride = false;
             if (newExecution instanceof BlockableResume) {
                 boolean blockResume = getParent().isResumeBlocked();
                 ((BlockableResume) newExecution).setResumeBlocked(blockResume);
                 if (blockResume) {
                     myListener.getLogger().println("Resume disabled by user, switching to high-performance, low-durability mode.");
-                    loggedHintOverride = true;
                 }
             }
-            if (!loggedHintOverride) {  // Avoid double-logging
-                myListener.getLogger().println("Running in Durability level: "+DurabilityHintProvider.suggestedFor(this.project));
-            }
+            LOGGER.fine(() -> "Running in Durability level: " + DurabilityHintProvider.suggestedFor(this.project));
             save();  // Save before we add to the FlowExecutionList, to ensure we never have a run with a null build.
             synchronized (getMetadataGuard()) {  // Technically safe but it makes FindBugs happy
                 FlowExecutionList.get().register(owner);
