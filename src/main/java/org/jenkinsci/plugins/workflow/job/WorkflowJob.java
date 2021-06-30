@@ -314,7 +314,7 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements L
     @Override public boolean isConcurrentBuild() {
         DisableConcurrentBuildsJobProperty p = getProperty(DisableConcurrentBuildsJobProperty.class);
         // For purposes of the Jenkins queue, abortPrevious mode means that the new build must start concurrently with the old at least temporarily.
-        return p == null || p != null && p.isAbortPrevious();
+        return p == null || p.isAbortPrevious();
     }
 
     @Exported
