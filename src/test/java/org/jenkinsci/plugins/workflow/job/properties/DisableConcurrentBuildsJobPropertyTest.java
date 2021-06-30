@@ -140,6 +140,8 @@ public class DisableConcurrentBuildsJobPropertyTest {
         assertEquals(1, iba.getCauses().size());
         assertEquals(DisableConcurrentBuildsJobProperty.CancelledCause.class, iba.getCauses().get(0).getClass());
         assertEquals(b6, ((DisableConcurrentBuildsJobProperty.CancelledCause) iba.getCauses().get(0)).getNewerBuild());
+        SemaphoreStep.success("run/6", null);
+        r.assertBuildStatusSuccess(r.waitForCompletion(b6));
     }
 
 }
