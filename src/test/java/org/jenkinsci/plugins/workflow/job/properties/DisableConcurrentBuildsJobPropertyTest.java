@@ -25,8 +25,13 @@
  */
 package org.jenkinsci.plugins.workflow.job.properties;
 
+import hudson.model.Queue;
 import hudson.model.Result;
 import hudson.model.queue.QueueTaskFuture;
+import java.util.Collections;
+import java.util.Objects;
+import java.util.stream.Collectors;
+import jenkins.model.BlockedBecauseOfBuildInProgress;
 import jenkins.model.InterruptedBuildAction;
 import org.jenkinsci.plugins.workflow.cps.CpsFlowDefinition;
 import org.jenkinsci.plugins.workflow.job.WorkflowJob;
@@ -121,8 +126,9 @@ public class DisableConcurrentBuildsJobPropertyTest {
         SemaphoreStep.waitForStart("run/3", b3);
         SemaphoreStep.success("run/4", null);
         QueueTaskFuture<WorkflowRun> b4f = p.scheduleBuild2(0);
-        Thread.sleep(1000); // TODO is there a cleaner way for the queue to finish processing?
-        assertFalse(b4f.getStartCondition().isDone());
+        r.jenkins.getQueue().maintain();
+        assertEquals(Collections.singletonList(BlockedBecauseOfBuildInProgress.class),
+            r.jenkins.getQueue().getItems(p).stream().map(Queue.Item::getCauseOfBlockage).filter(Objects::nonNull).map(Object::getClass).collect(Collectors.toList()));
         SemaphoreStep.success("run/3", null);
         r.waitForCompletion(b4f.waitForStart());
         r.waitForCompletion(b3);
