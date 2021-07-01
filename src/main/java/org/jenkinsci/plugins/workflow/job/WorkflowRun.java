@@ -336,8 +336,8 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
 
             DisableConcurrentBuildsJobProperty dcb = getParent().getProperty(DisableConcurrentBuildsJobProperty.class);
             if (dcb != null && dcb.isAbortPrevious()) {
-                WorkflowRun prev = getPreviousBuildInProgress();
-                if (prev != null) {
+                WorkflowRun prev = getPreviousBuild();
+                if (prev != null && prev.isBuilding()) {
                     Executor e = prev.getExecutor();
                     if (e != null) {
                         e.interrupt(Result.NOT_BUILT, new DisableConcurrentBuildsJobProperty.CancelledCause(this));
