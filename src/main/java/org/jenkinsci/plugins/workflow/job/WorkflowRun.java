@@ -1193,17 +1193,19 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
         XmlFile file = new XmlFile(XSTREAM,loc);
 
         boolean isAtomic = true;
+        boolean isForce = true;
         FlowExecution fetchedExecution = this.execution;  // Avoid triggering loading unless we need to
         if (fetchedExecution != null) {
             FlowDurabilityHint hint = fetchedExecution.getDurabilityHint();
             isAtomic = hint.isAtomicWrite();
+            isForce = hint.isForce();
         }
 
         boolean completeAsynchronousExecution = false;
         try {
             synchronized (this) {
                 completeAsynchronousExecution = Boolean.TRUE.equals(completed);
-                PipelineIOUtils.writeByXStream(this, loc, XSTREAM2, isAtomic);
+                PipelineIOUtils.writeByXStream(this, loc, XSTREAM2, isAtomic, isForce);
                 SaveableListener.fireOnChange(this, file);
             }
         } finally {
