@@ -30,6 +30,7 @@ import com.gargoylesoftware.htmlunit.WebRequest;
 import com.gargoylesoftware.htmlunit.util.NameValuePair;
 import hudson.model.Item;
 import hudson.model.Items;
+import hudson.model.Job;
 import hudson.triggers.TimerTrigger;
 import hudson.triggers.Trigger;
 import org.apache.commons.io.IOUtils;
@@ -45,6 +46,7 @@ import org.jvnet.hudson.test.recipes.LocalData;
 
 import java.net.URL;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 import static org.junit.Assert.assertEquals;
@@ -52,6 +54,7 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
+import org.jvnet.hudson.test.Issue;
 
 public class PipelineTriggersJobPropertyTest {
     @ClassRule
@@ -208,6 +211,37 @@ public class PipelineTriggersJobPropertyTest {
         assertNotNull(t);
         assertTrue(t.isStarted);
         assertTrue(t.foundSelf);
+    }
+    
+    @Test
+    @Issue("JENKINS-45067")
+    public void triggerMethodsShouldNotThrowNPEWhenNotAssigned() {
+        ProjectDependentTrigger t = new ProjectDependentTrigger();
+        PipelineTriggersJobProperty prop = new PipelineTriggersJobProperty(Arrays.asList(t));
+        
+        prop.startTriggers(true);
+        assertFalse("Trigger#start() API requires project to be non-null, hence it must not be invoked", t.triedToStart);
+        
+        prop.stopTriggers();
+        assertTrue("Trigger#stop() API does not require project to be non-null, hence it should be invoked", t.triedToStop);
+    }
+    
+    private static class ProjectDependentTrigger extends Trigger<Job<?, ?>> {
+
+        boolean triedToStart, triedToStop;
+        
+        @Override
+        public void start(Job<?, ?> project, boolean newInstance) {
+            triedToStart = true;
+            System.out.println("Triggering " + project.getFullDisplayName());
+        }
+
+        @Override
+        public void stop() {
+            triedToStop = true;
+        }
+        
+        
     }
 
     private <T extends Trigger<?>> T getTriggerFromList(Class<T> clazz, List<Trigger<?>> triggers) {
