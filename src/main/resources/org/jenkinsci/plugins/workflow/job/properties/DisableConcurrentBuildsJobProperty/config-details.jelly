@@ -26,4 +26,8 @@
   -->
 
 <?jelly escape-by-default='true'?>
-<j:jelly xmlns:j="jelly:core" xmlns:f="/lib/form" />
+<j:jelly xmlns:j="jelly:core" xmlns:f="/lib/form">
+    <f:entry field="abortPrevious">
+        <f:checkbox title="Abort previous builds"/>
+    </f:entry>
+</j:jelly>
