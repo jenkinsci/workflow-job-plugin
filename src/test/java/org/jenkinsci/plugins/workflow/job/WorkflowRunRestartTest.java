@@ -41,6 +41,7 @@ import org.jenkinsci.plugins.workflow.graph.FlowStartNode;
 import org.jenkinsci.plugins.workflow.job.properties.DurabilityHintJobProperty;
 import org.jenkinsci.plugins.workflow.test.steps.SemaphoreStep;
 import static org.junit.Assert.*;
+import org.junit.Assume;
 import org.junit.ClassRule;
 import org.junit.Rule;
 import org.junit.Test;
@@ -53,6 +54,7 @@ import org.kohsuke.stapler.DataBoundSetter;
 
 import java.util.List;
 import java.util.Set;
+import static org.hamcrest.Matchers.nullValue;
 import org.jenkinsci.plugins.workflow.steps.Step;
 import org.jenkinsci.plugins.workflow.steps.StepContext;
 import org.jenkinsci.plugins.workflow.steps.StepDescriptor;
@@ -216,6 +218,7 @@ public class WorkflowRunRestartTest {
     @Issue("JENKINS-46961")
     @Test public void interruptedWhileStartingMaxSurvivability() throws Exception {
         story.then(r -> {
+            Assume.assumeThat("import from LibraryDecorator will not resolve in PCT", r.jenkins.pluginManager.getPlugin("workflow-cps-global-lib"), nullValue());
             WorkflowJob p = r.createProject(WorkflowJob.class, "p");
             p.setDefinition(new CpsFlowDefinition(
                 "import groovy.transform.*\n" +
@@ -240,6 +243,7 @@ public class WorkflowRunRestartTest {
     @Issue("JENKINS-46961")
     @Test public void interruptedWhileStartingPerformanceOptimized() throws Exception {
         story.then(r -> {
+            Assume.assumeThat("import from LibraryDecorator will not resolve in PCT", r.jenkins.pluginManager.getPlugin("workflow-cps-global-lib"), nullValue());
             WorkflowJob p = r.createProject(WorkflowJob.class, "p");
             p.addProperty(new DurabilityHintJobProperty(FlowDurabilityHint.PERFORMANCE_OPTIMIZED));
             p.setDefinition(new CpsFlowDefinition(
