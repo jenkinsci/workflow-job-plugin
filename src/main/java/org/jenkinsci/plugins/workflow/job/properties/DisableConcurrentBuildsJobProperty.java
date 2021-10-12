@@ -24,10 +24,17 @@
 package org.jenkinsci.plugins.workflow.job.properties;
 
 import hudson.Extension;
+import hudson.console.ModelHyperlinkNote;
+import hudson.model.Run;
+import hudson.model.TaskListener;
+import javax.annotation.Nullable;
+import jenkins.model.CauseOfInterruption;
 import jenkins.model.OptionalJobProperty;
 import org.jenkinsci.Symbol;
 import org.jenkinsci.plugins.workflow.job.WorkflowJob;
 import org.kohsuke.stapler.DataBoundConstructor;
+import org.kohsuke.stapler.DataBoundSetter;
+import org.kohsuke.stapler.export.Exported;
 import org.kohsuke.stapler.export.ExportedBean;
 
 /**
@@ -36,8 +43,19 @@ import org.kohsuke.stapler.export.ExportedBean;
 @ExportedBean
 public class DisableConcurrentBuildsJobProperty extends OptionalJobProperty<WorkflowJob> {
 
+    private boolean abortPrevious;
+
     @DataBoundConstructor
     public DisableConcurrentBuildsJobProperty() {
+    }
+
+    public boolean isAbortPrevious() {
+        return abortPrevious;
+    }
+
+    @DataBoundSetter
+    public void setAbortPrevious(boolean abortPrevious) {
+        this.abortPrevious = abortPrevious;
     }
 
     @Extension
@@ -46,6 +64,42 @@ public class DisableConcurrentBuildsJobProperty extends OptionalJobProperty<Work
 
         @Override public String getDisplayName() {
             return Messages.do_not_allow_concurrent_builds();
+        }
+
+    }
+
+    /**
+     * Records that a build was canceled because of {@link #isAbortPrevious}.
+     */
+    public static final class CancelledCause extends CauseOfInterruption {
+
+        private static final long serialVersionUID = 1;
+
+        private final String newerBuild;
+        private final String displayName;
+
+        public CancelledCause(Run<?, ?> newerBuild) {
+            this.newerBuild = newerBuild.getExternalizableId();
+            this.displayName = newerBuild.getDisplayName();
+        }
+
+        @Exported
+        @Nullable
+        public Run<?, ?> getNewerBuild() {
+            return newerBuild != null ? Run.fromExternalizableId(newerBuild) : null;
+        }
+
+        @Override public String getShortDescription() {
+            return "Superseded by " + displayName;
+        }
+
+        @Override public void print(TaskListener listener) {
+            Run<?, ?> b = getNewerBuild();
+            if (b != null) {
+                listener.getLogger().println("Superseded by " + ModelHyperlinkNote.encodeTo(b));
+            } else {
+                super.print(listener);
+            }
         }
 
     }
