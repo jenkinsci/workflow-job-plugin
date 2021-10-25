@@ -24,6 +24,7 @@ public class DisableResumeJobProperty extends OptionalJobProperty<WorkflowJob> {
     @Symbol("disableResume")
     public static class DescriptorImpl extends OptionalJobPropertyDescriptor implements DurabilityHintProvider{
 
+        @NonNull
         @Override public String getDisplayName() {
             return Messages.do_not_allow_resume_if_master_restarts();
         }

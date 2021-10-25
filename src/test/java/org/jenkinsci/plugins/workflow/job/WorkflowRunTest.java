@@ -37,6 +37,7 @@ import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
 
 import com.gargoylesoftware.htmlunit.WebResponse;
+import edu.umd.cs.findbugs.annotations.NonNull;
 import hudson.AbortException;
 import hudson.Extension;
 import hudson.model.*;
@@ -63,7 +64,6 @@ import java.util.Set;
 import java.util.TreeSet;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
-import edu.umd.cs.findbugs.annotations.NonNull;
 import jenkins.model.CauseOfInterruption;
 import jenkins.model.InterruptedBuildAction;
 import jenkins.model.Jenkins;

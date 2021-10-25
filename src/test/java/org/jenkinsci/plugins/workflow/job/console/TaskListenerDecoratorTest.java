@@ -28,6 +28,7 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.lessThan;
 
 import com.google.common.collect.ImmutableSet;
+import edu.umd.cs.findbugs.annotations.NonNull;
 import hudson.console.ConsoleLogFilter;
 import hudson.console.LineTransformationOutputStream;
 import hudson.model.AbstractBuild;
@@ -93,7 +94,9 @@ public class TaskListenerDecoratorTest {
             Channel ch = Channel.current();
             return ch != null ? new DecoratorImpl(message + " via " + ch.getName()) : this;
         }
-        @Override public OutputStream decorate(OutputStream logger) {
+
+        @NonNull
+        @Override public OutputStream decorate(@NonNull OutputStream logger) {
             return new LineTransformationOutputStream() {
                 @Override protected void eol(byte[] b, int len) throws IOException {
                     logger.write(("[" + message + "] ").getBytes());

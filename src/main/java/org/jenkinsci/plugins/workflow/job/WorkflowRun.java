@@ -258,6 +258,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
         return runMixIn;
     }
 
+    @NonNull
     @Override protected BuildReference<WorkflowRun> createReference() {
         return getRunMixIn().createReference();
     }
@@ -457,7 +458,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
             }
         }
         Futures.addCallback(exec.getCurrentExecutions(/* cf. JENKINS-26148 */true), new FutureCallback<List<StepExecution>>() {
-            @Override public void onSuccess(List<StepExecution> l) {
+            @Override public void onSuccess(@NonNull List<StepExecution> l) {
                 for (StepExecution e : Iterators.reverse(l)) {
                     StepContext context = e.getContext();
                     context.onFailure(x);
@@ -471,7 +472,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
                     }
                 }
             }
-            @Override public void onFailure(Throwable t) {}
+            @Override public void onFailure(@NonNull Throwable t) {}
         });
         printLater(StopState.KILL, "Click here to forcibly kill entire build");
     }
@@ -496,7 +497,8 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
         // TODO CpsFlowExecution.onProgramEnd does some cleanup which we cannot access here; perhaps need a FlowExecution.halt(Throwable) API?
     }
 
-    @Override public EnvVars getEnvironment(TaskListener listener) throws IOException, InterruptedException {
+    @NonNull
+    @Override public EnvVars getEnvironment(@NonNull TaskListener listener) throws IOException, InterruptedException {
         EnvVars env = super.getEnvironment(listener);
 
         Jenkins instance = Jenkins.getInstanceOrNull();
@@ -593,7 +595,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
     }
 
     // Overridden since super version has an unwanted assertion about this.state, which we do not use.
-    @Override public void setResult(Result r) {
+    @Override public void setResult(@NonNull Result r) {
         if (result == null || r.isWorseThan(result)) {
             result = r;
             LOGGER.log(Level.FINE, this + " in " + getRootDir() + ": result is set to " + r, LOGGER.isLoggable(Level.FINER) ? new Exception() : null);
@@ -814,6 +816,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
         return scmList;
     }
 
+    @NonNull
     @Override
     @Exported
     public synchronized List<ChangeLogSet<? extends ChangeLogSet.Entry>> getChangeSets() {
@@ -894,7 +897,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
         // TODO JENKINS-27704 make this a String and relativize to Run.rootDir if possible
         final @CheckForNull File changelogFile;
         final @CheckForNull SCMRevisionState pollingBaseline;
-        SCMCheckout(SCM scm, String node, String workspace, File changelogFile, SCMRevisionState pollingBaseline) {
+        SCMCheckout(SCM scm, String node, String workspace, @CheckForNull File changelogFile, @CheckForNull SCMRevisionState pollingBaseline) {
             this.scm = scm;
             this.node = node;
             this.workspace = workspace;
@@ -955,6 +958,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
             return run;
         }
 
+        @NonNull
         @Override public FlowExecution get() throws IOException {
             WorkflowRun r = run();
             synchronized (LOADING_RUNS) {
@@ -997,6 +1001,8 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
         @Override public String getUrl() throws IOException {
             return run().getUrl();
         }
+
+        @NonNull
         @Override public TaskListener getListener() throws IOException {
             return run().getListener();
         }
@@ -1061,6 +1067,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
     }
 
     @SuppressWarnings("rawtypes")
+    @NonNull
     @Override public AnnotatedLargeText getLogText() {
         return LogStorage.of(asFlowExecutionOwner()).overallLog(this, !isLogUpdated());
     }
@@ -1096,6 +1103,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
 
     // TODO log-related overrides pending JEP-207:
 
+    @NonNull
     @Override public InputStream getLogInputStream() throws IOException {
         // Inefficient but probably rarely used anyway.
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
@@ -1110,11 +1118,13 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
         }
     }
 
+    @NonNull
     @Override public Reader getLogReader() throws IOException {
         return getLogText().readAll();
     }
 
     @SuppressWarnings("deprecation")
+    @NonNull
     @Override public String getLog() throws IOException {
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
         writeLogTo(getLogText()::writeRawLogTo, baos);
@@ -1137,6 +1147,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
         }
     }
 
+    @NonNull
     @Override public List<String> getLog(int maxLines) throws IOException {
         int lineCount = 0;
         List<String> logLines = new LinkedList<>();
@@ -1159,6 +1170,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
     }
 
     @Deprecated
+    @NonNull
     @Override public File getLogFile() {
         LOGGER.log(Level.WARNING, "Avoid calling getLogFile on " + this, new UnsupportedOperationException());
         return LogStorage.of(asFlowExecutionOwner()).getLogFile(this, !isLogUpdated());
