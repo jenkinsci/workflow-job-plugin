@@ -113,6 +113,7 @@ import org.jenkinsci.plugins.workflow.graph.FlowEndNode;
 import org.jenkinsci.plugins.workflow.graph.FlowNode;
 import org.jenkinsci.plugins.workflow.graphanalysis.DepthFirstScanner;
 import org.jenkinsci.plugins.workflow.job.console.NewNodeConsoleNote;
+import org.jenkinsci.plugins.workflow.job.properties.DisableConcurrentBuildsJobProperty;
 import org.jenkinsci.plugins.workflow.log.LogStorage;
 import org.jenkinsci.plugins.workflow.log.TaskListenerDecorator;
 import org.jenkinsci.plugins.workflow.steps.FlowInterruptedException;
@@ -308,18 +309,14 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
             Owner owner = new Owner(this);
             FlowExecution newExecution = definition.create(owner, myListener, getAllActions());
 
-            boolean loggedHintOverride = false;
             if (newExecution instanceof BlockableResume) {
                 boolean blockResume = getParent().isResumeBlocked();
                 ((BlockableResume) newExecution).setResumeBlocked(blockResume);
                 if (blockResume) {
                     myListener.getLogger().println("Resume disabled by user, switching to high-performance, low-durability mode.");
-                    loggedHintOverride = true;
                 }
             }
-            if (!loggedHintOverride) {  // Avoid double-logging
-                myListener.getLogger().println("Running in Durability level: "+DurabilityHintProvider.suggestedFor(this.project));
-            }
+            LOGGER.fine(() -> "Running in Durability level: " + DurabilityHintProvider.suggestedFor(this.project));
             save();  // Save before we add to the FlowExecutionList, to ensure we never have a run with a null build.
             synchronized (getMetadataGuard()) {  // Technically safe but it makes FindBugs happy
                 FlowExecutionList.get().register(owner);
@@ -337,10 +334,32 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
             newExecution.start();  // We should probably have the promise set before beginning, no?
             FlowExecutionListener.fireRunning(newExecution);
 
+            DisableConcurrentBuildsJobProperty dcb = getParent().getProperty(DisableConcurrentBuildsJobProperty.class);
+            if (dcb != null && dcb.isAbortPrevious()) {
+                WorkflowRun prev = getPreviousBuild();
+                if (prev != null && prev.isBuilding()) {
+                    Executor e = prev.getExecutor();
+                    if (e != null) {
+                        e.interrupt(Result.NOT_BUILT, new DisableConcurrentBuildsJobProperty.CancelledCause(this));
+                    }
+                }
+                // Not bothering to look for other older builds in progress, since once we turn this on, going forward there should be at most one.
+            }
         } catch (Throwable x) {
             execution = null; // ensures isInProgress returns false
             executionLoaded = true;
-            finish(Result.FAILURE, x);
+            Executor executor = Executor.currentExecutor();
+            if (Thread.interrupted() && executor != null) {
+                if (LOGGER.isLoggable(Level.FINE)) {
+                    // In general, the exception thrown by whatever code noticed that the thread was interrupted is not useful.
+                    LOGGER.log(Level.FINE, this + " was interrupted during startup", x);
+                }
+                Result result = executor.abortResult();
+                Collection<CauseOfInterruption> causes = executor.getCausesOfInterruption();
+                finish(result, new FlowInterruptedException(result, causes.toArray(new CauseOfInterruption[causes.size()])));
+            } else {
+                finish(Result.FAILURE, x);
+            }
             try {
                 SettableFuture<FlowExecution> exec = getSettableExecutionPromise();
                 if (!exec.isDone()) {
@@ -596,8 +615,6 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
                 // Never even made it to running, either failed when fresh-started or resumed -- otherwise getListener would have run
                 LOGGER.log(Level.WARNING, this + " failed to start", t);
             } else {
-                RunListener.fireCompleted(WorkflowRun.this, myListener);
-                fireCompleted();
                 if (t instanceof AbortException) {
                     myListener.error(t.getMessage());
                 } else if (t instanceof FlowInterruptedException) {
@@ -605,6 +622,8 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
                 } else if (t != null) {
                     Functions.printStackTrace(t, myListener.getLogger());
                 }
+                RunListener.fireCompleted(WorkflowRun.this, myListener);
+                fireCompleted();
                 myListener.finished(getResult());
                 if (myListener instanceof AutoCloseable) {
                     try {

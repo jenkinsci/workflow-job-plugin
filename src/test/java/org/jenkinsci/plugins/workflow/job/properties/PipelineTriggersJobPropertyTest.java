@@ -127,18 +127,18 @@ public class PipelineTriggersJobPropertyTest {
         assertEquals(2, triggerProp.getTriggers().size());
         assertEquals(2, p.getTriggers().size());
 
-        Trigger timerFromProp = getTriggerFromList(TimerTrigger.class, triggerProp.getTriggers());
+        Trigger<?> timerFromProp = getTriggerFromList(TimerTrigger.class, triggerProp.getTriggers());
         assertNotNull(timerFromProp);
         assertEquals(TimerTrigger.class, timerFromProp.getClass());
 
-        Trigger timerFromJob = p.getTriggers().get(timerFromProp.getDescriptor());
+        Trigger<?> timerFromJob = p.getTriggers().get(timerFromProp.getDescriptor());
         assertEquals(timerFromProp, timerFromJob);
 
-        Trigger mockFromProp = getTriggerFromList(MockTrigger.class, triggerProp.getTriggers());
+        Trigger<?> mockFromProp = getTriggerFromList(MockTrigger.class, triggerProp.getTriggers());
         assertNotNull(mockFromProp);
         assertEquals(MockTrigger.class, mockFromProp.getClass());
 
-        Trigger mockFromJob = p.getTriggers().get(mockFromProp.getDescriptor());
+        Trigger<?> mockFromJob = p.getTriggers().get(mockFromProp.getDescriptor());
         assertEquals(mockFromProp, mockFromJob);
 
         assertNotNull(((MockTrigger)mockFromProp).currentStatus());
@@ -146,7 +146,7 @@ public class PipelineTriggersJobPropertyTest {
         assertEquals("[null, false, null, false]", MockTrigger.startsAndStops.toString());
 
         // Verify that we can replace an existing trigger.
-        Trigger newTimerTrigger = new TimerTrigger("@hourly");
+        Trigger<?> newTimerTrigger = new TimerTrigger("@hourly");
 
         p.addTrigger(newTimerTrigger);
 
@@ -154,7 +154,7 @@ public class PipelineTriggersJobPropertyTest {
         assertEquals(2, p.getTriggers().size());
         assertNotNull(p.getTriggers().get(mockFromJob.getDescriptor()));
 
-        Trigger newTimerFromJob = p.getTriggers().get(newTimerTrigger.getDescriptor());
+        Trigger<?> newTimerFromJob = p.getTriggers().get(newTimerTrigger.getDescriptor());
         assertEquals(newTimerTrigger.getSpec(), newTimerFromJob.getSpec());
     }
 
@@ -210,8 +210,8 @@ public class PipelineTriggersJobPropertyTest {
         assertTrue(t.foundSelf);
     }
 
-    private <T extends Trigger> T getTriggerFromList(Class<T> clazz, List<Trigger<?>> triggers) {
-        for (Trigger t : triggers) {
+    private <T extends Trigger<?>> T getTriggerFromList(Class<T> clazz, List<Trigger<?>> triggers) {
+        for (Trigger<?> t : triggers) {
             if (clazz.isInstance(t)) {
                 return clazz.cast(t);
             }

@@ -35,18 +35,18 @@ import org.junit.ClassRule;
 import org.junit.Rule;
 import org.jvnet.hudson.test.BuildWatcher;
 import org.jvnet.hudson.test.Issue;
-import org.jvnet.hudson.test.RestartableJenkinsRule;
+import org.jvnet.hudson.test.JenkinsSessionRule;
 import org.jvnet.hudson.test.TestExtension;
 
 /** Integration test for special behavior of {@link ReverseBuildTrigger} with {@link WorkflowJob}. */
 public class ReverseBuildTriggerTest {
 
     @ClassRule public static BuildWatcher buildWatcher = new BuildWatcher();
-    @Rule public RestartableJenkinsRule story = new RestartableJenkinsRule();
+    @Rule public JenkinsSessionRule sessions = new JenkinsSessionRule();
 
     @Issue("JENKINS-33971")
-    @Test public void upstreamMapRebuilding() throws Exception {
-        story.then(r -> {
+    @Test public void upstreamMapRebuilding() throws Throwable {
+        sessions.then(r -> {
             r.jenkins.setQuietPeriod(0);
             WorkflowJob us = r.jenkins.createProject(WorkflowJob.class, "us");
             us.setDefinition(new CpsFlowDefinition("", true));
@@ -62,7 +62,7 @@ public class ReverseBuildTriggerTest {
             assertNotNull(ds1);
             assertEquals(1, ds1.getNumber());
         });
-        story.then(r -> {
+        sessions.then(r -> {
             WorkflowJob us = r.jenkins.getItemByFullName("us", WorkflowJob.class);
             assertNotNull(us);
             WorkflowJob ds = r.jenkins.getItemByFullName("ds", WorkflowJob.class);

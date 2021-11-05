@@ -25,8 +25,19 @@
  */
 package org.jenkinsci.plugins.workflow.job.properties;
 
+import hudson.model.Queue;
+import hudson.model.Result;
+import hudson.model.queue.QueueTaskFuture;
+import java.util.Collections;
+import java.util.Objects;
+import java.util.stream.Collectors;
+import jenkins.model.BlockedBecauseOfBuildInProgress;
+import jenkins.model.InterruptedBuildAction;
+import org.jenkinsci.plugins.workflow.cps.CpsFlowDefinition;
 import org.jenkinsci.plugins.workflow.job.WorkflowJob;
-import org.jenkinsci.plugins.workflow.job.properties.DisableConcurrentBuildsJobProperty;
+import org.jenkinsci.plugins.workflow.job.WorkflowRun;
+import org.jenkinsci.plugins.workflow.test.steps.SemaphoreStep;
+import static org.junit.Assert.assertEquals;
 import org.junit.ClassRule;
 import org.junit.Rule;
 import org.junit.Test;
@@ -80,5 +91,63 @@ public class DisableConcurrentBuildsJobPropertyTest {
 
         WorkflowJob roundTripDisabled = r.configRoundtrip(disabledCase);
         assertFalse(roundTripDisabled.isConcurrentBuild());
+
+        DisableConcurrentBuildsJobProperty prop = roundTripDisabled.getProperty(DisableConcurrentBuildsJobProperty.class);
+        assertNotNull(prop);
+        assertFalse(prop.isAbortPrevious());
+        prop.setAbortPrevious(true);
+        roundTripDisabled = r.configRoundtrip(roundTripDisabled);
+        assertTrue(roundTripDisabled.isConcurrentBuild()); // see comment there
+        prop = roundTripDisabled.getProperty(DisableConcurrentBuildsJobProperty.class);
+        assertNotNull(prop);
+        assertTrue(prop.isAbortPrevious());
     }
+
+    @Issue("JENKINS-43353")
+    @Test public void abortPrevious() throws Exception {
+        WorkflowJob p = r.createProject(WorkflowJob.class);
+        p.setDefinition(new CpsFlowDefinition("semaphore 'run'", true));
+
+        // Control case: concurrent builds allowed.
+        assertTrue(p.isConcurrentBuild());
+        WorkflowRun b1 = p.scheduleBuild2(0).waitForStart();
+        SemaphoreStep.waitForStart("run/1", b1);
+        WorkflowRun b2 = p.scheduleBuild2(0).waitForStart();
+        SemaphoreStep.waitForStart("run/2", b2);
+        SemaphoreStep.success("run/1", null);
+        SemaphoreStep.success("run/2", null);
+        r.waitForCompletion(b1);
+        r.waitForCompletion(b2);
+
+        // Control case: simple disable concurrent.
+        p.setConcurrentBuild(false);
+        assertFalse(p.isConcurrentBuild());
+        WorkflowRun b3 = p.scheduleBuild2(0).waitForStart();
+        SemaphoreStep.waitForStart("run/3", b3);
+        SemaphoreStep.success("run/4", null);
+        QueueTaskFuture<WorkflowRun> b4f = p.scheduleBuild2(0);
+        r.jenkins.getQueue().maintain();
+        assertEquals(Collections.singletonList(BlockedBecauseOfBuildInProgress.class),
+            r.jenkins.getQueue().getItems(p).stream().map(Queue.Item::getCauseOfBlockage).filter(Objects::nonNull).map(Object::getClass).collect(Collectors.toList()));
+        SemaphoreStep.success("run/3", null);
+        r.waitForCompletion(b4f.waitForStart());
+        r.waitForCompletion(b3);
+
+        // Test case: abort previous.
+        p.getProperty(DisableConcurrentBuildsJobProperty.class).setAbortPrevious(true);
+        assertTrue(p.isConcurrentBuild()); // see comment there
+        WorkflowRun b5 = p.scheduleBuild2(0).waitForStart();
+        SemaphoreStep.waitForStart("run/5", b5);
+        WorkflowRun b6 = p.scheduleBuild2(0).waitForStart();
+        SemaphoreStep.waitForStart("run/6", b6);
+        r.assertBuildStatus(Result.NOT_BUILT, r.waitForCompletion(b5));
+        InterruptedBuildAction iba = b5.getAction(InterruptedBuildAction.class);
+        assertNotNull(iba);
+        assertEquals(1, iba.getCauses().size());
+        assertEquals(DisableConcurrentBuildsJobProperty.CancelledCause.class, iba.getCauses().get(0).getClass());
+        assertEquals(b6, ((DisableConcurrentBuildsJobProperty.CancelledCause) iba.getCauses().get(0)).getNewerBuild());
+        SemaphoreStep.success("run/6", null);
+        r.assertBuildStatusSuccess(r.waitForCompletion(b6));
+    }
+
 }

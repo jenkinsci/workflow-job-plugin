@@ -25,7 +25,6 @@
 package org.jenkinsci.plugins.workflow.job;
 
 import hudson.ExtensionList;
-import hudson.model.Action;
 import hudson.model.Queue;
 import hudson.model.Result;
 import org.jenkinsci.plugins.workflow.cps.CpsFlowDefinition;
@@ -35,10 +34,9 @@ import org.junit.ClassRule;
 import org.junit.Rule;
 import org.junit.Test;
 import org.jvnet.hudson.test.BuildWatcher;
-import org.jvnet.hudson.test.RestartableJenkinsRule;
+import org.jvnet.hudson.test.JenkinsSessionRule;
 import org.jvnet.hudson.test.TestExtension;
 
-import javax.annotation.CheckForNull;
 import javax.annotation.Nonnull;
 import java.io.IOException;
 import java.io.PrintStream;
@@ -51,10 +49,10 @@ public class WorkflowRunWithFlowExecutionListenerTest {
     public static BuildWatcher buildWatcher = new BuildWatcher();
 
     @Rule
-    public RestartableJenkinsRule story = new RestartableJenkinsRule();
+    public JenkinsSessionRule sessions = new JenkinsSessionRule();
 
-    @Test public void testOnCompleteIsExecutedBeforeListenerIsClosed() throws Exception {
-        story.then(r -> {
+    @Test public void testOnCompleteIsExecutedBeforeListenerIsClosed() throws Throwable {
+        sessions.then(r -> {
             WorkflowJob p = r.jenkins.createProject(WorkflowJob.class, "p");
             p.setDefinition(new CpsFlowDefinition("echo 'Running for listener'", true));
             WorkflowRun b = r.assertBuildStatus(Result.SUCCESS, p.scheduleBuild2(0));

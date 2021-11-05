@@ -87,6 +87,7 @@ import jenkins.model.ParameterizedJobMixIn;
 import jenkins.model.lazy.LazyBuildMixIn;
 import jenkins.triggers.SCMTriggerItem;
 import net.sf.json.JSONObject;
+import org.jenkinsci.Symbol;
 import org.jenkinsci.plugins.workflow.flow.BlockableResume;
 import org.jenkinsci.plugins.workflow.flow.FlowDefinition;
 import org.jenkinsci.plugins.workflow.flow.FlowDefinitionDescriptor;
@@ -312,7 +313,9 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements L
 
     @Exported
     @Override public boolean isConcurrentBuild() {
-        return getProperty(DisableConcurrentBuildsJobProperty.class) == null;
+        DisableConcurrentBuildsJobProperty p = getProperty(DisableConcurrentBuildsJobProperty.class);
+        // For purposes of the Jenkins queue, abortPrevious mode means that the new build must start concurrently with the old at least temporarily.
+        return p == null || p.isAbortPrevious();
     }
 
     @Exported
@@ -656,7 +659,9 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements L
         WorkflowRun.alias();
     }
 
-    @Extension(ordinal=1) public static final class DescriptorImpl extends TopLevelItemDescriptor {
+    @Extension(ordinal=1)
+    @Symbol("pipeline")
+    public static final class DescriptorImpl extends TopLevelItemDescriptor {
 
         @Override public String getDisplayName() {
             return Messages.WorkflowJob_DisplayName();
