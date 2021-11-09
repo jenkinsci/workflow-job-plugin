@@ -1,6 +1,3 @@
-var enclosings = new Map() // id → enclosingId
-var labels = new Map() // id → label
-
 /**
  * Fix label attributes
  */
@@ -30,7 +27,10 @@ function addLinks (pipelineElement) {
  * Generate enclosings for a element
  */
 function generateEnclosing (node) {
+    var enclosings = new Map()
+    var labels = new Map()
     var oid = node.getAttribute('nodeId')
+
     enclosings.set(oid, node.getAttribute('enclosingId'))
     labels.set(oid, node.getAttribute('label'))
 }
@@ -78,9 +78,7 @@ function appendBranchNames(nodeId, enclosings, labels) {
  * Determine if the pipeline contains parallel steps
  */
 function isParallelBuild(node) {
-    if (node.innerHTML.includes('parallel')) {
-       return true
-    }
+    return node.innerHTML.includes('parallel')
 }
 
 /**
