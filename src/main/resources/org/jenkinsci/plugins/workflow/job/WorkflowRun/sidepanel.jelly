@@ -28,24 +28,24 @@
     <l:side-panel>
         <l:tasks>
             <j:set var="buildUrl" value="${h.decompose(request)}"/>
-            <l:task icon="images/24x24/up.png" href="${rootURL}/${it.parent.url}" title="${%Back to Project}" contextMenu="false"/>
-            <l:task icon="images/24x24/search.png" href="${buildUrl.baseUrl}/" title="${%Status}" contextMenu="false"/>
-            <l:task icon="images/24x24/notepad.png" href="${buildUrl.baseUrl}/changes" title="${%Changes}"/>
+            <l:task icon="icon-up icon-md" href="${rootURL}/${it.parent.url}" title="${%Back to Project}" contextMenu="false"/>
+            <l:task icon="icon-search icon-md" href="${buildUrl.baseUrl}/" title="${%Status}" contextMenu="false"/>
+            <l:task icon="icon-notepad icon-md" href="${buildUrl.baseUrl}/changes" title="${%Changes}"/>
             <j:choose> <!-- TODO <p:console-link/> may not currently be used as it calls getLogFile -->
                 <j:when test="${it.logText.length() > 200000}">
                     <l:task href="${buildUrl.baseUrl}/console" icon="icon-terminal icon-md" title="${%Console Output}"/>
                     <l:task href="${buildUrl.baseUrl}/consoleText" icon="icon-document icon-md" title="${%View as plain text}"/>
                 </j:when>
                 <j:otherwise>
-                    <l:task icon="images/24x24/terminal.png" href="${buildUrl.baseUrl}/console" title="${%Console Output}">
+                    <l:task icon="icon-terminal icon-md" href="${buildUrl.baseUrl}/console" title="${%Console Output}">
                         <l:task href="${buildUrl.baseUrl}/consoleText" icon="icon-document icon-md" title="${%View as plain text}"/>
                     </l:task>
                 </j:otherwise>
             </j:choose>
-            <l:task icon="images/24x24/notepad.png" href="${buildUrl.baseUrl}/configure" title="${h.hasPermission(it,it.UPDATE)?'%Edit Build Information':'%View Build Information'}"/>
+            <l:task icon="icon-notepad icon-md" href="${buildUrl.baseUrl}/configure" title="${h.hasPermission(it,it.UPDATE)?'%Edit Build Information':'%View Build Information'}"/>
             <st:include page="delete.jelly"/>
             <j:if test="${it.hasAllowTerm()}">
-                <l:task icon="images/24x24/edit-delete.png"
+                <l:task icon="icon-edit-delete icon-md"
                         href="${buildUrl.baseUrl}/term"
                         title="${%Abort Running Steps}"
                         contextMenu="false"
@@ -55,7 +55,7 @@
                         confirmationMessage="${%Really forcibly abort running steps?}"/>
             </j:if>
             <j:if test="${it.hasAllowKill()}">
-                <l:task icon="images/24x24/edit-delete.png"
+                <l:task icon="icon-edit-delete icon-md"
                         href="${buildUrl.baseUrl}/kill"
                         title="${%Force Abort of Entire Build}"
                         contextMenu="false"
@@ -67,10 +67,10 @@
             <st:include page="actions.jelly"/>
             <t:actions actions="${it.transientActions}"/>
             <j:if test="${it.previousBuild!=null}">
-                <l:task icon="images/24x24/previous.png" href="${buildUrl.previousBuildUrl}" title="${%Previous Build}" contextMenu="false"/>
+                <l:task icon="icon-previous icon-md" href="${buildUrl.previousBuildUrl}" title="${%Previous Build}" contextMenu="false"/>
             </j:if>
             <j:if test="${it.nextBuild!=null}">
-                <l:task icon="images/24x24/next.png" href="${buildUrl.nextBuildUrl}" title="${%Next Build}" contextMenu="false"/>
+                <l:task icon="icon-next icon-md" href="${buildUrl.nextBuildUrl}" title="${%Next Build}" contextMenu="false"/>
             </j:if>
         </l:tasks>
     </l:side-panel>
