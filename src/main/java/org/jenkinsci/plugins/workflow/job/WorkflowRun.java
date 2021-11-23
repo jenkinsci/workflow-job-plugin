@@ -559,7 +559,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
 
                     if (fetchedExecution != null) {
                         if (completed == null) {
-                            completed = Boolean.valueOf(fetchedExecution.isComplete());
+                            completed = fetchedExecution.isComplete();
                         }
 
                         if (Boolean.FALSE.equals(completed)) {
