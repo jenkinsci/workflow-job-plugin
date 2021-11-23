@@ -44,6 +44,7 @@ import org.jvnet.hudson.test.JenkinsRule;
 import org.jvnet.hudson.test.recipes.LocalData;
 
 import java.net.URL;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -196,7 +197,7 @@ public class PipelineTriggersJobPropertyTest {
         JenkinsRule.WebClient wc = r.createWebClient();
         String newConfig = IOUtils.toString(
                 PipelineTriggersJobPropertyTest.class.getResourceAsStream(
-                        "/org/jenkinsci/plugins/workflow/job/properties/PipelineTriggersJobPropertyTest/triggerPresentDuringStart.json"), "UTF-8");
+                        "/org/jenkinsci/plugins/workflow/job/properties/PipelineTriggersJobPropertyTest/triggerPresentDuringStart.json"), StandardCharsets.UTF_8);
         WebRequest request = new WebRequest(new URL(p.getAbsoluteUrl() + "configSubmit"), HttpMethod.POST);
         wc.addCrumb(request);
         List<NameValuePair> params = new ArrayList<>(request.getRequestParameters());
