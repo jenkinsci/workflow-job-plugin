@@ -135,14 +135,14 @@ public class PipelineTriggersJobPropertyTest {
         Trigger<?> timerFromJob = p.getTriggers().get(timerFromProp.getDescriptor());
         assertEquals(timerFromProp, timerFromJob);
 
-        Trigger<?> mockFromProp = getTriggerFromList(MockTrigger.class, triggerProp.getTriggers());
+        MockTrigger mockFromProp = getTriggerFromList(MockTrigger.class, triggerProp.getTriggers());
         assertNotNull(mockFromProp);
         assertEquals(MockTrigger.class, mockFromProp.getClass());
 
         Trigger<?> mockFromJob = p.getTriggers().get(mockFromProp.getDescriptor());
         assertEquals(mockFromProp, mockFromJob);
 
-        assertNotNull(((MockTrigger)mockFromProp).currentStatus());
+        assertNotNull(mockFromProp.currentStatus());
 
         assertEquals("[null, false, null, false]", MockTrigger.startsAndStops.toString());
 
