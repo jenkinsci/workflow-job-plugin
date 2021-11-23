@@ -152,7 +152,7 @@ public class WorkflowRunRestartTest {
     }
 
     @Issue("JENKINS-25550")
-    @Test public void hardKill() throws Exception {
+    @Test public void hardKill() {
         story.then(r -> {
             WorkflowJob p = r.jenkins.createProject(WorkflowJob.class, "p");
             p.addProperty( new DurabilityHintJobProperty(FlowDurabilityHint.MAX_SURVIVABILITY));
@@ -183,7 +183,7 @@ public class WorkflowRunRestartTest {
     }
 
     @Issue("JENKINS-33721")
-    @Test public void termAndKillInSidePanel() throws Exception {
+    @Test public void termAndKillInSidePanel() {
         story.then(r -> {
             WorkflowJob p = r.jenkins.createProject(WorkflowJob.class, "p");
             p.setDefinition(new CpsFlowDefinition("def seq = 0; while (true) {try {zombie id: ++seq} catch (x) {echo(/ignoring $x/)}}", true));
@@ -214,7 +214,7 @@ public class WorkflowRunRestartTest {
     }
 
     @Issue("JENKINS-46961")
-    @Test public void interruptedWhileStartingMaxSurvivability() throws Exception {
+    @Test public void interruptedWhileStartingMaxSurvivability() {
         story.then(r -> {
             WorkflowJob p = r.createProject(WorkflowJob.class, "p");
             p.setDefinition(new CpsFlowDefinition(
@@ -238,7 +238,7 @@ public class WorkflowRunRestartTest {
     }
 
     @Issue("JENKINS-46961")
-    @Test public void interruptedWhileStartingPerformanceOptimized() throws Exception {
+    @Test public void interruptedWhileStartingPerformanceOptimized() {
         story.then(r -> {
             WorkflowJob p = r.createProject(WorkflowJob.class, "p");
             p.addProperty(new DurabilityHintJobProperty(FlowDurabilityHint.PERFORMANCE_OPTIMIZED));
@@ -270,7 +270,7 @@ public class WorkflowRunRestartTest {
     public static class Zombie extends Step {
         @DataBoundSetter public int id;
         @DataBoundConstructor public Zombie() {}
-        @Override public StepExecution start(StepContext context) throws Exception {
+        @Override public StepExecution start(StepContext context) {
             return new Execution(context, id);
         }
         private static class Execution extends StepExecution {
@@ -305,7 +305,7 @@ public class WorkflowRunRestartTest {
 
     @Issue("JENKINS-43055")
     @Test
-    public void flowExecutionListener() throws Exception {
+    public void flowExecutionListener() {
         story.then(r -> {
             WorkflowJob p = r.jenkins.createProject(WorkflowJob.class, "p");
             p.setDefinition(new CpsFlowDefinition("echo 'Running for listener'\n" +

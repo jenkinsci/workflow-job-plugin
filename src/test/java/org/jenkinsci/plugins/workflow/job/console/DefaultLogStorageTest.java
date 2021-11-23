@@ -102,7 +102,7 @@ public class DefaultLogStorageTest {
         assertLogContains(page, "Running inside " + b.getDisplayName(), b.getUrl());
         r.assertLogContains("\nRunning inside " + b.getDisplayName(), b);
     }
-    private void assertLogContains(HtmlPage page, String plainText, String url) throws Exception {
+    private void assertLogContains(HtmlPage page, String plainText, String url) {
         String html = page.getWebResponse().getContentAsString();
         assertThat(page.getUrl() + " looks OK as text:\n" + html, page.getDocumentElement().getTextContent(), containsString(plainText));
         String absUrl = r.contextPath + "/" + url;
@@ -110,7 +110,7 @@ public class DefaultLogStorageTest {
     }
     public static class HyperlinkingStep extends Step {
         @DataBoundConstructor public HyperlinkingStep() {}
-        @Override public StepExecution start(StepContext context) throws Exception {
+        @Override public StepExecution start(StepContext context) {
             return new Execution(context);
         }
         static class Execution extends SynchronousStepExecution<Void> {

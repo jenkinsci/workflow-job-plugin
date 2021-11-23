@@ -571,7 +571,7 @@ public class WorkflowRunTest {
         }
     }
 
-    private static String checkoutString(GitSampleRepoRule repo, boolean changelog, boolean polling) throws Exception {
+    private static String checkoutString(GitSampleRepoRule repo, boolean changelog, boolean polling) {
         return "    checkout(changelog:" + changelog +", poll:" + polling +
                 ", scm: [$class: 'GitSCM', branches: [[name: '*/master']], " +
                 ", userRemoteConfigs: [[url: $/" + repo.fileUrl() + "/$]]])\n";

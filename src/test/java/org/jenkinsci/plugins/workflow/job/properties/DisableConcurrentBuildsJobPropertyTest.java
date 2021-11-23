@@ -61,7 +61,7 @@ public class DisableConcurrentBuildsJobPropertyTest {
     @Issue("JENKINS-34547")
     @LocalData
     @Test
-    public void concurrentBuildsMigrationOnByDefault() throws Exception {
+    public void concurrentBuildsMigrationOnByDefault() {
         WorkflowJob p = r.jenkins.getItemByFullName("p", WorkflowJob.class);
         assertNotNull(p);
         assertNull(p.getProperty(DisableConcurrentBuildsJobProperty.class));
@@ -70,7 +70,7 @@ public class DisableConcurrentBuildsJobPropertyTest {
 
     @Issue("JENKINS-34547")
     @LocalData
-    @Test public void concurrentBuildsMigrationFromFalse() throws Exception {
+    @Test public void concurrentBuildsMigrationFromFalse() {
         WorkflowJob p = r.jenkins.getItemByFullName("p", WorkflowJob.class);
         assertNotNull(p);
         assertNotNull(p.getProperty(DisableConcurrentBuildsJobProperty.class));
