@@ -24,6 +24,9 @@
 
 package org.jenkinsci.plugins.workflow.job.console;
 
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.lessThan;
+
 import com.google.common.collect.ImmutableSet;
 import hudson.console.ConsoleLogFilter;
 import hudson.console.LineTransformationOutputStream;
@@ -38,7 +41,6 @@ import java.util.Collections;
 import java.util.Set;
 import jenkins.security.MasterToSlaveCallable;
 import jenkins.util.JenkinsJVM;
-import static org.hamcrest.Matchers.*;
 import org.jenkinsci.plugins.workflow.cps.CpsFlowDefinition;
 import org.jenkinsci.plugins.workflow.flow.FlowExecutionOwner;
 import org.jenkinsci.plugins.workflow.job.WorkflowJob;
@@ -50,7 +52,6 @@ import org.jenkinsci.plugins.workflow.steps.StepContext;
 import org.jenkinsci.plugins.workflow.steps.StepDescriptor;
 import org.jenkinsci.plugins.workflow.steps.StepExecution;
 import org.jenkinsci.plugins.workflow.steps.SynchronousNonBlockingStepExecution;
-import static org.hamcrest.MatcherAssert.assertThat;
 import org.junit.ClassRule;
 import org.junit.Rule;
 import org.junit.Test;
