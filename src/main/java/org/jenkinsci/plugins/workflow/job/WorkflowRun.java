@@ -356,7 +356,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
                 }
                 Result result = executor.abortResult();
                 Collection<CauseOfInterruption> causes = executor.getCausesOfInterruption();
-                finish(result, new FlowInterruptedException(result, causes.toArray(new CauseOfInterruption[causes.size()])));
+                finish(result, new FlowInterruptedException(result, causes.toArray(new CauseOfInterruption[0])));
             } else {
                 finish(Result.FAILURE, x);
             }
@@ -393,7 +393,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
                     }
                     try {
                         Collection<CauseOfInterruption> causes = executor.getCausesOfInterruption();
-                        fetchedExecution.interrupt(executor.abortResult(), causes.toArray(new CauseOfInterruption[causes.size()]));
+                        fetchedExecution.interrupt(executor.abortResult(), causes.toArray(new CauseOfInterruption[0]));
                     } catch (Exception x) {
                         LOGGER.log(Level.WARNING, null, x);
                     }
