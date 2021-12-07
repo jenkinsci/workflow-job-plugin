@@ -725,9 +725,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
                     executionLoaded = true;
                     return fetchedExecution;
                 } catch (Exception x) {
-                    if (result == null) {
-                        setResult(Result.FAILURE);
-                    }
+                    setResult(Result.FAILURE);
                     LOGGER.log(Level.WARNING, "Nulling out FlowExecution due to error in build " + this, x);
                     execution = null; // probably too broken to use
                     executionLoaded = true;
