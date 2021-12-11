@@ -31,7 +31,7 @@
         <!-- TODO display prominentActions -->
         <!-- TODO display any workspace(s) if possible -->
         <t:artifactList caption="${%Last Successful Artifacts}" build="${it.lastSuccessfulBuild}" baseURL="lastSuccessfulBuild/" permission="${it.lastSuccessfulBuild.ARTIFACTS}"/>
-        <t:summary icon="notepad.png" href="changes">
+        <t:summary icon="icon-notepad" href="changes">
             ${%Recent Changes}
         </t:summary>
     </table>
