@@ -24,6 +24,9 @@
 
 package org.jenkinsci.plugins.workflow.job.console;
 
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.lessThan;
+
 import com.google.common.collect.ImmutableSet;
 import hudson.console.ConsoleLogFilter;
 import hudson.console.LineTransformationOutputStream;
@@ -38,7 +41,6 @@ import java.util.Collections;
 import java.util.Set;
 import jenkins.security.MasterToSlaveCallable;
 import jenkins.util.JenkinsJVM;
-import static org.hamcrest.Matchers.*;
 import org.jenkinsci.plugins.workflow.cps.CpsFlowDefinition;
 import org.jenkinsci.plugins.workflow.flow.FlowExecutionOwner;
 import org.jenkinsci.plugins.workflow.job.WorkflowJob;
@@ -50,7 +52,6 @@ import org.jenkinsci.plugins.workflow.steps.StepContext;
 import org.jenkinsci.plugins.workflow.steps.StepDescriptor;
 import org.jenkinsci.plugins.workflow.steps.StepExecution;
 import org.jenkinsci.plugins.workflow.steps.SynchronousNonBlockingStepExecution;
-import static org.hamcrest.MatcherAssert.assertThat;
 import org.junit.ClassRule;
 import org.junit.Rule;
 import org.junit.Test;
@@ -92,7 +93,7 @@ public class TaskListenerDecoratorTest {
             Channel ch = Channel.current();
             return ch != null ? new DecoratorImpl(message + " via " + ch.getName()) : this;
         }
-        @Override public OutputStream decorate(OutputStream logger) throws IOException, InterruptedException {
+        @Override public OutputStream decorate(OutputStream logger) {
             return new LineTransformationOutputStream() {
                 @Override protected void eol(byte[] b, int len) throws IOException {
                     logger.write(("[" + message + "] ").getBytes());
@@ -124,7 +125,7 @@ public class TaskListenerDecoratorTest {
 
     public static final class DecoratorStep extends Step {
         @DataBoundConstructor public DecoratorStep() {}
-        @Override public StepExecution start(StepContext context) throws Exception {
+        @Override public StepExecution start(StepContext context) {
             return new Execution(context);
         }
         private static final class Execution extends StepExecution {
@@ -133,7 +134,7 @@ public class TaskListenerDecoratorTest {
             Execution(StepContext context) {
                 super(context);
             }
-            @Override public boolean start() throws Exception {
+            @Override public boolean start() {
                 getContext().newBodyInvoker().withContext(new DecoratorImpl("decorated")).withCallback(BodyExecutionCallback.wrap(getContext())).start();
                 return false;
             }
@@ -153,7 +154,7 @@ public class TaskListenerDecoratorTest {
 
     public static final class FilterStep extends Step {
         @DataBoundConstructor public FilterStep() {}
-        @Override public StepExecution start(StepContext context) throws Exception {
+        @Override public StepExecution start(StepContext context) {
             return new Execution(context);
         }
         private static final class Execution extends StepExecution {
@@ -162,7 +163,7 @@ public class TaskListenerDecoratorTest {
             Execution(StepContext context) {
                 super(context);
             }
-            @Override public boolean start() throws Exception {
+            @Override public boolean start() {
                 getContext().newBodyInvoker().withContext(new Filter("filtered")).withCallback(BodyExecutionCallback.wrap(getContext())).start();
                 return false;
             }
@@ -179,7 +180,7 @@ public class TaskListenerDecoratorTest {
                 return ch != null ? new Filter(message + " via " + ch.getName()) : this;
             }
             @SuppressWarnings("rawtypes")
-            @Override public OutputStream decorateLogger(AbstractBuild _ignore, OutputStream logger) throws IOException, InterruptedException {
+            @Override public OutputStream decorateLogger(AbstractBuild _ignore, OutputStream logger) {
                 return new DecoratorImpl(message).decorate(logger);
             }
             @Override public String toString() {
@@ -201,7 +202,7 @@ public class TaskListenerDecoratorTest {
 
     public static final class RemotePrintStep extends Step {
         @DataBoundConstructor public RemotePrintStep() {}
-        @Override public StepExecution start(StepContext context) throws Exception {
+        @Override public StepExecution start(StepContext context) {
             return new Execution(context);
         }
         private static final class Execution extends SynchronousNonBlockingStepExecution<Void> {

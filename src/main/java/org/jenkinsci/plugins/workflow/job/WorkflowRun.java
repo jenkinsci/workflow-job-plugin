@@ -356,7 +356,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
                 }
                 Result result = executor.abortResult();
                 Collection<CauseOfInterruption> causes = executor.getCausesOfInterruption();
-                finish(result, new FlowInterruptedException(result, causes.toArray(new CauseOfInterruption[causes.size()])));
+                finish(result, new FlowInterruptedException(result, causes.toArray(new CauseOfInterruption[0])));
             } else {
                 finish(Result.FAILURE, x);
             }
@@ -393,7 +393,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
                     }
                     try {
                         Collection<CauseOfInterruption> causes = executor.getCausesOfInterruption();
-                        fetchedExecution.interrupt(executor.abortResult(), causes.toArray(new CauseOfInterruption[causes.size()]));
+                        fetchedExecution.interrupt(executor.abortResult(), causes.toArray(new CauseOfInterruption[0]));
                     } catch (Exception x) {
                         LOGGER.log(Level.WARNING, null, x);
                     }
@@ -501,7 +501,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
 
         Jenkins instance = Jenkins.getInstanceOrNull();
         if (instance != null) {
-            for (NodeProperty nodeProperty : instance.getGlobalNodeProperties()) {
+            for (NodeProperty<?> nodeProperty : instance.getGlobalNodeProperties()) {
                 nodeProperty.buildEnvVars(env, listener);
             }
         }
@@ -559,7 +559,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
 
                     if (fetchedExecution != null) {
                         if (completed == null) {
-                            completed = Boolean.valueOf(fetchedExecution.isComplete());
+                            completed = fetchedExecution.isComplete();
                         }
 
                         if (Boolean.FALSE.equals(completed)) {
@@ -750,7 +750,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
     /** Initializes and returns the executionPromise to avoid null risk */
     @Nonnull
     private SettableFuture<FlowExecution> getSettableExecutionPromise() {
-        SettableFuture execOut = executionPromise;
+        SettableFuture<FlowExecution> execOut = executionPromise;
         if (execOut == null) { // Double-checked locking safe rendered safe by volatile field
             synchronized(this) {
                 execOut = executionPromise; // Fetch again from field in case another thread created it
@@ -1080,7 +1080,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
                     String enclosingId;
                     if (node instanceof BlockEndNode) {
                         enclosingId = null;
-                        startId = ((BlockEndNode) node).getStartNode().getId();
+                        startId = ((BlockEndNode<?>) node).getStartNode().getId();
                     } else {
                         Iterator<BlockStartNode> it = node.iterateEnclosingBlocks().iterator();
                         enclosingId = it.hasNext() ? it.next().getId() : null;

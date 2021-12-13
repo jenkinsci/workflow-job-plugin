@@ -44,6 +44,7 @@ import org.jvnet.hudson.test.JenkinsRule;
 import org.jvnet.hudson.test.recipes.LocalData;
 
 import java.net.URL;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -134,14 +135,14 @@ public class PipelineTriggersJobPropertyTest {
         Trigger<?> timerFromJob = p.getTriggers().get(timerFromProp.getDescriptor());
         assertEquals(timerFromProp, timerFromJob);
 
-        Trigger<?> mockFromProp = getTriggerFromList(MockTrigger.class, triggerProp.getTriggers());
+        MockTrigger mockFromProp = getTriggerFromList(MockTrigger.class, triggerProp.getTriggers());
         assertNotNull(mockFromProp);
         assertEquals(MockTrigger.class, mockFromProp.getClass());
 
         Trigger<?> mockFromJob = p.getTriggers().get(mockFromProp.getDescriptor());
         assertEquals(mockFromProp, mockFromJob);
 
-        assertNotNull(((MockTrigger)mockFromProp).currentStatus());
+        assertNotNull(mockFromProp.currentStatus());
 
         assertEquals("[null, false, null, false]", MockTrigger.startsAndStops.toString());
 
@@ -196,7 +197,7 @@ public class PipelineTriggersJobPropertyTest {
         JenkinsRule.WebClient wc = r.createWebClient();
         String newConfig = IOUtils.toString(
                 PipelineTriggersJobPropertyTest.class.getResourceAsStream(
-                        "/org/jenkinsci/plugins/workflow/job/properties/PipelineTriggersJobPropertyTest/triggerPresentDuringStart.json"), "UTF-8");
+                        "/org/jenkinsci/plugins/workflow/job/properties/PipelineTriggersJobPropertyTest/triggerPresentDuringStart.json"), StandardCharsets.UTF_8);
         WebRequest request = new WebRequest(new URL(p.getAbsoluteUrl() + "configSubmit"), HttpMethod.POST);
         wc.addCrumb(request);
         List<NameValuePair> params = new ArrayList<>(request.getRequestParameters());

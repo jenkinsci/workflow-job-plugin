@@ -135,7 +135,7 @@ public class CpsPersistenceTest {
         Assert.assertTrue(starts != null && !starts.isEmpty());
     }
 
-    static void assertResultMatchExecutionAndRun(WorkflowRun run, Result[] executionAndBuildResult) throws Exception {
+    static void assertResultMatchExecutionAndRun(WorkflowRun run, Result[] executionAndBuildResult) {
         Assert.assertEquals(executionAndBuildResult[0], ((CpsFlowExecution) run.getExecution()).getResult());
         Assert.assertEquals(executionAndBuildResult[1], run.getResult());
     }
@@ -202,7 +202,7 @@ public class CpsPersistenceTest {
 
     /** Simulates something happening badly during final shutdown, which may cause build to not appear done. */
     @Test
-    public void completedFinalFlowNodeNotPersisted() throws Exception {
+    public void completedFinalFlowNodeNotPersisted() {
         final int[] build = new int[1];
         final Result[] executionAndBuildResult = new Result[2];
         story.thenWithHardShutdown( j -> {
@@ -227,7 +227,7 @@ public class CpsPersistenceTest {
     }
     /** Perhaps there was a serialization error breaking the FlowGraph persistence for non-durable mode. */
     @Test
-    public void completedNoNodesPersisted() throws Exception {
+    public void completedNoNodesPersisted() {
         final int[] build = new int[1];
         final Result[] executionAndBuildResult = new Result[2];
         story.thenWithHardShutdown( j -> {
@@ -248,7 +248,7 @@ public class CpsPersistenceTest {
 
     /** Simulates case where done flag was not persisted. */
     @Test
-    public void completedButWrongDoneStatus() throws Exception {
+    public void completedButWrongDoneStatus() {
         final int[] build = new int[1];
         final Result[] executionAndBuildResult = new Result[2];
         story.thenWithHardShutdown( j -> {
@@ -272,7 +272,7 @@ public class CpsPersistenceTest {
     }
 
     @Test
-    public void inProgressNormal() throws Exception {
+    public void inProgressNormal() {
         final int[] build = new int[1];
         story.then( j -> {
             WorkflowRun run = runBasicPauseOnInput(j, DEFAULT_JOBNAME, build);
@@ -290,7 +290,7 @@ public class CpsPersistenceTest {
     }
 
     @Test
-    public void inProgressMaxPerfCleanShutdown() throws Exception {
+    public void inProgressMaxPerfCleanShutdown() {
         final int[] build = new int[1];
         story.then( j -> {
             WorkflowRun run = runBasicPauseOnInput(j, DEFAULT_JOBNAME, build, FlowDurabilityHint.PERFORMANCE_OPTIMIZED);
@@ -309,7 +309,7 @@ public class CpsPersistenceTest {
     }
 
     @Test
-    public void inProgressMaxPerfDirtyShutdown() throws Exception {
+    public void inProgressMaxPerfDirtyShutdown() {
         final int[] build = new int[1];
         final String[] finalNodeId = new String[1];
         story.thenWithHardShutdown( j -> {
@@ -335,7 +335,7 @@ public class CpsPersistenceTest {
     }
 
     @Test
-    public void inProgressButFlowNodesLost() throws Exception {
+    public void inProgressButFlowNodesLost() {
         final int[] build = new int[1];
         story.thenWithHardShutdown( j -> {
             WorkflowRun run = runBasicPauseOnInput(j, DEFAULT_JOBNAME, build);
@@ -351,7 +351,7 @@ public class CpsPersistenceTest {
 
     /** Build okay but program fails to load */
     @Test
-    public void inProgressButProgramLoadFailure() throws Exception {
+    public void inProgressButProgramLoadFailure() {
         final int[] build = new int[1];
         story.thenWithHardShutdown( j -> {
             WorkflowRun run = runBasicPauseOnInput(j, DEFAULT_JOBNAME, build);
@@ -370,7 +370,7 @@ public class CpsPersistenceTest {
 
     /** Build okay but then the start nodes get screwed up */
     @Test
-    public void inProgressButStartBlocksLost() throws Exception {
+    public void inProgressButStartBlocksLost() {
         final int[] build = new int[1];
         story.thenWithHardShutdown( j -> {
             WorkflowRun run = runBasicPauseOnInput(j, DEFAULT_JOBNAME, build);
@@ -388,7 +388,7 @@ public class CpsPersistenceTest {
     /** Replicates case where builds resume when the should not due to build's completion not being saved. */
     @Test
     @Issue("JENKINS-50199")
-    public void completedExecutionButRunIncomplete() throws Exception {
+    public void completedExecutionButRunIncomplete() {
         final int[] build = new int[1];
         story.thenWithHardShutdown( j -> {
             WorkflowRun run = runBasicPauseOnInput(j, DEFAULT_JOBNAME, build);

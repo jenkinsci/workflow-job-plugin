@@ -89,7 +89,7 @@ public class NewNodeConsoleNote extends ConsoleNote<WorkflowRun> {
         id = node.getId();
         if (node instanceof BlockEndNode) {
             enclosing = null;
-            start = ((BlockEndNode) node).getStartNode().getId();
+            start = ((BlockEndNode<?>) node).getStartNode().getId();
         } else {
             Iterator<BlockStartNode> it = node.iterateEnclosingBlocks().iterator();
             enclosing = it.hasNext() ? it.next().getId() : null;
