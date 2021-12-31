@@ -63,7 +63,7 @@ import java.util.Set;
 import java.util.TreeSet;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
-import javax.annotation.Nonnull;
+import edu.umd.cs.findbugs.annotations.NonNull;
 import jenkins.model.CauseOfInterruption;
 import jenkins.model.InterruptedBuildAction;
 import jenkins.model.Jenkins;
@@ -152,7 +152,7 @@ public class WorkflowRunTest {
     public static final class DurationRunListener extends RunListener<Run<?, ?>> {
         static long duration = 0L;
         @Override
-        public void onCompleted(Run<?, ?> run, @Nonnull TaskListener listener) {
+        public void onCompleted(Run<?, ?> run, @NonNull TaskListener listener) {
             duration = run.getDuration();
         }
     }

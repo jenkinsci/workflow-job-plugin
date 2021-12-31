@@ -36,8 +36,8 @@ import java.io.PrintStream;
 import java.util.Iterator;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-import javax.annotation.CheckForNull;
-import javax.annotation.Nonnull;
+import edu.umd.cs.findbugs.annotations.CheckForNull;
+import edu.umd.cs.findbugs.annotations.NonNull;
 import org.jenkinsci.plugins.workflow.actions.LabelAction;
 import org.jenkinsci.plugins.workflow.flow.FlowExecution;
 import org.jenkinsci.plugins.workflow.graph.BlockEndNode;
@@ -81,7 +81,7 @@ public class NewNodeConsoleNote extends ConsoleNote<WorkflowRun> {
         }
     }
 
-    private final @Nonnull String id;
+    private final @NonNull String id;
     private final @CheckForNull String enclosing;
     private final @CheckForNull String start;
 
@@ -105,7 +105,7 @@ public class NewNodeConsoleNote extends ConsoleNote<WorkflowRun> {
     }
 
     @Restricted(NoExternalUse.class)
-    public static StringBuilder startTagFor(@Nonnull WorkflowRun context, @Nonnull String id, @CheckForNull String start, @CheckForNull String enclosing) {
+    public static StringBuilder startTagFor(@NonNull WorkflowRun context, @NonNull String id, @CheckForNull String start, @CheckForNull String enclosing) {
         StringBuilder startTag = new StringBuilder("<span class=\"pipeline-new-node\" nodeId=\"").append(id);
         if (start != null) {
             startTag.append("\" startId=\"").append(start);

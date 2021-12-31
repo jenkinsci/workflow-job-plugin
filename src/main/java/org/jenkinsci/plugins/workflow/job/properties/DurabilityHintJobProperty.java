@@ -34,8 +34,8 @@ import org.jenkinsci.plugins.workflow.flow.GlobalDefaultFlowDurabilityLevel;
 import org.jenkinsci.plugins.workflow.job.WorkflowJob;
 import org.kohsuke.stapler.DataBoundConstructor;
 
-import javax.annotation.CheckForNull;
-import javax.annotation.Nonnull;
+import edu.umd.cs.findbugs.annotations.CheckForNull;
+import edu.umd.cs.findbugs.annotations.NonNull;
 
 /**
  * Hint about the desired {@link FlowDurabilityHint}.
@@ -51,7 +51,7 @@ public class DurabilityHintJobProperty extends OptionalJobProperty<WorkflowJob> 
     }
 
     @DataBoundConstructor
-    public DurabilityHintJobProperty(@Nonnull FlowDurabilityHint hint) {
+    public DurabilityHintJobProperty(@NonNull FlowDurabilityHint hint) {
         this.hint = hint;
     }
 
@@ -78,7 +78,7 @@ public class DurabilityHintJobProperty extends OptionalJobProperty<WorkflowJob> 
 
         @CheckForNull
         @Override
-        public FlowDurabilityHint suggestFor(@Nonnull Item x) {
+        public FlowDurabilityHint suggestFor(@NonNull Item x) {
             if (x instanceof WorkflowJob) {
                 DurabilityHintJobProperty prop = ((WorkflowJob) x).getProperty(DurabilityHintJobProperty.class);
                 return (prop != null) ? prop.getHint() : null;

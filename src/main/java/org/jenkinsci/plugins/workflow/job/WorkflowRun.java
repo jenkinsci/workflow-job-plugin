@@ -84,8 +84,8 @@ import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-import javax.annotation.CheckForNull;
-import javax.annotation.Nonnull;
+import edu.umd.cs.findbugs.annotations.CheckForNull;
+import edu.umd.cs.findbugs.annotations.NonNull;
 import jenkins.model.CauseOfInterruption;
 import jenkins.model.Jenkins;
 import jenkins.model.lazy.BuildReference;
@@ -601,7 +601,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
     }
 
     /** Handles normal build completion (including errors) but also handles the case that the flow did not even start correctly, for example due to an error in {@link FlowExecution#start}. */
-    private void finish(@Nonnull Result r, @CheckForNull Throwable t) {
+    private void finish(@NonNull Result r, @CheckForNull Throwable t) {
         try {
             setResult(r);
             BuildListener myListener;
@@ -742,13 +742,13 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
      * Allows the caller to block on {@link FlowExecution}, which gets created relatively quickly
      * after the build gets going.
      */
-    @Nonnull
+    @NonNull
     public ListenableFuture<FlowExecution> getExecutionPromise() {
         return getSettableExecutionPromise();
     }
 
     /** Initializes and returns the executionPromise to avoid null risk */
-    @Nonnull
+    @NonNull
     private SettableFuture<FlowExecution> getSettableExecutionPromise() {
         SettableFuture<FlowExecution> execOut = executionPromise;
         if (execOut == null) { // Double-checked locking safe rendered safe by volatile field
@@ -764,7 +764,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
         return execOut;
     }
 
-    @Override public @Nonnull FlowExecutionOwner asFlowExecutionOwner() {
+    @Override public @NonNull FlowExecutionOwner asFlowExecutionOwner() {
         return new Owner(this);
     }
 
@@ -793,7 +793,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
         return listener != null || isBuilding(); // there is no equivalent to a post-production state for flows
     }
 
-    synchronized @Nonnull List<SCMCheckout> checkouts(@CheckForNull TaskListener listener) {
+    synchronized @NonNull List<SCMCheckout> checkouts(@CheckForNull TaskListener listener) {
         if (checkouts == null) {
             LOGGER.log(Level.WARNING, "JENKINS-26761: no checkouts in {0}", this);
             if (listener != null) {
@@ -805,7 +805,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
         return checkouts;
     }
 
-    public @Nonnull List<SCM> getSCMs() {
+    public @NonNull List<SCM> getSCMs() {
         List<SCMCheckout> scmCheckouts = checkouts(TaskListener.NULL);
         List<SCM> scmList = new ArrayList<>();
         for (SCMCheckout checkout : scmCheckouts) {
@@ -854,7 +854,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
 
     @Override
     @Exported
-    @Nonnull public Set<User> getCulprits() {
+    @NonNull public Set<User> getCulprits() {
         return RunWithSCM.super.getCulprits();
     }
 
@@ -925,7 +925,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
         private String key() {
             return job + '/' + id;
         }
-        private @Nonnull WorkflowRun run() throws IOException {
+        private @NonNull WorkflowRun run() throws IOException {
             if (run==null) {
                 WorkflowRun candidate;
                 synchronized (LOADING_RUNS) {
