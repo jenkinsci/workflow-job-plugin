@@ -27,7 +27,7 @@ import hudson.Extension;
 import hudson.console.ModelHyperlinkNote;
 import hudson.model.Run;
 import hudson.model.TaskListener;
-import javax.annotation.Nullable;
+import edu.umd.cs.findbugs.annotations.Nullable;
 import jenkins.model.CauseOfInterruption;
 import jenkins.model.OptionalJobProperty;
 import org.jenkinsci.Symbol;

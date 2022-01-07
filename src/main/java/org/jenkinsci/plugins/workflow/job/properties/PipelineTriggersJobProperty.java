@@ -41,8 +41,8 @@ import org.jenkinsci.plugins.workflow.job.WorkflowJob;
 import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.StaplerRequest;
 
-import javax.annotation.CheckForNull;
-import javax.annotation.Nonnull;
+import edu.umd.cs.findbugs.annotations.CheckForNull;
+import edu.umd.cs.findbugs.annotations.NonNull;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -149,7 +149,7 @@ public class PipelineTriggersJobProperty extends JobProperty<WorkflowJob> {
 
     @CheckForNull
     @Override
-    public PipelineTriggersJobProperty reconfigure(@Nonnull StaplerRequest req, @CheckForNull JSONObject form) throws Descriptor.FormException {
+    public PipelineTriggersJobProperty reconfigure(@NonNull StaplerRequest req, @CheckForNull JSONObject form) throws Descriptor.FormException {
         DescribableList<Trigger<?>, TriggerDescriptor> trigList = new DescribableList<>(Saveable.NOOP);
         try {
             JSONObject triggerSection = new JSONObject();
@@ -213,7 +213,7 @@ public class PipelineTriggersJobProperty extends JobProperty<WorkflowJob> {
         }
 
         @Override
-        public @Nonnull Collection<? extends Action> createFor(@Nonnull WorkflowJob job) {
+        public @NonNull Collection<? extends Action> createFor(@NonNull WorkflowJob job) {
             return job.getTriggersJobProperty().getAllTriggerActions();
         }
 
