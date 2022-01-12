@@ -67,6 +67,7 @@ public class DurabilityHintJobProperty extends OptionalJobProperty<WorkflowJob> 
             return GlobalDefaultFlowDurabilityLevel.getDefaultDurabilityHint();
         }
 
+        @NonNull
         @Override public String getDisplayName() {
             return Messages.speed_durability_override();
         }

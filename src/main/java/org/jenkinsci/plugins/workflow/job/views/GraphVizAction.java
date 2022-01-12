@@ -24,6 +24,7 @@
 
 package org.jenkinsci.plugins.workflow.job.views;
 
+import edu.umd.cs.findbugs.annotations.NonNull;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import hudson.Extension;
 import hudson.model.Action;
@@ -122,7 +123,8 @@ public final class GraphVizAction implements Action {
             return WorkflowRun.class;
         }
 
-        @Override public Collection<? extends Action> createFor(WorkflowRun run) {
+        @NonNull
+        @Override public Collection<? extends Action> createFor(@NonNull WorkflowRun run) {
             return Collections.singleton(new GraphVizAction(run));
         }
 
