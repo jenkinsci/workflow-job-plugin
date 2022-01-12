@@ -31,6 +31,7 @@ import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
+import edu.umd.cs.findbugs.annotations.NonNull;
 import hudson.ExtensionList;
 import hudson.model.Executor;
 import hudson.model.Result;
@@ -299,6 +300,7 @@ public class WorkflowRunRestartTest {
             @Override public String getFunctionName() {
                 return "zombie";
             }
+            @NonNull
             @Override public String getDisplayName() {
                 return "zombie";
             }
@@ -374,18 +376,18 @@ public class WorkflowRunRestartTest {
         }
 
         @Override
-        public void onRunning(FlowExecution execution) {
+        public void onRunning(@NonNull FlowExecution execution) {
             addGraphListenerCheckList(execution);
             started++;
         }
 
         @Override
-        public void onResumed(FlowExecution execution) {
+        public void onResumed(@NonNull FlowExecution execution) {
             addGraphListenerCheckList(execution);
             resumed++;
         }
 
-        private void addGraphListenerCheckList(FlowExecution execution) {
+        private void addGraphListenerCheckList(@NonNull FlowExecution execution) {
             execution.addListener(graphListener);
             boolean listHasExec = false;
             for (FlowExecution e : FlowExecutionList.get()) {
@@ -397,7 +399,7 @@ public class WorkflowRunRestartTest {
         }
 
         @Override
-        public void onCompleted(FlowExecution execution) {
+        public void onCompleted(@NonNull FlowExecution execution) {
             finished++;
             for (FlowExecution e : FlowExecutionList.get()) {
                 assertNotEquals(e, execution);

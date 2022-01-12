@@ -191,6 +191,7 @@ public class PipelineTriggersJobProperty extends JobProperty<WorkflowJob> {
     @Extension(ordinal = -100)
     @Symbol("pipelineTriggers")
     public static class DescriptorImpl extends JobPropertyDescriptor {
+        @NonNull
         @Override
         public String getDisplayName() {
             return Messages.build_triggers();

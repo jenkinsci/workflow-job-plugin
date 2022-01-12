@@ -27,6 +27,7 @@ import hudson.Extension;
 import hudson.console.ModelHyperlinkNote;
 import hudson.model.Run;
 import hudson.model.TaskListener;
+import edu.umd.cs.findbugs.annotations.NonNull;
 import edu.umd.cs.findbugs.annotations.Nullable;
 import jenkins.model.CauseOfInterruption;
 import jenkins.model.OptionalJobProperty;
@@ -62,6 +63,7 @@ public class DisableConcurrentBuildsJobProperty extends OptionalJobProperty<Work
     @Symbol("disableConcurrentBuilds")
     public static class DescriptorImpl extends OptionalJobPropertyDescriptor {
 
+        @NonNull
         @Override public String getDisplayName() {
             return Messages.do_not_allow_concurrent_builds();
         }

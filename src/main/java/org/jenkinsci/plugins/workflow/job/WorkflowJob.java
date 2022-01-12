@@ -24,6 +24,8 @@
 
 package org.jenkinsci.plugins.workflow.job;
 
+import edu.umd.cs.findbugs.annotations.CheckForNull;
+import edu.umd.cs.findbugs.annotations.NonNull;
 import hudson.AbortException;
 import hudson.BulkChange;
 import hudson.Extension;
@@ -79,7 +81,6 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-import edu.umd.cs.findbugs.annotations.CheckForNull;
 import javax.servlet.ServletException;
 import jenkins.model.BlockedBecauseOfBuildInProgress;
 import jenkins.model.Jenkins;
@@ -366,6 +367,7 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements L
         }
     }
 
+    @NonNull
     @Override public ACL getACL() {
         ACL acl = super.getACL();
         for (JobProperty<?> property : properties) {
@@ -496,12 +498,12 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements L
     }
 
     @Override
-    public void addAction(Action a) {
+    public void addAction(@NonNull Action a) {
         super.getActions().add(a);
     }
 
     @Override
-    public void replaceAction(Action a) {
+    public void replaceAction(@NonNull Action a) {
         // CopyOnWriteArrayList does not support Iterator.remove, so need to do it this way:
         List<Action> old = new ArrayList<>(1);
         List<Action> current = super.getActions();
@@ -528,6 +530,7 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements L
         return null;
     }
 
+    @NonNull
     @Override public Collection<? extends SCM> getSCMs() {
         WorkflowRun b = getLastSuccessfulBuild();
         if (b == null) {
@@ -555,7 +558,8 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements L
         return typical;
     }
 
-    @Override public PollingResult poll(TaskListener listener) {
+    @NonNull
+    @Override public PollingResult poll(@NonNull TaskListener listener) {
         if (!isBuildable()) {
             listener.getLogger().println("Build disabled");
             return PollingResult.NO_CHANGES;
@@ -663,6 +667,7 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements L
     @Symbol("pipeline")
     public static final class DescriptorImpl extends TopLevelItemDescriptor {
 
+        @NonNull
         @Override public String getDisplayName() {
             return Messages.WorkflowJob_DisplayName();
         }
@@ -678,6 +683,7 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements L
          *
          * @return A string it represents a ItemCategory identifier.
          */
+        @NonNull
         @Override public String getCategoryId() {
             return "standalone-projects";
         }
@@ -687,6 +693,7 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements L
          *
          * @return A string with the Item description.
          */
+        @NonNull
         @Override public String getDescription() {
             return Messages.WorkflowJob_Description();
         }
