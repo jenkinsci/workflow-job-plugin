@@ -697,7 +697,7 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements L
          * @return A string it represents a URL pattern to get the Item icon in different sizes.
          */
         @Override public String getIconFilePathPattern() {
-            return "plugin/workflow-job/images/:size/pipelinejob.png";
+            return "plugin/workflow-job/images/pipelinejob.svg";
         }
 
         /** TODO JENKINS-20020 can delete this in case {@code f:dropdownDescriptorSelector} defaults to applying {@code h.filterDescriptors} */
