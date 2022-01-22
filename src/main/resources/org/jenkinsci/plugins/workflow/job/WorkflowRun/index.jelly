@@ -71,10 +71,7 @@
                 </div>
             </div>
             <!-- TODO this calls t:buildProgressBar, which after a restart shows the wrong start time (and expected duration) for the build, since Executor.startTime is meaningless for an AfterRestartTask -->
-            <t:buildCaption>
-                ${%Build} ${it.displayName}
-                (<i:formatDate value="${it.timestamp.time}" type="both" dateStyle="medium" timeStyle="medium"/>)
-            </t:buildCaption>
+            <t:buildCaption>${%Build} ${it.displayName} (<i:formatDate value="${it.timestamp.time}" type="both" dateStyle="medium" timeStyle="medium"/>)</t:buildCaption>
             <div>
                 <t:editableDescription permission="${it.UPDATE}"/>
             </div>
@@ -82,7 +79,7 @@
                 <t:artifactList build="${it}" caption="${%Build Artifacts}" permission="${it.ARTIFACTS}"/>
                 <j:set var="changeSets" value="${it.changeSets}"/>
                 <j:if test="${!changeSets.isEmpty()}">
-                    <t:summary icon="notepad.png">
+                    <t:summary icon="icon-notepad">
                         <j:forEach var="changeSet" items="${changeSets}">
                             <st:include it="${changeSet}" page="digest.jelly"/>
                         </j:forEach>

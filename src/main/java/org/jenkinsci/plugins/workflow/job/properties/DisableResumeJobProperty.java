@@ -9,8 +9,8 @@ import org.jenkinsci.plugins.workflow.flow.FlowDurabilityHint;
 import org.jenkinsci.plugins.workflow.job.WorkflowJob;
 import org.kohsuke.stapler.DataBoundConstructor;
 
-import javax.annotation.CheckForNull;
-import javax.annotation.Nonnull;
+import edu.umd.cs.findbugs.annotations.CheckForNull;
+import edu.umd.cs.findbugs.annotations.NonNull;
 
 /**
  * Disables resuming a pipeline if the controller restarts - the run will simply fail instead, just like a FreeStyle job.
@@ -24,6 +24,7 @@ public class DisableResumeJobProperty extends OptionalJobProperty<WorkflowJob> {
     @Symbol("disableResume")
     public static class DescriptorImpl extends OptionalJobPropertyDescriptor implements DurabilityHintProvider{
 
+        @NonNull
         @Override public String getDisplayName() {
             return Messages.do_not_allow_resume_if_master_restarts();
         }
@@ -35,7 +36,7 @@ public class DisableResumeJobProperty extends OptionalJobProperty<WorkflowJob> {
 
         @CheckForNull
         @Override
-        public FlowDurabilityHint suggestFor(@Nonnull Item x) {
+        public FlowDurabilityHint suggestFor(@NonNull Item x) {
             if (x instanceof WorkflowJob) {
                 DisableResumeJobProperty prop = ((WorkflowJob) x).getProperty(DisableResumeJobProperty.class);
                 return (prop != null) ? FlowDurabilityHint.PERFORMANCE_OPTIMIZED : null;

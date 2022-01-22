@@ -24,18 +24,18 @@
 
 package org.jenkinsci.plugins.workflow.job;
 
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.containsString;
+import static org.junit.Assert.assertEquals;
+
 import hudson.cli.CLICommandInvoker;
 import java.io.File;
 import java.nio.charset.StandardCharsets;
-
 import org.apache.commons.io.FileUtils;
-import static org.hamcrest.Matchers.*;
 import org.jenkinsci.plugins.workflow.cps.CpsFlowDefinition;
 import org.junit.ClassRule;
-import org.junit.Test;
-import static org.junit.Assert.*;
-import static org.hamcrest.MatcherAssert.assertThat;
 import org.junit.Rule;
+import org.junit.Test;
 import org.jvnet.hudson.test.BuildWatcher;
 import org.jvnet.hudson.test.Issue;
 import org.jvnet.hudson.test.JenkinsRule;

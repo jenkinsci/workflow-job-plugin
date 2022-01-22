@@ -24,11 +24,22 @@
 
 package org.jenkinsci.plugins.workflow.job;
 
+import static org.hamcrest.Matchers.nullValue;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotEquals;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
+
+import edu.umd.cs.findbugs.annotations.NonNull;
 import hudson.ExtensionList;
 import hudson.model.Executor;
 import hudson.model.Result;
 import hudson.model.TaskListener;
 import java.util.Collections;
+import java.util.List;
+import java.util.Set;
 import org.jenkinsci.plugins.workflow.cps.CpsFlowDefinition;
 import org.jenkinsci.plugins.workflow.flow.FlowDurabilityHint;
 import org.jenkinsci.plugins.workflow.flow.FlowExecution;
@@ -39,8 +50,11 @@ import org.jenkinsci.plugins.workflow.graph.FlowEndNode;
 import org.jenkinsci.plugins.workflow.graph.FlowNode;
 import org.jenkinsci.plugins.workflow.graph.FlowStartNode;
 import org.jenkinsci.plugins.workflow.job.properties.DurabilityHintJobProperty;
+import org.jenkinsci.plugins.workflow.steps.Step;
+import org.jenkinsci.plugins.workflow.steps.StepContext;
+import org.jenkinsci.plugins.workflow.steps.StepDescriptor;
+import org.jenkinsci.plugins.workflow.steps.StepExecution;
 import org.jenkinsci.plugins.workflow.test.steps.SemaphoreStep;
-import static org.junit.Assert.*;
 import org.junit.Assume;
 import org.junit.ClassRule;
 import org.junit.Rule;
@@ -51,14 +65,6 @@ import org.jvnet.hudson.test.RestartableJenkinsRule;
 import org.jvnet.hudson.test.TestExtension;
 import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.DataBoundSetter;
-
-import java.util.List;
-import java.util.Set;
-import static org.hamcrest.Matchers.nullValue;
-import org.jenkinsci.plugins.workflow.steps.Step;
-import org.jenkinsci.plugins.workflow.steps.StepContext;
-import org.jenkinsci.plugins.workflow.steps.StepDescriptor;
-import org.jenkinsci.plugins.workflow.steps.StepExecution;
 
 public class WorkflowRunRestartTest {
 
@@ -154,7 +160,7 @@ public class WorkflowRunRestartTest {
     }
 
     @Issue("JENKINS-25550")
-    @Test public void hardKill() throws Exception {
+    @Test public void hardKill() {
         story.then(r -> {
             WorkflowJob p = r.jenkins.createProject(WorkflowJob.class, "p");
             p.addProperty( new DurabilityHintJobProperty(FlowDurabilityHint.MAX_SURVIVABILITY));
@@ -185,7 +191,7 @@ public class WorkflowRunRestartTest {
     }
 
     @Issue("JENKINS-33721")
-    @Test public void termAndKillInSidePanel() throws Exception {
+    @Test public void termAndKillInSidePanel() {
         story.then(r -> {
             WorkflowJob p = r.jenkins.createProject(WorkflowJob.class, "p");
             p.setDefinition(new CpsFlowDefinition("def seq = 0; while (true) {try {zombie id: ++seq} catch (x) {echo(/ignoring $x/)}}", true));
@@ -216,7 +222,7 @@ public class WorkflowRunRestartTest {
     }
 
     @Issue("JENKINS-46961")
-    @Test public void interruptedWhileStartingMaxSurvivability() throws Exception {
+    @Test public void interruptedWhileStartingMaxSurvivability() {
         story.then(r -> {
             Assume.assumeThat("import from LibraryDecorator will not resolve in PCT", r.jenkins.pluginManager.getPlugin("workflow-cps-global-lib"), nullValue());
             WorkflowJob p = r.createProject(WorkflowJob.class, "p");
@@ -241,7 +247,7 @@ public class WorkflowRunRestartTest {
     }
 
     @Issue("JENKINS-46961")
-    @Test public void interruptedWhileStartingPerformanceOptimized() throws Exception {
+    @Test public void interruptedWhileStartingPerformanceOptimized() {
         story.then(r -> {
             Assume.assumeThat("import from LibraryDecorator will not resolve in PCT", r.jenkins.pluginManager.getPlugin("workflow-cps-global-lib"), nullValue());
             WorkflowJob p = r.createProject(WorkflowJob.class, "p");
@@ -274,7 +280,7 @@ public class WorkflowRunRestartTest {
     public static class Zombie extends Step {
         @DataBoundSetter public int id;
         @DataBoundConstructor public Zombie() {}
-        @Override public StepExecution start(StepContext context) throws Exception {
+        @Override public StepExecution start(StepContext context) {
             return new Execution(context, id);
         }
         private static class Execution extends StepExecution {
@@ -298,6 +304,7 @@ public class WorkflowRunRestartTest {
             @Override public String getFunctionName() {
                 return "zombie";
             }
+            @NonNull
             @Override public String getDisplayName() {
                 return "zombie";
             }
@@ -309,7 +316,7 @@ public class WorkflowRunRestartTest {
 
     @Issue("JENKINS-43055")
     @Test
-    public void flowExecutionListener() throws Exception {
+    public void flowExecutionListener() {
         story.then(r -> {
             WorkflowJob p = r.jenkins.createProject(WorkflowJob.class, "p");
             p.setDefinition(new CpsFlowDefinition("echo 'Running for listener'\n" +
@@ -373,18 +380,18 @@ public class WorkflowRunRestartTest {
         }
 
         @Override
-        public void onRunning(FlowExecution execution) {
+        public void onRunning(@NonNull FlowExecution execution) {
             addGraphListenerCheckList(execution);
             started++;
         }
 
         @Override
-        public void onResumed(FlowExecution execution) {
+        public void onResumed(@NonNull FlowExecution execution) {
             addGraphListenerCheckList(execution);
             resumed++;
         }
 
-        private void addGraphListenerCheckList(FlowExecution execution) {
+        private void addGraphListenerCheckList(@NonNull FlowExecution execution) {
             execution.addListener(graphListener);
             boolean listHasExec = false;
             for (FlowExecution e : FlowExecutionList.get()) {
@@ -396,7 +403,7 @@ public class WorkflowRunRestartTest {
         }
 
         @Override
-        public void onCompleted(FlowExecution execution) {
+        public void onCompleted(@NonNull FlowExecution execution) {
             finished++;
             for (FlowExecution e : FlowExecutionList.get()) {
                 assertNotEquals(e, execution);
