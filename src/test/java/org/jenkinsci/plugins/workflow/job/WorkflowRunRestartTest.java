@@ -270,7 +270,7 @@ public class WorkflowRunRestartTest {
 
     private boolean hasTermOrKillLink(WorkflowRun b, String termOrKill) throws Exception {
         return !story.j.createWebClient().getPage(b)
-                .getByXPath("//a[@href = '#' and contains(@onclick, '/" + b.getUrl() + termOrKill + "')]").isEmpty();
+                .getByXPath("//a[@href = '#' and contains(@data-url, '/" + b.getUrl() + termOrKill + "')]").isEmpty();
     }
 
     public static class Zombie extends Step {
