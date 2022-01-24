@@ -24,6 +24,7 @@
 
 package org.jenkinsci.plugins.workflow.job.views;
 
+import edu.umd.cs.findbugs.annotations.NonNull;
 import hudson.Extension;
 import hudson.model.Action;
 import java.util.ArrayList;
@@ -90,7 +91,8 @@ public final class FlowGraphAction implements Action {
             return WorkflowRun.class;
         }
 
-        @Override public Collection<? extends Action> createFor(WorkflowRun run) {
+        @NonNull
+        @Override public Collection<? extends Action> createFor(@NonNull WorkflowRun run) {
             return Collections.singleton(new FlowGraphAction(run));
         }
 

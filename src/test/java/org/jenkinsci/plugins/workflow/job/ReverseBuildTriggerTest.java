@@ -24,15 +24,17 @@
 
 package org.jenkinsci.plugins.workflow.job;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
+
 import hudson.model.JobProperty;
 import hudson.model.JobPropertyDescriptor;
 import hudson.model.Result;
 import jenkins.triggers.ReverseBuildTrigger;
 import org.jenkinsci.plugins.workflow.cps.CpsFlowDefinition;
-import org.junit.Test;
-import static org.junit.Assert.*;
 import org.junit.ClassRule;
 import org.junit.Rule;
+import org.junit.Test;
 import org.jvnet.hudson.test.BuildWatcher;
 import org.jvnet.hudson.test.Issue;
 import org.jvnet.hudson.test.JenkinsSessionRule;

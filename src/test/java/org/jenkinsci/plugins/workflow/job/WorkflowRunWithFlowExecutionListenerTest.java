@@ -37,7 +37,7 @@ import org.jvnet.hudson.test.BuildWatcher;
 import org.jvnet.hudson.test.JenkinsSessionRule;
 import org.jvnet.hudson.test.TestExtension;
 
-import javax.annotation.Nonnull;
+import edu.umd.cs.findbugs.annotations.NonNull;
 import java.io.IOException;
 import java.io.PrintStream;
 
@@ -72,7 +72,7 @@ public class WorkflowRunWithFlowExecutionListenerTest {
     @TestExtension("testOnCompleteIsExecutedBeforeListenerIsClosed")
     public static class Listener extends FlowExecutionListener {
         @Override
-        public void onCompleted(@Nonnull FlowExecution execution) {
+        public void onCompleted(@NonNull FlowExecution execution) {
             super.onCompleted(execution);
             Queue.Executable executable = null;
             try {
