@@ -28,7 +28,7 @@ THE SOFTWARE.
     <l:layout title="${it.run.fullDisplayName} Running Steps">
         <st:include page="sidepanel.jelly" it="${it.run}"/>
         <l:main-panel>
-            <table class="pane jenkins-table">
+            <table class="jenkins-table">
                 <j:set var="columns" value="${it.columns}"/>
                 <thead>
                     <tr>
