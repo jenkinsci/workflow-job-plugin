@@ -24,6 +24,8 @@ import org.junit.Test;
 import org.jvnet.hudson.test.Issue;
 import org.jvnet.hudson.test.JenkinsRule;
 
+import java.io.IOException;
+
 public class WorkflowJobTest {
 
     @Rule public JenkinsRule j = new JenkinsRule();
@@ -105,4 +107,23 @@ public class WorkflowJobTest {
         assertFalse(p.isDisabled());
     }
 
+    @Issue("JENKINS-54250")
+    @Test public void restartFromStageEnabledWithDefaults() throws IOException {
+        WorkflowJob p = j.jenkins.createProject(WorkflowJob.class, "p");
+        assertTrue(p.isRestartableFromStage());
+    }
+
+    @Issue("JENKINS-54250")
+    @Test public void restartFromStageEnabled() throws IOException {
+        WorkflowJob p = j.jenkins.createProject(WorkflowJob.class, "p");
+        p.setDisableRestartFromStage(false);
+        assertTrue(p.isRestartableFromStage());
+    }
+
+    @Issue("JENKINS-54250")
+    @Test public void restartFromStageDisabled() throws IOException {
+        WorkflowJob p = j.jenkins.createProject(WorkflowJob.class, "p");
+        p.setDisableRestartFromStage(true);
+        assertFalse(p.isRestartableFromStage());
+    }
 }
