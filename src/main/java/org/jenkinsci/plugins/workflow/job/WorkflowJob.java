@@ -116,6 +116,7 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements L
     private transient LazyBuildMixIn<WorkflowJob,WorkflowRun> buildMixIn;
     /** @deprecated replaced by {@link DisableConcurrentBuildsJobProperty} */
     private @CheckForNull Boolean concurrentBuild;
+    private Boolean disableRestartFromStage;
 
     /**
      * Map from {@link SCM#getKey} to last version we encountered during polling.
@@ -292,6 +293,8 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements L
         return quietPeriod != null ? quietPeriod : Jenkins.get().getQuietPeriod();
     }
 
+    public boolean isDisableRestartFromStage(){ return this.disableRestartFromStage; };
+
     @Restricted(DoNotUse.class) // for config-quietPeriod.jelly
     public boolean getHasCustomQuietPeriod() {
         return quietPeriod!=null;
@@ -299,6 +302,11 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements L
 
     public void setQuietPeriod(Integer seconds) throws IOException {
         this.quietPeriod = seconds;
+        save();
+    }
+
+    public void setDisableRestartFromStage(boolean disableRestartFromStage) throws IOException {
+        this.disableRestartFromStage = disableRestartFromStage;
         save();
     }
 
