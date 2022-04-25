@@ -293,7 +293,9 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements L
         return quietPeriod != null ? quietPeriod : Jenkins.get().getQuietPeriod();
     }
 
-    public boolean isDisableRestartFromStage(){ return this.disableRestartFromStage; };
+    public boolean isRestartableFromStage(){
+        return !(this.disableRestartFromStage != null && Boolean.TRUE.equals(this.disableRestartFromStage));
+    };
 
     @Restricted(DoNotUse.class) // for config-quietPeriod.jelly
     public boolean getHasCustomQuietPeriod() {
