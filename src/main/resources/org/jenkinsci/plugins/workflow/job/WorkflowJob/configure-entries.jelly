@@ -25,13 +25,12 @@
   -->
 
 <j:jelly xmlns:j="jelly:core" xmlns:st="jelly:stapler" xmlns:f="/lib/form" xmlns:p="/lib/hudson/project">
-    <p:config-disableBuild/>
     <p:config-quietPeriod/>
 
     <!-- pseudo-trigger to configure URL to trigger builds remotely. -->
     <st:include page="/hudson/model/BuildAuthorizationToken/config.jelly" />
 
-    <f:section title="${%Advanced Project Options}">
+    <f:section title="${%Advanced Project Options}" icon="">
         <f:advanced>
             <f:entry title="${%Display Name}" field="displayNameOrNull">
                 <f:textbox checkUrl="'${rootURL}/checkDisplayName?displayName='+encodeURIComponent(this.value)+'&amp;jobName='+encodeURIComponent('${h.jsStringEscape(it.name)}')"/>
@@ -39,7 +38,7 @@
         </f:advanced>
     </f:section>
 
-    <f:section title="${%Pipeline}">
+    <f:section title="${%Pipeline}" icon="">
         <f:dropdownDescriptorSelector title="${%Definition}" field="definition" descriptors="${descriptor.getDefinitionDescriptors(it)}"/>
     </f:section>
 </j:jelly>
