@@ -93,9 +93,9 @@ public class WorkflowJobTest {
         assertTrue(p.isDisabled());
         assertFalse(p.isBuildable());
         HtmlForm form = wc.getPage(p, "configure").getFormByName("config");
-        HtmlCheckBoxInput checkbox = form.getInputByName("disable");
-        assertTrue(checkbox.isChecked());
-        checkbox.setChecked(false);
+        HtmlCheckBoxInput checkbox = form.getInputByName("enable");
+        assertFalse(checkbox.isChecked());
+        checkbox.setChecked(true);
         j.submit(form);
         assertFalse(p.isDisabled());
         wc.getPage(new WebRequest(wc.createCrumbedUrl(p.getUrl() + "disable"), HttpMethod.POST));
