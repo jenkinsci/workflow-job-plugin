@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<svg width="468px" height="468px" viewBox="0 0 468 468" version="1.1" xmlns="http://www.w3.org/2000/svg">
+<svg width="468px" height="468px" viewBox="0 0 468 468" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
     <g stroke="none" stroke-width="1" fill="none" fill-rule="evenodd" stroke-linecap="round">
         <path d="M69,414 L69,284 C69,228.771525 113.771525,184 169,184 L273,184 C287.359403,184 299,172.359403 299,158 L299,54 L299,54 M399,54 L399,184 C399,239.228475 354.228475,284 299,284 L195,284 C180.640597,284 169,295.640597 169,310 L169,414 L169,414" stroke="currentColor" stroke-width="32"></path>
     </g>
