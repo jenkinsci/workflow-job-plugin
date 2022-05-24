@@ -192,7 +192,13 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements L
         } else {
             quietPeriod = null;
         }
-        makeDisabled(json.optBoolean("disable"));
+        if (json.has("enable")) {
+            makeDisabled(!json.optBoolean("enable"));
+        } else {
+            // TODO remove this else block when baseline includes https://github.com/jenkinsci/jenkins/pull/6485
+            // and remove the if statement as it will always be there
+            makeDisabled(json.optBoolean("disable"));
+        }
         getTriggersJobProperty().stopTriggers();
         getTriggersJobProperty().startTriggers(Items.currentlyUpdatingByXml());
     }
