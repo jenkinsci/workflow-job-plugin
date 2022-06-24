@@ -66,6 +66,7 @@
         <jenkins.version>2.332.1</jenkins.version>
         <no-test-jar>false</no-test-jar>
         <useBeta>true</useBeta>
+        <jenkins-test-harness.version>1784.v83a_b_3ce99392</jenkins-test-harness.version>
         <hpi.compatibleSinceVersion>2.26</hpi.compatibleSinceVersion>
         <gitHubRepo>jenkinsci/${project.artifactId}-plugin</gitHubRepo>
     </properties>
