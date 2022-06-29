@@ -31,10 +31,10 @@
             <j:set var="url" value="${h.getNearestAncestorUrl(request,it)}"/>
             <j:choose>
                 <j:when test="${it.parent==app}">
-                    <l:task icon="symbol-up icon-md" href="${rootURL}/" title="${%Back to Dashboard}" contextMenu="false"/>
+                    <l:task icon="symbol-arrow-up icon-md" href="${rootURL}/" title="${%Back to Dashboard}" contextMenu="false"/>
                 </j:when>
                 <j:otherwise>
-                    <l:task icon="symbol-up icon-md" href="${url}/../../" title="${%Up}" contextMenu="false"/>
+                    <l:task icon="symbol-arrow-up icon-md" href="${url}/../../" title="${%Up}" contextMenu="false"/>
                 </j:otherwise>
             </j:choose>
             <l:task icon="symbol-search icon-md"  href="${url}/" title="${%Status}" contextMenu="false"/>
