@@ -48,7 +48,7 @@
                     <l:task icon="symbol-edit-note plugin-workflow-job" href="${buildUrl.baseUrl}/configure" title="${%Edit Build Information}"/>
                 </j:when>
                 <j:otherwise>
-                    <l:task icon="symbol-open-note plugin-workflow-job" href="${buildUrl.baseUrl}/configure" title="${%View Build Information}"/>
+                    <l:task icon="symbol-view plugin-workflow-job" href="${buildUrl.baseUrl}/configure" title="${%View Build Information}"/>
                 </j:otherwise>
             </j:choose>
 
