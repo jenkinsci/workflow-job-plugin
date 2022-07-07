@@ -42,7 +42,7 @@
                     </l:task>
                 </j:otherwise>
             </j:choose>
-            <l:task icon="symbol-details" href="${buildUrl.baseUrl}/configure" title="${h.hasPermission(it,it.UPDATE)?'%Edit Build Information':'%View Build Information'}"/>
+            <l:task icon="symbol-edit-notepad plugin-workflow-job" href="${buildUrl.baseUrl}/configure" title="${h.hasPermission(it,it.UPDATE)?'%Edit Build Information':'%View Build Information'}"/>
             <st:include page="delete.jelly"/>
             <j:if test="${it.hasAllowTerm()}">
                 <l:task icon="symbol-close"
