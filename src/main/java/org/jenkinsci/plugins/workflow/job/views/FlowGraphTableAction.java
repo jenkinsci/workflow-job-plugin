@@ -42,7 +42,7 @@ public final class FlowGraphTableAction implements Action {
     }
 
     @Override public String getIconFileName() {
-        return "symbol-build-steps";
+        return "symbol-build-steps plugin-workflow-job";
     }
 
     @Override public String getDisplayName() {
