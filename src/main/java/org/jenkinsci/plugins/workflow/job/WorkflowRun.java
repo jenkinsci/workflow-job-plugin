@@ -565,11 +565,11 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
                         }
 
                         if (Boolean.FALSE.equals(completed)) {
-                            // we've been restarted while we were running. let's get the execution going again.
-                            FlowExecutionListener.fireResumed(fetchedExecution);
-
                             getListener().getLogger().println("Resuming build at " + new Date() + " after Jenkins restart");
                             Timer.get().submit(() -> Queue.getInstance().schedule(new AfterRestartTask(WorkflowRun.this), 0)); // JENKINS-31614
+
+                            // we've been restarted while we were running. let's get the execution going again.
+                            FlowExecutionListener.fireResumed(fetchedExecution);
                         }
                     } else {   // Execution nulled due to a critical failure, explicitly mark completed
                         completed = Boolean.TRUE;
