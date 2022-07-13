@@ -778,7 +778,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
     }
 
     @Exported
-    @Override protected boolean isInProgress() {
+    @Override public boolean isInProgress() {
         if (Boolean.TRUE.equals(completed)) {  // Has a persisted completion state
             return false;
         } else {
