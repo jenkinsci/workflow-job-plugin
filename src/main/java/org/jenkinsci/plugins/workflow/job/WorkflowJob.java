@@ -180,11 +180,7 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements L
     @Override protected void submit(StaplerRequest req, StaplerResponse rsp) throws IOException, ServletException, Descriptor.FormException {
         super.submit(req, rsp);
         JSONObject json = req.getSubmittedForm();
-        // TODO: Switch from Descriptor.newInstancesFromHeteroList to Descriptor.bindJSON when minimum supported
-        //  version is Jenkins 2.342 or higher.
-        definition = json.get("definition") == null ? null :
-                Descriptor.newInstancesFromHeteroList(req, json.getJSONObject("definition"),
-                        ExtensionList.lookup(FlowDefinitionDescriptor.class)).get(0);
+        definition = req.bindJSON(FlowDefinition.class, json.getJSONObject("definition"));
         authToken = hudson.model.BuildAuthorizationToken.create(req);
 
         if (req.getParameter("hasCustomQuietPeriod") != null) {
@@ -192,13 +188,7 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements L
         } else {
             quietPeriod = null;
         }
-        if (json.has("enable")) {
-            makeDisabled(!json.optBoolean("enable"));
-        } else {
-            // TODO remove this else block when baseline includes https://github.com/jenkinsci/jenkins/pull/6485
-            // and remove the if statement as it will always be there
-            makeDisabled(json.optBoolean("disable"));
-        }
+        makeDisabled(!json.optBoolean("enable"));
         getTriggersJobProperty().stopTriggers();
         getTriggersJobProperty().startTriggers(Items.currentlyUpdatingByXml());
     }
