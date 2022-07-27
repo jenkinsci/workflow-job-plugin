@@ -28,24 +28,32 @@
     <l:side-panel>
         <l:tasks>
             <j:set var="buildUrl" value="${h.decompose(request)}"/>
-            <l:task icon="icon-up icon-md" href="${rootURL}/${it.parent.url}" title="${%Back to Project}" contextMenu="false"/>
-            <l:task icon="icon-search icon-md" href="${buildUrl.baseUrl}/" title="${%Status}" contextMenu="false"/>
-            <l:task icon="icon-notepad icon-md" href="${buildUrl.baseUrl}/changes" title="${%Changes}"/>
+            <l:task icon="symbol-details" href="${buildUrl.baseUrl}/" title="${%Status}" contextMenu="false"/>
+            <l:task icon="symbol-changes" href="${buildUrl.baseUrl}/changes" title="${%Changes}"/>
             <j:choose> <!-- TODO <p:console-link/> may not currently be used as it calls getLogFile -->
                 <j:when test="${it.logText.length() > 200000}">
-                    <l:task href="${buildUrl.baseUrl}/console" icon="icon-terminal icon-md" title="${%Console Output}"/>
-                    <l:task href="${buildUrl.baseUrl}/consoleText" icon="icon-document icon-md" title="${%View as plain text}"/>
+                    <l:task href="${buildUrl.baseUrl}/console" icon="symbol-terminal" title="${%Console Output}"/>
+                    <l:task href="${buildUrl.baseUrl}/consoleText" icon="symbol-document-text" title="${%View as plain text}"/>
                 </j:when>
                 <j:otherwise>
-                    <l:task icon="icon-terminal icon-md" href="${buildUrl.baseUrl}/console" title="${%Console Output}">
-                        <l:task href="${buildUrl.baseUrl}/consoleText" icon="icon-document icon-md" title="${%View as plain text}"/>
+                    <l:task icon="symbol-terminal" href="${buildUrl.baseUrl}/console" title="${%Console Output}">
+                        <l:task href="${buildUrl.baseUrl}/consoleText" icon="symbol-document-text" title="${%View as plain text}"/>
                     </l:task>
                 </j:otherwise>
             </j:choose>
-            <l:task icon="icon-notepad icon-md" href="${buildUrl.baseUrl}/configure" title="${h.hasPermission(it,it.UPDATE)?'%Edit Build Information':'%View Build Information'}"/>
+            <!-- Build Information -->
+            <j:choose>
+                <j:when test="${h.hasPermission(it,it.UPDATE)}">
+                    <l:task icon="symbol-edit-note plugin-workflow-job" href="${buildUrl.baseUrl}/configure" title="${%Edit Build Information}"/>
+                </j:when>
+                <j:otherwise>
+                    <l:task icon="symbol-view plugin-workflow-job" href="${buildUrl.baseUrl}/configure" title="${%View Build Information}"/>
+                </j:otherwise>
+            </j:choose>
+
             <st:include page="delete.jelly"/>
             <j:if test="${it.hasAllowTerm()}">
-                <l:task icon="icon-edit-delete icon-md"
+                <l:task icon="symbol-close"
                         href="${buildUrl.baseUrl}/term"
                         title="${%Abort Running Steps}"
                         contextMenu="false"
@@ -55,7 +63,7 @@
                         confirmationMessage="${%Really forcibly abort running steps?}"/>
             </j:if>
             <j:if test="${it.hasAllowKill()}">
-                <l:task icon="icon-edit-delete icon-md"
+                <l:task icon="symbol-close"
                         href="${buildUrl.baseUrl}/kill"
                         title="${%Force Abort of Entire Build}"
                         contextMenu="false"
@@ -67,10 +75,10 @@
             <st:include page="actions.jelly"/>
             <t:actions actions="${it.transientActions}"/>
             <j:if test="${it.previousBuild!=null}">
-                <l:task icon="icon-previous icon-md" href="${buildUrl.previousBuildUrl}" title="${%Previous Build}" contextMenu="false"/>
+                <l:task icon="symbol-arrow-left" href="${buildUrl.previousBuildUrl}" title="${%Previous Build}" contextMenu="false"/>
             </j:if>
             <j:if test="${it.nextBuild!=null}">
-                <l:task icon="icon-next icon-md" href="${buildUrl.nextBuildUrl}" title="${%Next Build}" contextMenu="false"/>
+                <l:task icon="symbol-arrow-right" href="${buildUrl.nextBuildUrl}" title="${%Next Build}" contextMenu="false"/>
             </j:if>
         </l:tasks>
     </l:side-panel>

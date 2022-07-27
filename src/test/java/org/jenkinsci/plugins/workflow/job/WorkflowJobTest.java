@@ -9,7 +9,6 @@ import static org.junit.Assert.assertTrue;
 
 import com.gargoylesoftware.htmlunit.HttpMethod;
 import com.gargoylesoftware.htmlunit.WebRequest;
-import com.gargoylesoftware.htmlunit.html.DomNode;
 import com.gargoylesoftware.htmlunit.html.HtmlCheckBoxInput;
 import com.gargoylesoftware.htmlunit.html.HtmlForm;
 import hudson.cli.CLICommandInvoker;
@@ -96,18 +95,9 @@ public class WorkflowJobTest {
         assertTrue(p.isDisabled());
         assertFalse(p.isBuildable());
         HtmlForm form = wc.getPage(p, "configure").getFormByName("config");
-        DomNode domNode = form.querySelector("input[name='enable']");
-        if (domNode != null) {
-            HtmlCheckBoxInput checkbox = (HtmlCheckBoxInput) domNode;
-            assertFalse(checkbox.isChecked());
-            checkbox.setChecked(true);
-        } else {
-            // TODO remove this else block when baseline includes https://github.com/jenkinsci/jenkins/pull/6485
-            // and remove the if statement as it will always be there
-            HtmlCheckBoxInput checkbox = form.getInputByName("disable");
-            assertTrue(checkbox.isChecked());
-            checkbox.setChecked(false);
-        }
+        HtmlCheckBoxInput checkbox = form.getInputByName("enable");
+        assertFalse(checkbox.isChecked());
+        checkbox.setChecked(true);
         j.submit(form);
         assertFalse(p.isDisabled());
         wc.getPage(new WebRequest(wc.createCrumbedUrl(p.getUrl() + "disable"), HttpMethod.POST));
