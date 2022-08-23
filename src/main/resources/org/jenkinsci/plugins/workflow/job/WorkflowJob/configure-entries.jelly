@@ -30,7 +30,7 @@
     <!-- pseudo-trigger to configure URL to trigger builds remotely. -->
     <st:include page="/hudson/model/BuildAuthorizationToken/config.jelly" />
 
-    <f:section title="${%Advanced Project Options}" icon="symbol-advanced-project-options plugin-workflow-job">
+    <f:section title="${%Advanced Project Options}" icon="symbol-build-outline plugin-ionicons-api">
         <f:advanced>
             <f:entry title="${%Display Name}" field="displayNameOrNull">
                 <f:textbox checkUrl="'${rootURL}/checkDisplayName?displayName='+encodeURIComponent(this.value)+'&amp;jobName='+encodeURIComponent('${h.jsStringEscape(it.name)}')"/>

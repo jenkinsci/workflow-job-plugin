@@ -79,7 +79,7 @@
                 <t:artifactList build="${it}" caption="${%Build Artifacts}" permission="${it.ARTIFACTS}"/>
                 <j:set var="changeSets" value="${it.changeSets}"/>
                 <j:if test="${!changeSets.isEmpty()}">
-                    <t:summary icon="symbol-changes">
+                    <t:summary icon="symbol-code-slash-outline plugin-ionicons-api">
                         <j:forEach var="changeSet" items="${changeSets}">
                             <st:include it="${changeSet}" page="digest.jelly"/>
                         </j:forEach>

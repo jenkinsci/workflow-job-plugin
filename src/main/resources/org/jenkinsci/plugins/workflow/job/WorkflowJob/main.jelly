@@ -31,7 +31,7 @@
         <!-- TODO display prominentActions -->
         <!-- TODO display any workspace(s) if possible -->
         <t:artifactList caption="${%Last Successful Artifacts}" build="${it.lastSuccessfulBuild}" baseURL="lastSuccessfulBuild/" permission="${it.lastSuccessfulBuild.ARTIFACTS}"/>
-        <t:summary icon="symbol-changes" href="changes">
+        <t:summary icon="symbol-code-slash-outline plugin-ionicons-api" href="changes">
             ${%Recent Changes}
         </t:summary>
     </table>
