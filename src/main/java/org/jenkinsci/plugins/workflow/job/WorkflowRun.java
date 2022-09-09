@@ -341,7 +341,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
                 if (prev != null && prev.isBuilding()) {
                     Executor e = prev.getExecutor();
                     if (e != null) {
-                        e.interrupt(Result.NOT_BUILT, new DisableConcurrentBuildsJobProperty.CancelledCause(this));
+                        e.interrupt(Result.ABORTED, new DisableConcurrentBuildsJobProperty.CancelledCause(this));
                     }
                 }
                 // Not bothering to look for other older builds in progress, since once we turn this on, going forward there should be at most one.
