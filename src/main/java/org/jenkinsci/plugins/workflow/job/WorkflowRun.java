@@ -612,7 +612,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
                 completed = true;
             }
             duration = Math.max(0, System.currentTimeMillis() - getStartTimeInMillis());
-            LOGGER.log(Level.INFO, "{0} completed: {1}", new Object[]{toString(), getResult()});
+            LOGGER.log(Level.FINE, "{0} completed: {1}", new Object[]{toString(), getResult()});
             if (myListener == null) {
                 // Never even made it to running, either failed when fresh-started or resumed -- otherwise getListener would have run
                 LOGGER.log(Level.WARNING, this + " failed to start", t);

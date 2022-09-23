@@ -29,14 +29,6 @@
     <l:side-panel>
         <l:tasks>
             <j:set var="url" value="${h.getNearestAncestorUrl(request,it)}"/>
-            <j:choose>
-                <j:when test="${it.parent==app}">
-                    <l:task icon="symbol-arrow-up" href="${rootURL}/" title="${%Back to Dashboard}" contextMenu="false"/>
-                </j:when>
-                <j:otherwise>
-                    <l:task icon="symbol-arrow-up" href="${url}/../../" title="${%Up}" contextMenu="false"/>
-                </j:otherwise>
-            </j:choose>
             <l:task icon="symbol-details"  href="${url}/" title="${%Status}" contextMenu="false"/>
             <l:task icon="symbol-changes" href="${url}/changes" title="${%Changes}"/>
             <p:configurable/>

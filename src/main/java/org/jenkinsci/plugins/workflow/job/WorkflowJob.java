@@ -180,7 +180,7 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements L
     @Override protected void submit(StaplerRequest req, StaplerResponse rsp) throws IOException, ServletException, Descriptor.FormException {
         super.submit(req, rsp);
         JSONObject json = req.getSubmittedForm();
-        definition = req.bindJSON(FlowDefinition.class, json.getJSONObject("definition"));
+        definition = Descriptor.bindJSON(req, FlowDefinition.class, json.getJSONObject("definition"));
         authToken = hudson.model.BuildAuthorizationToken.create(req);
 
         if (req.getParameter("hasCustomQuietPeriod") != null) {
