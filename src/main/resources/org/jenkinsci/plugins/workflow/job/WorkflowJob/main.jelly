@@ -31,9 +31,6 @@
         <!-- TODO display prominentActions -->
         <!-- TODO display any workspace(s) if possible -->
         <t:artifactList caption="${%Last Successful Artifacts}" build="${it.lastSuccessfulBuild}" baseURL="lastSuccessfulBuild/" permission="${it.lastSuccessfulBuild.ARTIFACTS}"/>
-        <t:summary icon="symbol-changes" href="changes">
-            ${%Recent Changes}
-        </t:summary>
     </table>
     <j:forEach var="a" items="${it.allActions}">
         <st:include page="jobMain.jelly" it="${a}" optional="true" />
