@@ -431,10 +431,10 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
 
     /** Sends {@link StepContext#onFailure} to all running (leaf) steps. */
     @RequirePOST
-    public void doTerm() {
+    public HttpResponse doTerm() {
         checkPermission(Item.CANCEL);
         if (!isInProgress() || /* redundant, but make FindBugs happy */ execution == null) {
-            return;
+            return HttpResponses.forwardToPreviousPage();
         }
         final Throwable x = new FlowInterruptedException(Result.ABORTED);
         FlowExecution exec = getExecution();
@@ -454,7 +454,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
                 if (modified) {
                     saveWithoutFailing();
                 }
-                return;
+                return HttpResponses.forwardToPreviousPage();
             }
         }
         Futures.addCallback(exec.getCurrentExecutions(/* cf. JENKINS-26148 */true), new FutureCallback<List<StepExecution>>() {
@@ -475,14 +475,15 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
             @Override public void onFailure(@NonNull Throwable t) {}
         });
         printLater(StopState.KILL, "Click here to forcibly kill entire build");
+        return HttpResponses.forwardToPreviousPage();
     }
 
     /** Immediately kills the build. */
     @RequirePOST
-    public void doKill() {
+    public HttpResponse doKill() {
         checkPermission(Item.CANCEL);
         if (!isBuilding() || /* probably redundant, but just to be sure */ execution == null) {
-            return;
+            return HttpResponses.forwardToPreviousPage();
         }
         synchronized (getMetadataGuard()) {
             getListener().getLogger().println("Hard kill!");
@@ -495,6 +496,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
         finish(Result.ABORTED, suddenDeath);
         getSettableExecutionPromise().setException(suddenDeath);
         // TODO CpsFlowExecution.onProgramEnd does some cleanup which we cannot access here; perhaps need a FlowExecution.halt(Throwable) API?
+        return HttpResponses.forwardToPreviousPage();
     }
 
     @NonNull
@@ -870,8 +872,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
         if (e != null) {
             return e.doStop();
         } else {
-            doKill();
-            return HttpResponses.forwardToPreviousPage();
+            return doKill();
         }
     }
 
