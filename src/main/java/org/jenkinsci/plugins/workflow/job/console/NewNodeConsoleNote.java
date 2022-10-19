@@ -99,8 +99,12 @@ public class NewNodeConsoleNote extends ConsoleNote<WorkflowRun> {
 
     @Override
     public ConsoleAnnotator<?> annotate(WorkflowRun context, MarkupText text, int charPos) {
-        StringBuilder startTag = startTagFor(context, id, start, enclosing);
-        text.addMarkup(0, text.length(), startTag.toString(), "</span>");
+        try {
+            StringBuilder startTag = startTagFor(context, id, start, enclosing);
+            text.addMarkup(0, text.length(), startTag.toString(), "</span>");
+        } catch (RuntimeException x) {
+            LOGGER.log(Level.WARNING, null, x);
+        }
         return null;
     }
 
