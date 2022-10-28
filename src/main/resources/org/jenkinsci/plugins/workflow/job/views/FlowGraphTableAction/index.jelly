@@ -30,9 +30,7 @@ THE SOFTWARE.
         <l:main-panel>
             <st:include it="${it.flowGraph}" page="ajax"/>
             <j:if test="${it.run.building}">
-              <script>
-                refreshPart('nodeGraph','./flowGraph/ajax')
-              </script>
+                <st:adjunct includes="org.jenkinsci.plugins.workflow.job.views.FlowGraphTableAction.refresh"/>
             </j:if>
         </l:main-panel>
     </l:layout>
