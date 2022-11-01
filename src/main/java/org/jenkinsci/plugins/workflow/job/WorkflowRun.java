@@ -127,8 +127,10 @@ import org.kohsuke.accmod.Restricted;
 import org.kohsuke.accmod.restrictions.DoNotUse;
 import org.kohsuke.stapler.HttpResponse;
 import org.kohsuke.stapler.HttpResponses;
+import org.kohsuke.stapler.Stapler;
 import org.kohsuke.stapler.StaplerRequest;
 import org.kohsuke.stapler.StaplerResponse;
+import org.kohsuke.stapler.WebMethod;
 import org.kohsuke.stapler.export.Exported;
 import org.kohsuke.stapler.interceptor.RequirePOST;
 
@@ -430,11 +432,10 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
     }
 
     /** Sends {@link StepContext#onFailure} to all running (leaf) steps. */
-    @RequirePOST
-    public HttpResponse doTerm() {
+    public void doTerm() {
         checkPermission(Item.CANCEL);
         if (!isInProgress() || /* redundant, but make FindBugs happy */ execution == null) {
-            return HttpResponses.forwardToPreviousPage();
+            return;
         }
         final Throwable x = new FlowInterruptedException(Result.ABORTED);
         FlowExecution exec = getExecution();
@@ -454,7 +455,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
                 if (modified) {
                     saveWithoutFailing();
                 }
-                return HttpResponses.forwardToPreviousPage();
+                return;
             }
         }
         Futures.addCallback(exec.getCurrentExecutions(/* cf. JENKINS-26148 */true), new FutureCallback<List<StepExecution>>() {
@@ -475,15 +476,21 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
             @Override public void onFailure(@NonNull Throwable t) {}
         });
         printLater(StopState.KILL, "Click here to forcibly kill entire build");
+    }
+
+    /** Sends {@link StepContext#onFailure} to all running (leaf) steps. */
+    @RequirePOST
+    @WebMethod(name = { "term" })
+    public HttpResponse httpTerm() {
+        doTerm();
         return HttpResponses.forwardToPreviousPage();
     }
 
     /** Immediately kills the build. */
-    @RequirePOST
-    public HttpResponse doKill() {
+    public void doKill() {
         checkPermission(Item.CANCEL);
         if (!isBuilding() || /* probably redundant, but just to be sure */ execution == null) {
-            return HttpResponses.forwardToPreviousPage();
+            return;
         }
         synchronized (getMetadataGuard()) {
             getListener().getLogger().println("Hard kill!");
@@ -496,6 +503,13 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
         finish(Result.ABORTED, suddenDeath);
         getSettableExecutionPromise().setException(suddenDeath);
         // TODO CpsFlowExecution.onProgramEnd does some cleanup which we cannot access here; perhaps need a FlowExecution.halt(Throwable) API?
+    }
+
+    /** Immediately kills the build. */
+    @RequirePOST
+    @WebMethod(name = {"kill"})
+    public HttpResponse httpKill() {
+        doKill();
         return HttpResponses.forwardToPreviousPage();
     }
 
@@ -872,7 +886,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
         if (e != null) {
             return e.doStop();
         } else {
-            return doKill();
+            return httpKill();
         }
     }
 
