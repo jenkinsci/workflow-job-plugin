@@ -127,7 +127,6 @@ import org.kohsuke.accmod.Restricted;
 import org.kohsuke.accmod.restrictions.DoNotUse;
 import org.kohsuke.stapler.HttpResponse;
 import org.kohsuke.stapler.HttpResponses;
-import org.kohsuke.stapler.Stapler;
 import org.kohsuke.stapler.StaplerRequest;
 import org.kohsuke.stapler.StaplerResponse;
 import org.kohsuke.stapler.WebMethod;
@@ -480,7 +479,8 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
 
     /** Sends {@link StepContext#onFailure} to all running (leaf) steps. */
     @RequirePOST
-    @WebMethod(name = { "term" })
+    @WebMethod(name = "term")
+    @Restricted(DoNotUse.class) // for Stapler routing only
     public HttpResponse httpTerm() {
         doTerm();
         return HttpResponses.forwardToPreviousPage();
@@ -507,7 +507,8 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
 
     /** Immediately kills the build. */
     @RequirePOST
-    @WebMethod(name = {"kill"})
+    @WebMethod(name = "kill")
+    @Restricted(DoNotUse.class) // for Stapler routing only
     public HttpResponse httpKill() {
         doKill();
         return HttpResponses.forwardToPreviousPage();
