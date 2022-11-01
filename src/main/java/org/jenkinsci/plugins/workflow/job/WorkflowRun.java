@@ -84,6 +84,7 @@ import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import javax.servlet.ServletException;
 import edu.umd.cs.findbugs.annotations.CheckForNull;
 import edu.umd.cs.findbugs.annotations.NonNull;
 import jenkins.model.CauseOfInterruption;
@@ -127,6 +128,7 @@ import org.kohsuke.accmod.Restricted;
 import org.kohsuke.accmod.restrictions.DoNotUse;
 import org.kohsuke.stapler.HttpResponse;
 import org.kohsuke.stapler.HttpResponses;
+import org.kohsuke.stapler.Stapler;
 import org.kohsuke.stapler.StaplerRequest;
 import org.kohsuke.stapler.StaplerResponse;
 import org.kohsuke.stapler.export.Exported;
@@ -429,12 +431,23 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
         }, 15, TimeUnit.SECONDS);
     }
 
+    private void forwardToPreviousPage(@CheckForNull StaplerRequest request, @CheckForNull StaplerResponse response) {
+        if (request != null && response != null) {
+            try {
+                response.forwardToPreviousPage(request);
+            } catch (ServletException | IOException e) {
+                // if we can not set the response there is nothing we can do - throwing will pollute logs and this is likely because the client has disconnected
+                LOGGER.log(Level.FINER, "could not redirect client to previous page", e);
+            }
+        }
+    }
     /** Sends {@link StepContext#onFailure} to all running (leaf) steps. */
     @RequirePOST
-    public HttpResponse doTerm() {
+    public void doTerm() {
         checkPermission(Item.CANCEL);
         if (!isInProgress() || /* redundant, but make FindBugs happy */ execution == null) {
-            return HttpResponses.forwardToPreviousPage();
+            forwardToPreviousPage(Stapler.getCurrentRequest(), Stapler.getCurrentResponse());
+            return;
         }
         final Throwable x = new FlowInterruptedException(Result.ABORTED);
         FlowExecution exec = getExecution();
@@ -454,7 +467,8 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
                 if (modified) {
                     saveWithoutFailing();
                 }
-                return HttpResponses.forwardToPreviousPage();
+                forwardToPreviousPage(Stapler.getCurrentRequest(), Stapler.getCurrentResponse());
+                return;
             }
         }
         Futures.addCallback(exec.getCurrentExecutions(/* cf. JENKINS-26148 */true), new FutureCallback<List<StepExecution>>() {
@@ -475,15 +489,17 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
             @Override public void onFailure(@NonNull Throwable t) {}
         });
         printLater(StopState.KILL, "Click here to forcibly kill entire build");
-        return HttpResponses.forwardToPreviousPage();
+        forwardToPreviousPage(Stapler.getCurrentRequest(), Stapler.getCurrentResponse());
+        return;
     }
 
     /** Immediately kills the build. */
     @RequirePOST
-    public HttpResponse doKill() {
+    public void doKill() {
         checkPermission(Item.CANCEL);
         if (!isBuilding() || /* probably redundant, but just to be sure */ execution == null) {
-            return HttpResponses.forwardToPreviousPage();
+            forwardToPreviousPage(Stapler.getCurrentRequest(), Stapler.getCurrentResponse());
+            return;
         }
         synchronized (getMetadataGuard()) {
             getListener().getLogger().println("Hard kill!");
@@ -496,7 +512,8 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
         finish(Result.ABORTED, suddenDeath);
         getSettableExecutionPromise().setException(suddenDeath);
         // TODO CpsFlowExecution.onProgramEnd does some cleanup which we cannot access here; perhaps need a FlowExecution.halt(Throwable) API?
-        return HttpResponses.forwardToPreviousPage();
+        forwardToPreviousPage(Stapler.getCurrentRequest(), Stapler.getCurrentResponse());
+        return;
     }
 
     @NonNull
@@ -872,7 +889,8 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
         if (e != null) {
             return e.doStop();
         } else {
-            return doKill();
+            doKill();
+            return HttpResponses.forwardToPreviousPage();
         }
     }
 
