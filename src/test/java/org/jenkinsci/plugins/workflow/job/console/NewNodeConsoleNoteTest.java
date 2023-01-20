@@ -42,15 +42,14 @@ public class NewNodeConsoleNoteTest {
 
     @Test public void labels() throws Exception {
         WorkflowJob p = r.createProject(WorkflowJob.class, "p");
-        p.setDefinition(new CpsFlowDefinition("parallel first: {}, second: {stage('details') {}}; stage 'not \"blocky\"'", true));
+        p.setDefinition(new CpsFlowDefinition("parallel first: {}, second: {stage('\"full\" details') {}}", true));
         WorkflowRun b = r.buildAndAssertSuccess(p);
         String html = r.createWebClient().goTo(b.getUrl() + "console").getWebResponse().getContentAsString();
         assertThat(html, containsString("<span class=\"pipeline-new-node\" nodeId=\"3\" startId=\"3\" enclosingId=\"2\">[Pipeline] parallel"));
         assertThat(html, containsString("<span class=\"pipeline-new-node\" nodeId=\"5\" startId=\"5\" enclosingId=\"3\" label=\"Branch: first\">[Pipeline] {"));
         assertThat(html, containsString("<span class=\"pipeline-new-node\" nodeId=\"6\" startId=\"6\" enclosingId=\"3\" label=\"Branch: second\">[Pipeline] {"));
-        assertThat(html, containsString("<span class=\"pipeline-new-node\" nodeId=\"9\" startId=\"9\" enclosingId=\"8\" label=\"details\">[Pipeline] {"));
+        assertThat(html, containsString("<span class=\"pipeline-new-node\" nodeId=\"9\" startId=\"9\" enclosingId=\"8\" label=\"&quot;full&quot; details\">[Pipeline] {"));
         assertThat(html, containsString("<span class=\"pipeline-new-node\" nodeId=\"13\" startId=\"3\">[Pipeline] // parallel"));
-        assertThat(html, containsString("<span class=\"pipeline-new-node\" nodeId=\"14\" enclosingId=\"2\" label=\"not &quot;blocky&quot;\">[Pipeline] stage"));
     }
 
 }
