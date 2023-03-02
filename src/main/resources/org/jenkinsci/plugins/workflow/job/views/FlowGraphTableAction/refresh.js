@@ -1,0 +1,1 @@
+refreshPart('nodeGraph','./flowGraph/ajax');
