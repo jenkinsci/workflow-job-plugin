@@ -11,6 +11,7 @@ import org.jvnet.hudson.test.MemoryAssert;
 
 import java.lang.ref.WeakReference;
 import java.util.logging.Level;
+import org.junit.AssumptionViolatedException;
 
 /**
  *  Verifies we do proper garbage collection of memory
@@ -32,6 +33,14 @@ public class MemoryCleanupTest {
         b1.delete();
         b1 = null;
         r.jenkins.getQueue().clearLeftItems(); // so we do not need to wait 5m
-        MemoryAssert.assertGC(b1r, false);
+        try {
+            MemoryAssert.assertGC(b1r, false);
+        } catch (NoClassDefFoundError x) {
+            if ("org/netbeans/insane/hook/MakeAccessible".equals(x.getMessage())) {
+                throw new AssumptionViolatedException("TODO https://github.com/jenkinsci/bom/issues/1551", x);
+            } else {
+                throw x;
+            }
+        }
     }
 }
