@@ -24,6 +24,7 @@
 
 package org.jenkinsci.plugins.workflow.job;
 
+import static org.hamcrest.collection.IsEmptyCollection.empty;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.notNullValue;
@@ -36,6 +37,8 @@ import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
 
+import com.gargoylesoftware.htmlunit.AlertHandler;
+import com.gargoylesoftware.htmlunit.Page;
 import com.gargoylesoftware.htmlunit.WebResponse;
 import edu.umd.cs.findbugs.annotations.NonNull;
 import hudson.AbortException;
@@ -83,6 +86,7 @@ import org.jenkinsci.plugins.workflow.flow.FlowExecution;
 import org.jenkinsci.plugins.workflow.graph.FlowGraphWalker;
 import org.jenkinsci.plugins.workflow.graph.FlowNode;
 import org.jenkinsci.plugins.workflow.graph.StepNode;
+import org.jenkinsci.plugins.workflow.job.properties.DisableConcurrentBuildsJobProperty;
 import org.jenkinsci.plugins.workflow.support.actions.EnvironmentAction;
 import org.jenkinsci.plugins.workflow.test.steps.SemaphoreStep;
 import org.junit.ClassRule;
@@ -95,6 +99,7 @@ import org.jvnet.hudson.test.JenkinsRule;
 import org.jvnet.hudson.test.LoggerRule;
 import org.jvnet.hudson.test.MockAuthorizationStrategy;
 import org.jvnet.hudson.test.MockQueueItemAuthenticator;
+import org.jvnet.hudson.test.TestExtension;
 import org.xml.sax.SAXException;
 
 public class WorkflowRunTest {
@@ -567,6 +572,74 @@ public class WorkflowRunTest {
         //Both have their baselines wiped
         assertPollingBaselines(b3.checkouts(listener), nullValue(), nullValue());
     }
+
+    // This test is to ensure that the shortDescription on the CancelCause is escaped properly on summary.jelly
+    @Issue("SECURITY-3042")
+    @Test public void escapedDisplayNameAfterAbort() throws Exception {
+
+        // Create a new workflow job that disables concurrent builds
+        WorkflowJob p = r.jenkins.createProject(WorkflowJob.class, "myJob");
+        DisableConcurrentBuildsJobProperty jobProp = new DisableConcurrentBuildsJobProperty();
+        jobProp.setAbortPrevious(true);
+        p.addProperty(jobProp);
+
+        // Set the definition of the job to be a semaphore step which hangs
+        p.setDefinition(new CpsFlowDefinition("semaphore 'hang'", false));
+
+        // Schedule a new build of the job and wait for it to start
+        WorkflowRun b1 = p.scheduleBuild2(0).waitForStart();
+        SemaphoreStep.waitForStart("hang/1", b1);
+
+        // Schedule another new build of the job and wait for it to start
+        WorkflowRun b2 = p.scheduleBuild2(0).waitForStart();
+        b2.save();
+        SemaphoreStep.waitForStart("hang/2", b2);
+
+        // Check that the first build has been aborted with a status of 'NOT_BUILT'
+        r.assertBuildStatus(Result.NOT_BUILT, r.waitForCompletion(b1));
+
+        // Kill the second build, then delete it and check it has been deleted
+        b2.doKill();
+        b2.delete();
+        assertEquals(p.getBuilds().size(), 1);
+
+        // Mock an HTML page and go to the job page
+        JenkinsRule.WebClient webClient = r.createWebClient();
+
+        // Create an alert handler to check for any alerts
+        Alerter alerter = new Alerter();
+        webClient.setAlertHandler(alerter);
+        webClient.goTo(b1.getUrl());
+
+        // Check that the alerter has not been triggered
+        webClient.waitForBackgroundJavaScript(2000);
+        assertThat(alerter.messages, empty());
+    }
+
+    // This class is used to check for any alerts that are triggered on a page
+    static class Alerter implements AlertHandler {
+        List<String> messages = Collections.synchronizedList(new ArrayList<>());
+        @Override
+        public void handleAlert(final Page page, final String message) {
+            messages.add(message);
+        }
+    }
+
+    // This class is used to set the display name of a run to be a javascript alert box when a run is initialized
+    @TestExtension("escapedDisplayNameAfterAbort")
+    public static class XSSRunListener extends RunListener<Run> {
+
+        @Override
+        public void onInitialize(Run run) {
+            try {
+                run.setDisplayName("<script> alert(\"Hello! I am an alert box!\");</script>");
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+
+    }
+
 
     @SafeVarargs
     private static void assertPollingBaselines(List<WorkflowRun.SCMCheckout> checkouts, Matcher<Object>... indexedMatchers) {

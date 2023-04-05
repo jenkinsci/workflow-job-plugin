@@ -31,7 +31,7 @@ THE SOFTWARE.
             Superseded by <a class="model-link inside" href="${rootURL}/${newerBuild.url}/">${newerBuild.displayName}</a>
         </j:when>
         <j:otherwise>
-            <j:out value="${it.shortDescription}"/>
+           ${it.shortDescription}
         </j:otherwise>
     </j:choose>
 </j:jelly>
