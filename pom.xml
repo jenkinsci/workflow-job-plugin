@@ -64,7 +64,7 @@
     <properties>
         <changelist>999999-SNAPSHOT</changelist>
         <jenkins.version>2.405-SNAPSHOT</jenkins.version> <!-- TODO https://github.com/jenkinsci/jenkins/pull/7998 -->
-        <jenkins-test-harness.version>999999-SNAPSHOT</jenkins-test-harness.version> <!-- TODO https://github.com/jenkinsci/jenkins-test-harness/pull/583 -->
+        <jenkins-test-harness.version>1974.vdb_9fed2667e3</jenkins-test-harness.version> <!-- TODO https://github.com/jenkinsci/jenkins-test-harness/pull/583 -->
         <no-test-jar>false</no-test-jar>
         <useBeta>true</useBeta>
         <hpi.compatibleSinceVersion>2.26</hpi.compatibleSinceVersion>
