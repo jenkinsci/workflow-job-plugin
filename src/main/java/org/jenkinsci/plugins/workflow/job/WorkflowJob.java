@@ -250,6 +250,10 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements L
         return buildMixIn.getNearestOldBuild(n);
     }
 
+    @Override protected List<WorkflowRun> getEstimatedDurationCandidates() {
+        return buildMixIn.getEstimatedDurationCandidates();
+    }
+
     @Override protected HistoryWidget createHistoryWidget() {
         return buildMixIn.createHistoryWidget();
     }
@@ -303,7 +307,7 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements L
     }
 
     @Override public CauseOfBlockage getCauseOfBlockage() {
-        if (isLogUpdated() && !isConcurrentBuild()) {
+        if (!isConcurrentBuild() && isLogUpdated()) {
             WorkflowRun lastBuild = getLastBuild();
             if (lastBuild != null) {
                 return new BlockedBecauseOfBuildInProgress(lastBuild);
