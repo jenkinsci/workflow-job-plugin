@@ -24,8 +24,10 @@
 
 package org.jenkinsci.plugins.workflow.job;
 
+import static org.awaitility.Awaitility.await;
 import static org.hamcrest.collection.IsEmptyCollection.empty;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.notNullValue;
 import static org.hamcrest.Matchers.nullValue;
@@ -43,6 +45,8 @@ import com.gargoylesoftware.htmlunit.WebResponse;
 import edu.umd.cs.findbugs.annotations.NonNull;
 import hudson.AbortException;
 import hudson.Extension;
+import hudson.ExtensionList;
+import hudson.XmlFile;
 import hudson.model.*;
 import hudson.model.listeners.RunListener;
 import hudson.model.queue.QueueTaskFuture;
@@ -62,7 +66,9 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.concurrent.TimeUnit;
@@ -503,6 +509,27 @@ public class WorkflowRunTest {
         assertEquals("value", b.getAction(EnvironmentAction.class).getEnvironment().get("KEY"));
         assertFalse(logging.getRecords().stream().findAny().isPresent());
         assertFalse(b.isLogUpdated());
+    }
+
+    @Test public void completedFlag() throws Exception {
+        WorkflowJob p = r.createProject(WorkflowJob.class, "p");
+        p.setDefinition(new CpsFlowDefinition("echo 'body irrelevant'", true));
+        WorkflowRun b = r.buildAndAssertSuccess(p);
+        // FutureImpl.get returns as soon as WorkflowRun.save calls AsynchronousExecution.completed;
+        // onFinalized is fired from onEndBuilding shortly thereafter, so wait for it.
+        assertThat(await().until(() -> ExtensionList.lookupSingleton(CheckCompletedFlag.class).buildXml.get(b.getExternalizableId()), notNullValue()),
+            containsString("<completed>true</completed>"));
+    }
+    @TestExtension public static final class CheckCompletedFlag extends RunListener<WorkflowRun> {
+        final Map<String, String> buildXml = new HashMap<>();
+        @Override public void onFinalized(WorkflowRun r) {
+            try {
+                buildXml.put(r.getExternalizableId(), new XmlFile(new File(r.getRootDir(), "build.xml")).asString());
+            } catch (IOException x) {
+                x.printStackTrace();
+                assert false : x;
+            }
+        }
     }
 
     @Test public void getScms() throws Exception {

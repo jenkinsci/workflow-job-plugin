@@ -452,7 +452,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
                     modified = true;
                 }
                 if (modified) {
-                    saveWithoutFailing();
+                    saveWithoutFailing(true);
                 }
                 return;
             }
@@ -651,8 +651,9 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
                         LOGGER.log(Level.WARNING, "could not close build log for " + this, x);
                     }
                 }
+                listener = null;
             }
-            saveWithoutFailing(); // TODO useless if we are inside a BulkChange
+            saveWithoutFailing(true);
             Timer.get().submit(() -> {
                 try {
                     getParent().logRotate();
@@ -663,7 +664,6 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
             onEndBuilding();
         } finally {  // Ensure this is ALWAYS removed from FlowExecutionList
             FlowExecutionList.get().unregister(new Owner(this));
-            listener = null;
         }
 
         try {
@@ -728,7 +728,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
                             }
                             setResult(finalResult);
                             fetchedExecution.removeListener(finishListener);
-                            saveWithoutFailing();
+                            saveWithoutFailing(true);
                         } else {
                             // Defer the normal listener to ensure onLoad can complete before finish() is called since that may
                             // need the build to be loaded and can result in loading loops otherwise.
@@ -748,7 +748,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
                     LOGGER.log(Level.WARNING, "Nulling out FlowExecution due to error in build " + this, x);
                     execution = null; // probably too broken to use
                     executionLoaded = true;
-                    saveWithoutFailing(); // Ensure we do not try to load again
+                    saveWithoutFailing(true); // Ensure we do not try to load again
                     return null;
                 }
             }
@@ -1065,7 +1065,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
                 finish(((FlowEndNode) node).getResult(), exec != null ? exec.getCauseOfFailure() : null);
             } else {
                 if (exec != null && exec.getDurabilityHint().isPersistWithEveryStep()) {
-                    saveWithoutFailing();
+                    saveWithoutFailing(false);
                 }
             }
         }
@@ -1215,8 +1215,15 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
     }
 
     /** Save the run but swallow and log any exception */
-    private void saveWithoutFailing() {
+    private void saveWithoutFailing(boolean flush) {
         try {
+            if (flush) {
+                BulkChange bc = BulkChange.current();
+                if (bc != null) {
+                    bc.commit();
+                    return;
+                }
+            }
             save();
         } catch (Exception x) {
             LOGGER.log(Level.WARNING, "Failed to save " + this, x);

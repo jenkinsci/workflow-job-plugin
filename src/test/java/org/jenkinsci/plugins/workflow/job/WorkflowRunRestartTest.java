@@ -118,7 +118,7 @@ public class WorkflowRunRestartTest {
 
     @Issue({"JENKINS-45585", "JENKINS-50784"})  // Verifies execution lazy-load
     @Test public void lazyLoadExecution() {
-        story.thenWithHardShutdown(r -> {
+        story.then(r -> {
             WorkflowJob p = r.jenkins.createProject(WorkflowJob.class, "p");
             p.addProperty(new DurabilityHintJobProperty(FlowDurabilityHint.MAX_SURVIVABILITY));
             p.setDefinition(new CpsFlowDefinition("echo 'dosomething'", true));
