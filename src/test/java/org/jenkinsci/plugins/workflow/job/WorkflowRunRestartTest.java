@@ -61,7 +61,8 @@ import org.junit.Rule;
 import org.junit.Test;
 import org.jvnet.hudson.test.BuildWatcher;
 import org.jvnet.hudson.test.Issue;
-import org.jvnet.hudson.test.RestartableJenkinsRule;
+import org.jvnet.hudson.test.JenkinsRule;
+import org.jvnet.hudson.test.JenkinsSessionRule;
 import org.jvnet.hudson.test.TestExtension;
 import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.DataBoundSetter;
@@ -69,10 +70,10 @@ import org.kohsuke.stapler.DataBoundSetter;
 public class WorkflowRunRestartTest {
 
     @ClassRule public static BuildWatcher buildWatcher = new BuildWatcher();
-    @Rule public RestartableJenkinsRule story = new RestartableJenkinsRule();
+    @Rule public JenkinsSessionRule story = new JenkinsSessionRule();
 
     @Issue("JENKINS-27299")
-    @Test public void disabled() {
+    @Test public void disabled() throws Throwable {
         story.then(r -> {
             WorkflowJob p = r.jenkins.createProject(WorkflowJob.class, "p");
             p.setDefinition(new CpsFlowDefinition("node {semaphore 'wait'}", true));
@@ -94,7 +95,7 @@ public class WorkflowRunRestartTest {
     }
 
     @Issue("JENKINS-33761")
-    @Test public void resumeDisabled() {
+    @Test public void resumeDisabled() throws Throwable  {
         story.then(r -> {
             WorkflowJob p = r.jenkins.createProject(WorkflowJob.class, "p");
             p.setDefinition(new CpsFlowDefinition("node {semaphore 'wait'}", true));
@@ -117,8 +118,8 @@ public class WorkflowRunRestartTest {
     }
 
     @Issue({"JENKINS-45585", "JENKINS-50784"})  // Verifies execution lazy-load
-    @Test public void lazyLoadExecution() {
-        story.thenWithHardShutdown(r -> {
+    @Test public void lazyLoadExecution() throws Throwable  {
+        story.then(r -> {
             WorkflowJob p = r.jenkins.createProject(WorkflowJob.class, "p");
             p.addProperty(new DurabilityHintJobProperty(FlowDurabilityHint.MAX_SURVIVABILITY));
             p.setDefinition(new CpsFlowDefinition("echo 'dosomething'", true));
@@ -160,7 +161,7 @@ public class WorkflowRunRestartTest {
     }
 
     @Issue("JENKINS-25550")
-    @Test public void hardKill() {
+    @Test public void hardKill() throws Throwable {
         story.then(r -> {
             WorkflowJob p = r.jenkins.createProject(WorkflowJob.class, "p");
             p.addProperty( new DurabilityHintJobProperty(FlowDurabilityHint.MAX_SURVIVABILITY));
@@ -191,7 +192,7 @@ public class WorkflowRunRestartTest {
     }
 
     @Issue("JENKINS-33721")
-    @Test public void termAndKillInSidePanel() {
+    @Test public void termAndKillInSidePanel() throws Throwable  {
         story.then(r -> {
             WorkflowJob p = r.jenkins.createProject(WorkflowJob.class, "p");
             p.setDefinition(new CpsFlowDefinition("def seq = 0; while (true) {try {zombie id: ++seq} catch (x) {echo(/ignoring $x/)}}", true));
@@ -203,16 +204,16 @@ public class WorkflowRunRestartTest {
             r.waitForMessage("[1] bwahaha FlowInterruptedException #1", b);
             ex.interrupt();
             r.waitForMessage("[1] bwahaha FlowInterruptedException #2", b);
-            assertFalse(hasTermOrKillLink(b, "term"));
-            assertFalse(hasTermOrKillLink(b, "kill"));
+            assertFalse(hasTermOrKillLink(r, b, "term"));
+            assertFalse(hasTermOrKillLink(r, b, "kill"));
             r.waitForMessage("Click here to forcibly terminate running steps", b);
-            assertTrue(hasTermOrKillLink(b, "term"));
-            assertFalse(hasTermOrKillLink(b, "kill"));
+            assertTrue(hasTermOrKillLink(r, b, "term"));
+            assertFalse(hasTermOrKillLink(r, b, "kill"));
             b.doTerm();
             r.waitForMessage("[2] undead", b);
             r.waitForMessage("Click here to forcibly kill entire build", b);
-            assertTrue(hasTermOrKillLink(b, "term"));
-            assertTrue(hasTermOrKillLink(b, "kill"));
+            assertTrue(hasTermOrKillLink(r, b, "term"));
+            assertTrue(hasTermOrKillLink(r, b, "kill"));
             b.doKill();
             r.waitForMessage("Hard kill!", b);
             r.waitForCompletion(b);
@@ -222,7 +223,7 @@ public class WorkflowRunRestartTest {
     }
 
     @Issue("JENKINS-46961")
-    @Test public void interruptedWhileStartingMaxSurvivability() {
+    @Test public void interruptedWhileStartingMaxSurvivability() throws Throwable  {
         story.then(r -> {
             Assume.assumeThat("import from LibraryDecorator will not resolve in PCT", r.jenkins.pluginManager.getPlugin("workflow-cps-global-lib"), nullValue());
             WorkflowJob p = r.createProject(WorkflowJob.class, "p");
@@ -247,7 +248,7 @@ public class WorkflowRunRestartTest {
     }
 
     @Issue("JENKINS-46961")
-    @Test public void interruptedWhileStartingPerformanceOptimized() {
+    @Test public void interruptedWhileStartingPerformanceOptimized() throws Throwable  {
         story.then(r -> {
             Assume.assumeThat("import from LibraryDecorator will not resolve in PCT", r.jenkins.pluginManager.getPlugin("workflow-cps-global-lib"), nullValue());
             WorkflowJob p = r.createProject(WorkflowJob.class, "p");
@@ -272,8 +273,8 @@ public class WorkflowRunRestartTest {
         });
     }
 
-    private boolean hasTermOrKillLink(WorkflowRun b, String termOrKill) throws Exception {
-        return !story.j.createWebClient().getPage(b)
+    private boolean hasTermOrKillLink(JenkinsRule r, WorkflowRun b, String termOrKill) throws Exception {
+        return !r.createWebClient().getPage(b)
                 .getByXPath("//a[@href = '#' and contains(@data-url, '/" + b.getUrl() + termOrKill + "')]").isEmpty();
     }
 
@@ -316,7 +317,7 @@ public class WorkflowRunRestartTest {
 
     @Issue("JENKINS-43055")
     @Test
-    public void flowExecutionListener() {
+    public void flowExecutionListener() throws Throwable  {
         story.then(r -> {
             WorkflowJob p = r.jenkins.createProject(WorkflowJob.class, "p");
             p.setDefinition(new CpsFlowDefinition("echo 'Running for listener'\n" +
