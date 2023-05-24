@@ -453,6 +453,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
                 }
                 if (modified) {
                     saveWithoutFailing(true);
+                    completeAsynchronousExecution();
                 }
                 return;
             }
@@ -600,6 +601,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
                     } catch (Exception ex) {
                         LOGGER.log(Level.WARNING, "Error while saving build to update completed flag "+this, ex);
                     }
+                    completeAsynchronousExecution();
                 }
             }
         } finally {  // Ensure the run is ALWAYS removed from loading even if something failed, so threads awaken.
@@ -671,6 +673,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
         } catch (IOException | InterruptedException x) {
             LOGGER.log(Level.WARNING, "failed to clean up stashes from " + this, x);
         }
+        completeAsynchronousExecution();
     }
 
     private void fireCompleted(){
@@ -729,6 +732,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
                             setResult(finalResult);
                             fetchedExecution.removeListener(finishListener);
                             saveWithoutFailing(true);
+                            completeAsynchronousExecution();
                         } else {
                             // Defer the normal listener to ensure onLoad can complete before finish() is called since that may
                             // need the build to be loaded and can result in loading loops otherwise.
@@ -1244,23 +1248,20 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
             isAtomic = hint.isAtomicWrite();
         }
 
-        boolean completeAsynchronousExecution = false;
-        try {
-            synchronized (this) {
-                completeAsynchronousExecution = Boolean.TRUE.equals(completed);
-                PipelineIOUtils.writeByXStream(this, loc, XSTREAM2, isAtomic);
-                SaveableListener.fireOnChange(this, file);
-            }
-        } finally {
-            if (completeAsynchronousExecution) {
-                Executor executor = getExecutor();
-                if (executor != null) {
-                    AsynchronousExecution asynchronousExecution = executor.getAsynchronousExecution();
-                    if (asynchronousExecution != null) {
-                        asynchronousExecution.completed(null);
-                    }
-                }
+        synchronized (this) {
+            PipelineIOUtils.writeByXStream(this, loc, XSTREAM2, isAtomic);
+            SaveableListener.fireOnChange(this, file);
+        }
+    }
+
+    private void completeAsynchronousExecution() {
+        Executor executor = getExecutor();
+        if (executor != null) {
+            AsynchronousExecution asynchronousExecution = executor.getAsynchronousExecution();
+            if (asynchronousExecution != null) {
+                asynchronousExecution.completed(null);
             }
         }
     }
+
 }
