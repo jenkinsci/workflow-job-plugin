@@ -646,6 +646,11 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
                 RunListener.fireCompleted(WorkflowRun.this, myListener);
                 fireCompleted();
                 myListener.finished(getResult());
+                try {
+                    StashManager.maybeClearAll(this, myListener);
+                } catch (IOException | InterruptedException x) {
+                    Functions.printStackTrace(x, myListener.error("Failed to clean up stashes"));
+                }
                 if (myListener instanceof AutoCloseable) {
                     try {
                         ((AutoCloseable) myListener).close();
@@ -666,12 +671,6 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
             onEndBuilding();
         } finally {  // Ensure this is ALWAYS removed from FlowExecutionList
             FlowExecutionList.get().unregister(new Owner(this));
-        }
-
-        try {
-            StashManager.maybeClearAll(this, /* or move up before closing getListener()? */new LogTaskListener(LOGGER, Level.FINE));
-        } catch (IOException | InterruptedException x) {
-            LOGGER.log(Level.WARNING, "failed to clean up stashes from " + this, x);
         }
         completeAsynchronousExecution();
     }
