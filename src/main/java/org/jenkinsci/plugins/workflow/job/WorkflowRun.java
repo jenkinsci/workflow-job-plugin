@@ -671,8 +671,8 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
             onEndBuilding();
         } finally {  // Ensure this is ALWAYS removed from FlowExecutionList
             FlowExecutionList.get().unregister(new Owner(this));
+            completeAsynchronousExecution();
         }
-        completeAsynchronousExecution();
     }
 
     private void fireCompleted(){
