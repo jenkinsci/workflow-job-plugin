@@ -752,6 +752,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
                     execution = null; // probably too broken to use
                     executionLoaded = true;
                     saveWithoutFailing(true); // Ensure we do not try to load again
+                    completeAsynchronousExecution();
                     return null;
                 }
             }
