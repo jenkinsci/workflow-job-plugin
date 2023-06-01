@@ -64,6 +64,7 @@
     <properties>
         <changelist>999999-SNAPSHOT</changelist>
         <jenkins.version>2.361.4</jenkins.version>
+        <jenkins-test-harness.version>2006.vb_9c2a_61f0fd1</jenkins-test-harness.version> <!-- TODO until in parent -->
         <no-test-jar>false</no-test-jar>
         <useBeta>true</useBeta>
         <hpi.compatibleSinceVersion>2.26</hpi.compatibleSinceVersion>
