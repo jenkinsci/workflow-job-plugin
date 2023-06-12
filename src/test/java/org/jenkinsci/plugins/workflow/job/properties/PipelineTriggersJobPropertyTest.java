@@ -25,9 +25,9 @@
  */
 package org.jenkinsci.plugins.workflow.job.properties;
 
-import com.gargoylesoftware.htmlunit.HttpMethod;
-import com.gargoylesoftware.htmlunit.WebRequest;
-import com.gargoylesoftware.htmlunit.util.NameValuePair;
+import org.htmlunit.HttpMethod;
+import org.htmlunit.WebRequest;
+import org.htmlunit.util.NameValuePair;
 import hudson.model.Item;
 import hudson.model.Items;
 import hudson.triggers.TimerTrigger;
