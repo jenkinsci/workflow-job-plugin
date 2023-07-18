@@ -86,6 +86,8 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 import edu.umd.cs.findbugs.annotations.CheckForNull;
 import edu.umd.cs.findbugs.annotations.NonNull;
+import java.io.Closeable;
+import java.io.InterruptedIOException;
 import jenkins.model.CauseOfInterruption;
 import jenkins.model.Jenkins;
 import jenkins.model.lazy.BuildReference;
@@ -1080,7 +1082,23 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
      */
     private final class NodePrintListener implements GraphListener.Synchronous {
         @Override public void onNewHead(FlowNode node) {
-            NewNodeConsoleNote.print(node, getListener());
+            // TODO: Breaks show/hide links in the console because the line with the show/hide link gets hidden.
+            LogStorage storage = LogStorage.of(asFlowExecutionOwner());
+            try {
+                TaskListener listener = TaskListenerDecorator.apply(storage.nodeListener(node), asFlowExecutionOwner(), null);
+                try {
+                    NewNodeConsoleNote.print(node, listener);
+                } finally {
+                    if (listener instanceof Closeable) {
+                        ((Closeable) listener).close();
+                    }
+                }
+            } catch (InterruptedIOException | InterruptedException e) {
+                Thread.currentThread().interrupt();
+                LOGGER.log(Level.FINE, e, () -> "Unable to write NewNodeConsoleNote for node " + node.getId());
+            } catch (IOException e) {
+                LOGGER.log(Level.FINE, e, () -> "Unable to write NewNodeConsoleNote for node " + node.getId());
+            }
         }
     }
 

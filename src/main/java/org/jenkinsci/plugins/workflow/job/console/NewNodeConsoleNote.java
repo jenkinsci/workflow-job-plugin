@@ -60,7 +60,7 @@ import org.kohsuke.accmod.restrictions.NoExternalUse;
  * @see LogStorage#startStep
  */
 @Restricted(NoExternalUse.class)
-public class NewNodeConsoleNote extends ConsoleNote<WorkflowRun> {
+public class NewNodeConsoleNote extends ConsoleNote {
 
     private static final Logger LOGGER = Logger.getLogger(NewNodeConsoleNote.class.getName());
 
@@ -98,7 +98,7 @@ public class NewNodeConsoleNote extends ConsoleNote<WorkflowRun> {
     }
 
     @Override
-    public ConsoleAnnotator<?> annotate(WorkflowRun context, MarkupText text, int charPos) {
+    public ConsoleAnnotator<?> annotate(Object context, MarkupText text, int charPos) {
         try {
             StringBuilder startTag = startTagFor(context, id, start, enclosing);
             text.addMarkup(0, text.length(), startTag.toString(), "</span>");
@@ -109,7 +109,7 @@ public class NewNodeConsoleNote extends ConsoleNote<WorkflowRun> {
     }
 
     @Restricted(NoExternalUse.class)
-    public static StringBuilder startTagFor(@NonNull WorkflowRun context, @NonNull String id, @CheckForNull String start, @CheckForNull String enclosing) {
+    public static StringBuilder startTagFor(@NonNull Object context, @NonNull String id, @CheckForNull String start, @CheckForNull String enclosing) {
         StringBuilder startTag = new StringBuilder("<span class=\"pipeline-new-node\" nodeId=\"").append(id);
         if (start != null) {
             startTag.append("\" startId=\"").append(start);
@@ -117,7 +117,12 @@ public class NewNodeConsoleNote extends ConsoleNote<WorkflowRun> {
         if (enclosing != null) {
             startTag.append("\" enclosingId=\"").append(enclosing);
         }
-        FlowExecution execution = context.getExecution();
+        FlowExecution execution = null;
+        if (context instanceof WorkflowRun) {
+            execution = ((WorkflowRun) context).getExecution();
+        } else if (context instanceof FlowNode) {
+            execution = ((FlowNode) context).getExecution();
+        }
         if (execution != null) {
             try {
                 FlowNode node = execution.getNode(id);

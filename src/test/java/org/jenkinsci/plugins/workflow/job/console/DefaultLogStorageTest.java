@@ -99,7 +99,7 @@ public class DefaultLogStorageTest {
         assertLogContains(page, hudson.model.Messages.Cause_UserIdCause_ShortDescription(alice.getDisplayName()), alice.getUrl());
         assertLogContains(page, "Running inside " + b.getDisplayName(), b.getUrl());
         assertThat(page.getWebResponse().getContentAsString().replace("\r\n", "\n"),
-            containsString("<span class=\"pipeline-new-node\" nodeId=\"3\" enclosingId=\"2\">[Pipeline] hyperlink\n</span><span class=\"pipeline-node-3\">Running inside <a href="));
+            containsString("<span class=\"pipeline-node-3\"><span class=\"pipeline-new-node\" nodeId=\"3\" enclosingId=\"2\">[Pipeline] hyperlink\n</span>Running inside <a href="));
         DepthFirstScanner scanner = new DepthFirstScanner();
         scanner.setup(b.getExecution().getCurrentHeads());
         List<FlowNode> nodes = Lists.newArrayList(scanner.filter(FlowScanningUtils.hasActionPredicate(LogAction.class)));
@@ -187,7 +187,8 @@ public class DefaultLogStorageTest {
         assertNotNull(la);
         baos = new ByteArrayOutputStream();
         la.getLogText().writeRawLogTo(0, baos);
-        assertThat(baos.toString(), not(containsString("Pipeline")));
+        assertThat(baos.toString(), not(containsString("[Pipeline] Start of Pipeline")));
+        assertThat(baos.toString(), containsString("[Pipeline] echo"));
         // Whole-build:
         sw = new StringWriter();
         start = System.nanoTime();
@@ -226,7 +227,7 @@ public class DefaultLogStorageTest {
         start = System.nanoTime();
         length = la.getLogText().length();
         System.out.printf("Took %dms to compute length of one short node%n", (System.nanoTime() - start) / 1000 / 1000);
-        assertThat(length, lessThan(50L));
+        assertThat(length, lessThan(350L));
     }
 
     @Ignore("Currently not asserting anything, just here for interactive evaluation.")

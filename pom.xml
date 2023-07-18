@@ -92,6 +92,7 @@
         <dependency>
             <groupId>org.jenkins-ci.plugins.workflow</groupId>
             <artifactId>workflow-api</artifactId>
+            <version>1236.vb_763772ecd87</version> <!-- TODO: https://github.com/jenkinsci/workflow-api-plugin/pull/296 -->
         </dependency>
         <dependency>
             <groupId>org.jenkins-ci.plugins.workflow</groupId>
