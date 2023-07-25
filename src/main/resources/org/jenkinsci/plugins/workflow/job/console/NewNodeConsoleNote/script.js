@@ -66,18 +66,35 @@ function showHidePipelineSection(link) {
         link.textContent = 'hide'
         link.parentNode.className = 'pipeline-show-hide'
     }
-    var showHide = function(id, display) {
+    var showHide = function(id, display, isClickedElement) {
         var sect = '.pipeline-node-' + id
         var ss = document.styleSheets[0]
+        var foundCssRule = false;
         for (var i = 0; i < ss.cssRules.length; i++) {
             if (ss.cssRules[i].selectorText === sect) {
                 ss.cssRules[i].style.display = display
-                return
+                foundCssRule = true;
+                break;
             }
         }
-        ss.insertRule(sect + ' {display: ' + display + '}', ss.cssRules.length)
+        if (!foundCssRule) {
+            ss.insertRule(sect + ' {display: ' + display + '}', ss.cssRules.length);
+        }
+        if (isClickedElement) {
+            // We have to move the console note with the show/hide link that got clicked outside of the section for the
+            // node before we hide it, otherwise the show link will be hidden.
+            var sectNode = document.querySelector(sect);
+            if (sectNode) {
+                var spanNode = document.querySelector('.pipeline-new-node[nodeId=\'' + id + '\']');
+                if (display === 'none') {
+                    sectNode.insertAdjacentElement('beforebegin', spanNode);
+                } else {
+                    sectNode.insertAdjacentElement('afterbegin', spanNode);
+                }
+            }
+        }
     }
-    showHide(id, display)
+    showHide(id, display, true);
     if (span.getAttribute('startId') != null) {
         // For a block node, look up other pipeline-new-node elements parented to this (transitively) and mask them and their text too.
         var nodes = document.querySelectorAll('.pipeline-new-node')
@@ -110,14 +127,14 @@ function showHidePipelineSection(link) {
         for (var i = 0; i < ids.length; i++) {
             var oid = ids[i]
             if (oid != id && encloses(id, oid, starts, enclosings)) {
-                showHide(oid, display)
-                var headers = document.querySelectorAll('.pipeline-new-node[nodeId=' + oid + ']');
+                showHide(oid, display, false);
+                var headers = document.querySelectorAll('.pipeline-new-node[nodeId=\'' + oid + '\']');
                 for (var j = 0; j < headers.length; j++) {
                     headers[j].style.display = display;
                 }
                 if (display === 'inline') {
                     // Mark all children as shown. TODO would be nicer to leave them collapsed if they were before, but this gets complicated.
-                    var links = document.querySelectorAll('.pipeline-new-node[nodeId=' + oid + '] span a');
+                    var links = document.querySelectorAll('.pipeline-new-node[nodeId=\'' + oid + '\'] span a');
                     for (var j = 0; j < links.length; j++) {
                         links[j].textContent = 'hide';
                         links[j].parentNode.className = 'pipeline-show-hide';
