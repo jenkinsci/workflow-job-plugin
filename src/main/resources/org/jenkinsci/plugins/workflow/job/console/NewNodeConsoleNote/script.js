@@ -111,13 +111,13 @@ function showHidePipelineSection(link) {
             var oid = ids[i]
             if (oid != id && encloses(id, oid, starts, enclosings)) {
                 showHide(oid, display)
-                var headers = document.querySelectorAll('.pipeline-new-node[nodeId=' + oid + ']');
+                var headers = document.querySelectorAll('.pipeline-new-node[nodeId=\"' + oid + '\"]');
                 for (var j = 0; j < headers.length; j++) {
                     headers[j].style.display = display;
                 }
                 if (display === 'inline') {
                     // Mark all children as shown. TODO would be nicer to leave them collapsed if they were before, but this gets complicated.
-                    var links = document.querySelectorAll('.pipeline-new-node[nodeId=' + oid + '] span a');
+                    var links = document.querySelectorAll('.pipeline-new-node[nodeId=\"' + oid + '\"] span a');
                     for (var j = 0; j < links.length; j++) {
                         links[j].textContent = 'hide';
                         links[j].parentNode.className = 'pipeline-show-hide';
