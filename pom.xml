@@ -63,7 +63,7 @@
     </pluginRepositories>
     <properties>
         <changelist>999999-SNAPSHOT</changelist>
-        <jenkins.version>2.361.4</jenkins.version>
+        <jenkins.version>2.418-rc34070.e1b_938b_3d266</jenkins.version> <!-- TODO: https://github.com/jenkinsci/jenkins/pull/8321 -->
         <no-test-jar>false</no-test-jar>
         <useBeta>true</useBeta>
         <hpi.compatibleSinceVersion>2.26</hpi.compatibleSinceVersion>
@@ -73,8 +73,8 @@
         <dependencies>
             <dependency>
                 <groupId>io.jenkins.tools.bom</groupId>
-                <artifactId>bom-2.361.x</artifactId>
-                <version>1948.veb_1fd345d3a_e</version>
+                <artifactId>bom-2.414.x</artifactId>
+                <version>2278.v47b_4508e256a</version>
                 <scope>import</scope>
                 <type>pom</type>
             </dependency>

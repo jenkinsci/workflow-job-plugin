@@ -32,11 +32,11 @@
             <l:task icon="symbol-code-slash-outline plugin-ionicons-api" href="${buildUrl.baseUrl}/changes" title="${%Changes}"/>
             <j:choose> <!-- TODO <p:console-link/> may not currently be used as it calls getLogFile -->
                 <j:when test="${it.logText.length() > 200000}">
-                    <l:task href="${buildUrl.baseUrl}/console" icon="symbol-terminal-outline plugin-ionicons-api" title="${%Console Output}"/>
+                    <l:task href="${h.getConsoleUrl(it)}" icon="symbol-terminal-outline plugin-ionicons-api" title="${%Console Output}"/>
                     <l:task href="${buildUrl.baseUrl}/consoleText" icon="symbol-document-text-outline plugin-ionicons-api" title="${%View as plain text}"/>
                 </j:when>
                 <j:otherwise>
-                    <l:task icon="symbol-terminal-outline plugin-ionicons-api" href="${buildUrl.baseUrl}/console" title="${%Console Output}">
+                    <l:task icon="symbol-terminal-outline plugin-ionicons-api" href="${h.getConsoleUrl(it)}" title="${%Console Output}">
                         <l:task href="${buildUrl.baseUrl}/consoleText" icon="symbol-document-text-outline plugin-ionicons-api" title="${%View as plain text}"/>
                     </l:task>
                 </j:otherwise>
