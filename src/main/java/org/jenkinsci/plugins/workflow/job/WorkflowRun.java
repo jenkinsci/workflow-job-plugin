@@ -233,7 +233,6 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
                 return NULL_LISTENER;
             }
             try {
-                // TODO to better handle in-VM restart (e.g. in JenkinsRule), move CpsFlowExecution.suspendAll logic into a FlowExecution.notifyShutdown override, then make FlowExecutionOwner.notifyShutdown also overridable, which for WorkflowRun.Owner should listener.close() as needed
                 listener = TaskListenerDecorator.apply(LogStorage.of(asFlowExecutionOwner()).overallListener(), asFlowExecutionOwner(), null);
             } catch (IOException | InterruptedException x) {
                 LOGGER.log(Level.WARNING, "Error trying to open build log file for writing, output will be lost: " + this, x);
