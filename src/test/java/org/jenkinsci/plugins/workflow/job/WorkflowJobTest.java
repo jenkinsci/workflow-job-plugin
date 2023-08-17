@@ -23,6 +23,7 @@ import org.junit.Rule;
 import org.junit.Test;
 import org.jvnet.hudson.test.Issue;
 import org.jvnet.hudson.test.JenkinsRule;
+import org.jvnet.hudson.test.RunLoadCounter;
 
 public class WorkflowJobTest {
 
@@ -103,6 +104,21 @@ public class WorkflowJobTest {
         assertNull(p.scheduleBuild2(0));
         assertThat(new CLICommandInvoker(j, "enable-job").invokeWithArgs("p"), CLICommandInvoker.Matcher.succeededSilently());
         assertFalse(p.isDisabled());
+    }
+
+    @Test
+    public void newBuildsShouldNotLoadOld() throws Throwable {
+        var p = j.createProject(WorkflowJob.class, "p");
+        p.setDefinition(new CpsFlowDefinition("", true));
+        for (int i = 0; i < 10; i++) {
+            j.buildAndAssertSuccess(p);
+        }
+        RunLoadCounter.assertMaxLoads(p, /* just lastBuild */ 1, () -> {
+            for (int i = 0; i < 5; i++) {
+                j.buildAndAssertSuccess(p);
+            }
+            return null;
+        });
     }
 
 }
