@@ -6,7 +6,7 @@ Behaviour.specify("span.pipeline-new-node", 'NewNodeConsoleNote', 0, function(e)
     var label = e.getAttribute('label')
     if (label != null) {
         var html = e.innerHTML
-        var suffix = ' (' + label.escapeHTML() + ')';
+        var suffix = ' (' + label.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;") + ')';
         if (html.indexOf(suffix)<0) {
             e.innerHTML = e.innerHTML.replace(/.+/, '$&' + suffix) // insert before EOL
         }
@@ -20,14 +20,14 @@ Behaviour.specify("span.pipeline-new-node", 'NewNodeConsoleNote', 0, function(e)
     // The CSS rule for branch names only needs to be added once per node, so we
     // check in case we are viewing the truncated log and have already processed
     // a duplicate synthetic span element for this node.
-    var maybeDupeNodes = $$('[nodeid=\"'+nodeId+'\"].pipeline-new-node');
+    var maybeDupeNodes = document.querySelectorAll('[nodeid=\"'+nodeId+'\"].pipeline-new-node');
     for (var i = 0; i < maybeDupeNodes.length; i++) {
         var node = maybeDupeNodes[i];
         if (node !== e && node.processedNewNodeConsoleNote) {
             return;
         }
     }
-    var nodes = $$('.pipeline-new-node')
+    var nodes = document.querySelectorAll('.pipeline-new-node')
     var enclosings = new Map() // id → enclosingId
     var labels = new Map() // id → label
     for (var i = 0; i < nodes.length; i++) {
@@ -47,7 +47,7 @@ Behaviour.specify("span.pipeline-new-node", 'NewNodeConsoleNote', 0, function(e)
             var branch = label.substring(8)
             var ss = document.styleSheets[0]
             // TODO https://stackoverflow.com/a/18990994/12916 does not scale well to add width: 25em; text-align: right
-            ss.insertRule('.pipeline-node-' + nodeId + '::before {content: "[' + branch.escapeHTML() + '] "; color: #9A9999; position: absolute; transform: translateX(-100%)}', ss.cssRules == null ? 0 : ss.cssRules.length)
+            ss.insertRule('.pipeline-node-' + nodeId + '::before {content: "[' + branch.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;") + '] "; color: #9A9999; position: absolute; transform: translateX(-100%)}', ss.cssRules == null ? 0 : ss.cssRules.length)
             break
         }
     }
@@ -80,7 +80,7 @@ function showHidePipelineSection(link) {
     showHide(id, display)
     if (span.getAttribute('startId') != null) {
         // For a block node, look up other pipeline-new-node elements parented to this (transitively) and mask them and their text too.
-        var nodes = $$('.pipeline-new-node')
+        var nodes = document.querySelectorAll('.pipeline-new-node')
         var ids = []
         var starts = new Map()
         var enclosings = new Map() // id → enclosingId
@@ -111,13 +111,13 @@ function showHidePipelineSection(link) {
             var oid = ids[i]
             if (oid != id && encloses(id, oid, starts, enclosings)) {
                 showHide(oid, display)
-                var headers = $$('.pipeline-new-node[nodeId=' + oid + ']');
+                var headers = document.querySelectorAll('.pipeline-new-node[nodeId=\"' + oid + '\"]');
                 for (var j = 0; j < headers.length; j++) {
                     headers[j].style.display = display;
                 }
                 if (display === 'inline') {
                     // Mark all children as shown. TODO would be nicer to leave them collapsed if they were before, but this gets complicated.
-                    var links = $$('.pipeline-new-node[nodeId=' + oid + '] span a');
+                    var links = document.querySelectorAll('.pipeline-new-node[nodeId=\"' + oid + '\"] span a');
                     for (var j = 0; j < links.length; j++) {
                         links[j].textContent = 'hide';
                         links[j].parentNode.className = 'pipeline-show-hide';
