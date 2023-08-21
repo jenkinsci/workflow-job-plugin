@@ -46,6 +46,7 @@ import org.jenkinsci.plugins.workflow.graph.FlowNode;
 import org.jenkinsci.plugins.workflow.job.WorkflowRun;
 import org.jenkinsci.plugins.workflow.log.LogStorage;
 import org.kohsuke.accmod.Restricted;
+import org.kohsuke.accmod.restrictions.Beta;
 import org.kohsuke.accmod.restrictions.NoExternalUse;
 
 /**
@@ -59,7 +60,7 @@ import org.kohsuke.accmod.restrictions.NoExternalUse;
  * </ul>
  * @see LogStorage#startStep
  */
-@Restricted(NoExternalUse.class)
+@Restricted(Beta.class)
 public class NewNodeConsoleNote extends ConsoleNote<WorkflowRun> {
 
     private static final Logger LOGGER = Logger.getLogger(NewNodeConsoleNote.class.getName());
