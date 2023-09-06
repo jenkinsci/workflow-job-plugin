@@ -104,7 +104,7 @@ public class NewNodeConsoleNote extends ConsoleNote<WorkflowRun> {
             StringBuilder startTag = startTagFor(context, id, start, enclosing);
             text.addMarkup(0, text.length(), startTag.toString(), "</span>");
         } catch (RuntimeException x) {
-            LOGGER.log(Level.WARNING, null, x);
+            LOGGER.log(Level.WARNING, "problem in " + context, x);
         }
         return null;
     }
@@ -131,7 +131,7 @@ public class NewNodeConsoleNote extends ConsoleNote<WorkflowRun> {
                     }
                 }
             } catch (IOException x) {
-                Logger.getLogger(NewNodeConsoleNote.class.getName()).log(Level.WARNING, null, x);
+                LOGGER.log(Level.FINE, "unloadable " + context, x);
             }
         }
         startTag.append("\">");
