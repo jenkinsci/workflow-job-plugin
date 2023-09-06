@@ -131,7 +131,7 @@ public class NewNodeConsoleNote extends ConsoleNote<WorkflowRun> {
                     }
                 }
             } catch (IOException x) {
-                LOGGER.log(Level.FINE, "unloadable " + context, x);
+                LOGGER.log(Level.FINE, x, () -> "unloadable " + context);
             }
         }
         startTag.append("\">");
