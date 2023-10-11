@@ -382,14 +382,6 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements L
         return acl;
     }
 
-    @Override public void checkAbortPermission() {
-        checkPermission(CANCEL);
-    }
-
-    @Override public boolean hasAbortPermission() {
-        return hasPermission(CANCEL);
-    }
-
     /**
      * @deprecated Just use {@link #CANCEL}.
      */
