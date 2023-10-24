@@ -306,6 +306,18 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements L
         save();
     }
 
+    @Exported
+    @Override
+    public boolean isInQueue() {
+        return Jenkins.get().getQueue().contains(this);
+    }
+
+    @Exported
+    @Override
+    public Queue.Item getQueueItem() {
+        return Jenkins.get().getQueue().getItem(this);
+    }
+
     @Override public CauseOfBlockage getCauseOfBlockage() {
         if (!isConcurrentBuild() && isLogUpdated()) {
             WorkflowRun lastBuild = getLastBuild();
