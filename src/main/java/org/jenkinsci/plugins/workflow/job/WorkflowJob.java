@@ -306,6 +306,18 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements L
         save();
     }
 
+    @Exported
+    @Override
+    public boolean isInQueue() {
+        return Jenkins.get().getQueue().contains(this);
+    }
+
+    @Exported
+    @Override
+    public Queue.Item getQueueItem() {
+        return Jenkins.get().getQueue().getItem(this);
+    }
+
     @Override public CauseOfBlockage getCauseOfBlockage() {
         if (!isConcurrentBuild() && isLogUpdated()) {
             WorkflowRun lastBuild = getLastBuild();
@@ -380,14 +392,6 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements L
             }
         }
         return acl;
-    }
-
-    @Override public void checkAbortPermission() {
-        checkPermission(CANCEL);
-    }
-
-    @Override public boolean hasAbortPermission() {
-        return hasPermission(CANCEL);
     }
 
     /**
@@ -656,7 +660,8 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements L
     }
 
     @Override protected void performDelete() throws IOException, InterruptedException {
-        makeDisabled(true);
+        setDisabled(true);
+        Jenkins.get().getQueue().cancel(this);
         // TODO call SCM.processWorkspaceBeforeDeletion
         super.performDelete();
     }
