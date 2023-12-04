@@ -24,6 +24,8 @@
 
 package org.jenkinsci.plugins.workflow.job;
 
+import edu.umd.cs.findbugs.annotations.CheckForNull;
+import edu.umd.cs.findbugs.annotations.NonNull;
 import hudson.AbortException;
 import hudson.BulkChange;
 import hudson.Extension;
@@ -79,7 +81,6 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-import javax.annotation.CheckForNull;
 import javax.servlet.ServletException;
 import jenkins.model.BlockedBecauseOfBuildInProgress;
 import jenkins.model.Jenkins;
@@ -87,6 +88,7 @@ import jenkins.model.ParameterizedJobMixIn;
 import jenkins.model.lazy.LazyBuildMixIn;
 import jenkins.triggers.SCMTriggerItem;
 import net.sf.json.JSONObject;
+import org.jenkinsci.Symbol;
 import org.jenkinsci.plugins.workflow.flow.BlockableResume;
 import org.jenkinsci.plugins.workflow.flow.FlowDefinition;
 import org.jenkinsci.plugins.workflow.flow.FlowDefinitionDescriptor;
@@ -178,7 +180,7 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements L
     @Override protected void submit(StaplerRequest req, StaplerResponse rsp) throws IOException, ServletException, Descriptor.FormException {
         super.submit(req, rsp);
         JSONObject json = req.getSubmittedForm();
-        definition = req.bindJSON(FlowDefinition.class, json.getJSONObject("definition"));
+        definition = Descriptor.bindJSON(req, FlowDefinition.class, json.getJSONObject("definition"));
         authToken = hudson.model.BuildAuthorizationToken.create(req);
 
         if (req.getParameter("hasCustomQuietPeriod") != null) {
@@ -186,7 +188,7 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements L
         } else {
             quietPeriod = null;
         }
-        makeDisabled(json.optBoolean("disable"));
+        makeDisabled(!json.optBoolean("enable"));
         getTriggersJobProperty().stopTriggers();
         getTriggersJobProperty().startTriggers(Items.currentlyUpdatingByXml());
     }
@@ -248,6 +250,10 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements L
         return buildMixIn.getNearestOldBuild(n);
     }
 
+    @Override protected List<WorkflowRun> getEstimatedDurationCandidates() {
+        return buildMixIn.getEstimatedDurationCandidates();
+    }
+
     @Override protected HistoryWidget createHistoryWidget() {
         return buildMixIn.createHistoryWidget();
     }
@@ -300,8 +306,20 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements L
         save();
     }
 
+    @Exported
+    @Override
+    public boolean isInQueue() {
+        return Jenkins.get().getQueue().contains(this);
+    }
+
+    @Exported
+    @Override
+    public Queue.Item getQueueItem() {
+        return Jenkins.get().getQueue().getItem(this);
+    }
+
     @Override public CauseOfBlockage getCauseOfBlockage() {
-        if (isLogUpdated() && !isConcurrentBuild()) {
+        if (!isConcurrentBuild() && isLogUpdated()) {
             WorkflowRun lastBuild = getLastBuild();
             if (lastBuild != null) {
                 return new BlockedBecauseOfBuildInProgress(lastBuild);
@@ -312,7 +330,9 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements L
 
     @Exported
     @Override public boolean isConcurrentBuild() {
-        return getProperty(DisableConcurrentBuildsJobProperty.class) == null;
+        DisableConcurrentBuildsJobProperty p = getProperty(DisableConcurrentBuildsJobProperty.class);
+        // For purposes of the Jenkins queue, abortPrevious mode means that the new build must start concurrently with the old at least temporarily.
+        return p == null || p.isAbortPrevious();
     }
 
     @Exported
@@ -363,6 +383,7 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements L
         }
     }
 
+    @NonNull
     @Override public ACL getACL() {
         ACL acl = super.getACL();
         for (JobProperty<?> property : properties) {
@@ -371,14 +392,6 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements L
             }
         }
         return acl;
-    }
-
-    @Override public void checkAbortPermission() {
-        checkPermission(CANCEL);
-    }
-
-    @Override public boolean hasAbortPermission() {
-        return hasPermission(CANCEL);
     }
 
     /**
@@ -493,12 +506,12 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements L
     }
 
     @Override
-    public void addAction(Action a) {
+    public void addAction(@NonNull Action a) {
         super.getActions().add(a);
     }
 
     @Override
-    public void replaceAction(Action a) {
+    public void replaceAction(@NonNull Action a) {
         // CopyOnWriteArrayList does not support Iterator.remove, so need to do it this way:
         List<Action> old = new ArrayList<>(1);
         List<Action> current = super.getActions();
@@ -525,6 +538,7 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements L
         return null;
     }
 
+    @NonNull
     @Override public Collection<? extends SCM> getSCMs() {
         Collection<? extends SCM> definedSCMs = definition != null
             ? definition.getSCMs()
@@ -558,7 +572,8 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements L
         return typical;
     }
 
-    @Override public PollingResult poll(TaskListener listener) {
+    @NonNull
+    @Override public PollingResult poll(@NonNull TaskListener listener) {
         if (!isBuildable()) {
             listener.getLogger().println("Build disabled");
             return PollingResult.NO_CHANGES;
@@ -651,7 +666,8 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements L
     }
 
     @Override protected void performDelete() throws IOException, InterruptedException {
-        makeDisabled(true);
+        setDisabled(true);
+        Jenkins.get().getQueue().cancel(this);
         // TODO call SCM.processWorkspaceBeforeDeletion
         super.performDelete();
     }
@@ -662,8 +678,11 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements L
         WorkflowRun.alias();
     }
 
-    @Extension(ordinal=1) public static final class DescriptorImpl extends TopLevelItemDescriptor {
+    @Extension(ordinal=1)
+    @Symbol("pipeline")
+    public static final class DescriptorImpl extends TopLevelItemDescriptor {
 
+        @NonNull
         @Override public String getDisplayName() {
             return Messages.WorkflowJob_DisplayName();
         }
@@ -679,6 +698,7 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements L
          *
          * @return A string it represents a ItemCategory identifier.
          */
+        @NonNull
         @Override public String getCategoryId() {
             return "standalone-projects";
         }
@@ -688,6 +708,7 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements L
          *
          * @return A string with the Item description.
          */
+        @NonNull
         @Override public String getDescription() {
             return Messages.WorkflowJob_Description();
         }
@@ -698,7 +719,7 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements L
          * @return A string it represents a URL pattern to get the Item icon in different sizes.
          */
         @Override public String getIconFilePathPattern() {
-            return "plugin/workflow-job/images/:size/pipelinejob.png";
+            return "plugin/workflow-job/images/pipelinejob.svg";
         }
 
         /** TODO JENKINS-20020 can delete this in case {@code f:dropdownDescriptorSelector} defaults to applying {@code h.filterDescriptors} */

@@ -28,14 +28,16 @@ THE SOFTWARE.
     <l:layout title="${it.run.fullDisplayName} Running Steps">
         <st:include page="sidepanel.jelly" it="${it.run}"/>
         <l:main-panel>
-            <table class="pane bigtable">
+            <table class="jenkins-table">
                 <j:set var="columns" value="${it.columns}"/>
-                <tr>
-                    <th>${%Step}</th>
-                    <j:forEach var="column" items="${columns}">
-                        <st:include from="${column}" page="columnHeader"/>
-                    </j:forEach>
-                </tr>
+                <thead>
+                    <tr>
+                        <th>${%Step}</th>
+                        <j:forEach var="column" items="${columns}">
+                            <st:include from="${column}" page="columnHeader"/>
+                        </j:forEach>
+                    </tr>
+                </thead>
                 <j:forEach var="node" items="${it.nodes}">
                     <tr>
                         <td style="padding-left: ${row.treeDepth*20+5}px" tooltip="ID: ${node.id}">

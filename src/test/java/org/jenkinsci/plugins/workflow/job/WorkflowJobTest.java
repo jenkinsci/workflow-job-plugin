@@ -1,9 +1,16 @@
 package org.jenkinsci.plugins.workflow.job;
 
-import com.gargoylesoftware.htmlunit.HttpMethod;
-import com.gargoylesoftware.htmlunit.WebRequest;
-import com.gargoylesoftware.htmlunit.html.HtmlCheckBoxInput;
-import com.gargoylesoftware.htmlunit.html.HtmlForm;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
+
+import org.htmlunit.HttpMethod;
+import org.htmlunit.WebRequest;
+import org.htmlunit.html.HtmlCheckBoxInput;
+import org.htmlunit.html.HtmlForm;
 import hudson.cli.CLICommandInvoker;
 import hudson.model.Result;
 import hudson.plugins.git.GitSCM;
@@ -12,12 +19,11 @@ import hudson.triggers.SCMTrigger;
 import jenkins.plugins.git.GitSampleRepoRule;
 import org.jenkinsci.plugins.workflow.cps.CpsFlowDefinition;
 import org.jenkinsci.plugins.workflow.cps.CpsScmFlowDefinition;
-import static org.junit.Assert.*;
-import static org.hamcrest.MatcherAssert.assertThat;
 import org.junit.Rule;
 import org.junit.Test;
 import org.jvnet.hudson.test.Issue;
 import org.jvnet.hudson.test.JenkinsRule;
+import org.jvnet.hudson.test.RunLoadCounter;
 
 public class WorkflowJobTest {
 
@@ -114,9 +120,9 @@ public class WorkflowJobTest {
         assertTrue(p.isDisabled());
         assertFalse(p.isBuildable());
         HtmlForm form = wc.getPage(p, "configure").getFormByName("config");
-        HtmlCheckBoxInput checkbox = form.getInputByName("disable");
-        assertTrue(checkbox.isChecked());
-        checkbox.setChecked(false);
+        HtmlCheckBoxInput checkbox = form.getInputByName("enable");
+        assertFalse(checkbox.isChecked());
+        checkbox.setChecked(true);
         j.submit(form);
         assertFalse(p.isDisabled());
         wc.getPage(new WebRequest(wc.createCrumbedUrl(p.getUrl() + "disable"), HttpMethod.POST));
@@ -124,6 +130,21 @@ public class WorkflowJobTest {
         assertNull(p.scheduleBuild2(0));
         assertThat(new CLICommandInvoker(j, "enable-job").invokeWithArgs("p"), CLICommandInvoker.Matcher.succeededSilently());
         assertFalse(p.isDisabled());
+    }
+
+    @Test
+    public void newBuildsShouldNotLoadOld() throws Throwable {
+        var p = j.createProject(WorkflowJob.class, "p");
+        p.setDefinition(new CpsFlowDefinition("", true));
+        for (int i = 0; i < 10; i++) {
+            j.buildAndAssertSuccess(p);
+        }
+        RunLoadCounter.assertMaxLoads(p, /* just lastBuild */ 1, () -> {
+            for (int i = 0; i < 5; i++) {
+                j.buildAndAssertSuccess(p);
+            }
+            return null;
+        });
     }
 
 }

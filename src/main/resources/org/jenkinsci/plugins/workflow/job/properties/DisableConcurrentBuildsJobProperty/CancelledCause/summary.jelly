@@ -2,7 +2,7 @@
 <!--
 The MIT License
 
-Copyright 2014 Jesse Glick.
+Copyright 2021 CloudBees, Inc.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -24,14 +24,14 @@ THE SOFTWARE.
 -->
 
 <?jelly escape-by-default='true'?>
-<j:jelly xmlns:j="jelly:core" xmlns:st="jelly:stapler" xmlns:l="/lib/layout">
-    <l:layout title="${it.run.fullDisplayName} ${%Pipeline steps}">
-        <st:include page="sidepanel.jelly" it="${it.run}"/>
-        <l:main-panel>
-            <st:include it="${it.flowGraph}" page="ajax"/>
-            <j:if test="${it.run.building}">
-                <st:adjunct includes="org.jenkinsci.plugins.workflow.job.views.FlowGraphTableAction.refresh"/>
-            </j:if>
-        </l:main-panel>
-    </l:layout>
+<j:jelly xmlns:j="jelly:core">
+    <j:set var="newerBuild" value="${it.newerBuild}"/>
+    <j:choose>
+        <j:when test="${newerBuild != null}">
+            Superseded by <a class="model-link inside" href="${rootURL}/${newerBuild.url}/">${newerBuild.displayName}</a>
+        </j:when>
+        <j:otherwise>
+           ${it.shortDescription}
+        </j:otherwise>
+    </j:choose>
 </j:jelly>

@@ -24,9 +24,29 @@
 
 package org.jenkinsci.plugins.workflow.job;
 
-import com.gargoylesoftware.htmlunit.WebResponse;
+import static org.awaitility.Awaitility.await;
+import static org.hamcrest.collection.IsEmptyCollection.empty;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.notNullValue;
+import static org.hamcrest.Matchers.nullValue;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotEquals;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertSame;
+import static org.junit.Assert.assertTrue;
+
+import org.htmlunit.AlertHandler;
+import org.htmlunit.Page;
+import org.htmlunit.WebResponse;
+import edu.umd.cs.findbugs.annotations.NonNull;
 import hudson.AbortException;
 import hudson.Extension;
+import hudson.ExtensionList;
+import hudson.XmlFile;
 import hudson.model.*;
 import hudson.model.listeners.RunListener;
 import hudson.model.queue.QueueTaskFuture;
@@ -35,24 +55,24 @@ import hudson.scm.SCM;
 import hudson.security.ACL;
 import hudson.security.ACLContext;
 import hudson.security.Permission;
+import hudson.slaves.EnvironmentVariablesNodeProperty;
+import hudson.slaves.NodeProperty;
+import hudson.slaves.NodePropertyDescriptor;
+import hudson.util.DescribableList;
+import hudson.util.StreamTaskListener;
 import java.io.File;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.concurrent.TimeUnit;
-
-import hudson.slaves.EnvironmentVariablesNodeProperty;
-import hudson.slaves.NodeProperty;
-import hudson.slaves.NodePropertyDescriptor;
-import hudson.util.DescribableList;
 import java.util.logging.Level;
-
-import hudson.util.StreamTaskListener;
 import jenkins.model.CauseOfInterruption;
 import jenkins.model.InterruptedBuildAction;
 import jenkins.model.Jenkins;
@@ -61,7 +81,9 @@ import jenkins.security.QueueItemAuthenticatorConfiguration;
 import net.sf.json.JSONArray;
 import net.sf.json.JSONObject;
 import org.apache.commons.io.FileUtils;
-import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.io.IOUtils;
+import org.apache.commons.lang.StringUtils;
+import org.hamcrest.Matcher;
 import org.jenkinsci.plugins.scriptsecurity.scripts.ScriptApproval;
 import org.jenkinsci.plugins.workflow.cps.CpsFlowDefinition;
 import org.jenkinsci.plugins.workflow.cps.CpsFlowExecution;
@@ -70,12 +92,11 @@ import org.jenkinsci.plugins.workflow.flow.FlowExecution;
 import org.jenkinsci.plugins.workflow.graph.FlowGraphWalker;
 import org.jenkinsci.plugins.workflow.graph.FlowNode;
 import org.jenkinsci.plugins.workflow.graph.StepNode;
+import org.jenkinsci.plugins.workflow.job.properties.DisableConcurrentBuildsJobProperty;
+import org.jenkinsci.plugins.workflow.support.actions.EnvironmentAction;
 import org.jenkinsci.plugins.workflow.test.steps.SemaphoreStep;
-
-import static org.hamcrest.Matchers.*;
-import static org.junit.Assert.*;
-import static org.hamcrest.MatcherAssert.assertThat;
 import org.junit.ClassRule;
+import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
 import org.jvnet.hudson.test.BuildWatcher;
@@ -84,13 +105,8 @@ import org.jvnet.hudson.test.JenkinsRule;
 import org.jvnet.hudson.test.LoggerRule;
 import org.jvnet.hudson.test.MockAuthorizationStrategy;
 import org.jvnet.hudson.test.MockQueueItemAuthenticator;
+import org.jvnet.hudson.test.TestExtension;
 import org.xml.sax.SAXException;
-
-import javax.annotation.Nonnull;
-import org.apache.commons.io.IOUtils;
-import org.hamcrest.Matcher;
-import org.jenkinsci.plugins.workflow.support.actions.EnvironmentAction;
-import org.junit.Ignore;
 
 public class WorkflowRunTest {
 
@@ -147,7 +163,7 @@ public class WorkflowRunTest {
     public static final class DurationRunListener extends RunListener<Run<?, ?>> {
         static long duration = 0L;
         @Override
-        public void onCompleted(Run<?, ?> run, @Nonnull TaskListener listener) {
+        public void onCompleted(Run<?, ?> run, @NonNull TaskListener listener) {
             duration = run.getDuration();
         }
     }
@@ -495,6 +511,27 @@ public class WorkflowRunTest {
         assertFalse(b.isLogUpdated());
     }
 
+    @Test public void completedFlag() throws Exception {
+        WorkflowJob p = r.createProject(WorkflowJob.class, "p");
+        p.setDefinition(new CpsFlowDefinition("echo 'body irrelevant'", true));
+        WorkflowRun b = r.buildAndAssertSuccess(p);
+        // FutureImpl.get returns as soon as WorkflowRun.save calls AsynchronousExecution.completed;
+        // onFinalized is fired from onEndBuilding shortly thereafter, so wait for it.
+        assertThat(await().until(() -> ExtensionList.lookupSingleton(CheckCompletedFlag.class).buildXml.get(b.getExternalizableId()), notNullValue()),
+            containsString("<completed>true</completed>"));
+    }
+    @TestExtension public static final class CheckCompletedFlag extends RunListener<WorkflowRun> {
+        final Map<String, String> buildXml = new HashMap<>();
+        @Override public void onFinalized(WorkflowRun r) {
+            try {
+                buildXml.put(r.getExternalizableId(), new XmlFile(new File(r.getRootDir(), "build.xml")).asString());
+            } catch (IOException x) {
+                x.printStackTrace();
+                assert false : x;
+            }
+        }
+    }
+
     @Test public void getScms() throws Exception {
         sampleRepo.init();
         sampleRepo.write("Jenkinsfile", "echo 'hello'");
@@ -563,6 +600,74 @@ public class WorkflowRunTest {
         assertPollingBaselines(b3.checkouts(listener), nullValue(), nullValue());
     }
 
+    // This test is to ensure that the shortDescription on the CancelCause is escaped properly on summary.jelly
+    @Issue("SECURITY-3042")
+    @Test public void escapedDisplayNameAfterAbort() throws Exception {
+
+        // Create a new workflow job that disables concurrent builds
+        WorkflowJob p = r.jenkins.createProject(WorkflowJob.class, "myJob");
+        DisableConcurrentBuildsJobProperty jobProp = new DisableConcurrentBuildsJobProperty();
+        jobProp.setAbortPrevious(true);
+        p.addProperty(jobProp);
+
+        // Set the definition of the job to be a semaphore step which hangs
+        p.setDefinition(new CpsFlowDefinition("semaphore 'hang'", false));
+
+        // Schedule a new build of the job and wait for it to start
+        WorkflowRun b1 = p.scheduleBuild2(0).waitForStart();
+        SemaphoreStep.waitForStart("hang/1", b1);
+
+        // Schedule another new build of the job and wait for it to start
+        WorkflowRun b2 = p.scheduleBuild2(0).waitForStart();
+        b2.save();
+        SemaphoreStep.waitForStart("hang/2", b2);
+
+        // Check that the first build has been aborted with a status of 'NOT_BUILT'
+        r.assertBuildStatus(Result.NOT_BUILT, r.waitForCompletion(b1));
+
+        // Kill the second build, then delete it and check it has been deleted
+        b2.doKill();
+        b2.delete();
+        assertEquals(p.getBuilds().size(), 1);
+
+        // Mock an HTML page and go to the job page
+        JenkinsRule.WebClient webClient = r.createWebClient();
+
+        // Create an alert handler to check for any alerts
+        Alerter alerter = new Alerter();
+        webClient.setAlertHandler(alerter);
+        webClient.goTo(b1.getUrl());
+
+        // Check that the alerter has not been triggered
+        webClient.waitForBackgroundJavaScript(2000);
+        assertThat(alerter.messages, empty());
+    }
+
+    // This class is used to check for any alerts that are triggered on a page
+    static class Alerter implements AlertHandler {
+        List<String> messages = Collections.synchronizedList(new ArrayList<>());
+        @Override
+        public void handleAlert(final Page page, final String message) {
+            messages.add(message);
+        }
+    }
+
+    // This class is used to set the display name of a run to be a javascript alert box when a run is initialized
+    @TestExtension("escapedDisplayNameAfterAbort")
+    public static class XSSRunListener extends RunListener<Run> {
+
+        @Override
+        public void onInitialize(Run run) {
+            try {
+                run.setDisplayName("<script> alert(\"Hello! I am an alert box!\");</script>");
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+
+    }
+
+
     @SafeVarargs
     private static void assertPollingBaselines(List<WorkflowRun.SCMCheckout> checkouts, Matcher<Object>... indexedMatchers) {
         assertThat("Number of checkouts should match number of matchers", checkouts.size(), equalTo(indexedMatchers.length));
@@ -571,7 +676,7 @@ public class WorkflowRunTest {
         }
     }
 
-    private static String checkoutString(GitSampleRepoRule repo, boolean changelog, boolean polling) throws Exception {
+    private static String checkoutString(GitSampleRepoRule repo, boolean changelog, boolean polling) {
         return "    checkout(changelog:" + changelog +", poll:" + polling +
                 ", scm: [$class: 'GitSCM', branches: [[name: '*/master']], " +
                 ", userRemoteConfigs: [[url: $/" + repo.fileUrl() + "/$]]])\n";

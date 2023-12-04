@@ -24,6 +24,7 @@
 
 package org.jenkinsci.plugins.workflow.job.views;
 
+import edu.umd.cs.findbugs.annotations.NonNull;
 import hudson.Extension;
 import hudson.model.Action;
 import java.util.Collection;
@@ -41,7 +42,7 @@ public final class FlowGraphTableAction implements Action {
     }
 
     @Override public String getIconFileName() {
-        return "gear.png";
+        return "symbol-build-steps";
     }
 
     @Override public String getDisplayName() {
@@ -64,7 +65,8 @@ public final class FlowGraphTableAction implements Action {
             return WorkflowRun.class;
         }
 
-        @Override public Collection<? extends Action> createFor(WorkflowRun run) {
+        @NonNull
+        @Override public Collection<? extends Action> createFor(@NonNull WorkflowRun run) {
             return Collections.singleton(new FlowGraphTableAction(run));
         }
 
