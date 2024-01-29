@@ -540,16 +540,22 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements L
 
     @NonNull
     @Override public Collection<? extends SCM> getSCMs() {
+        Collection<? extends SCM> definedSCMs = definition != null
+            ? definition.getSCMs()
+            : Collections.emptySet();
         WorkflowRun b = getLastSuccessfulBuild();
         if (b == null) {
             b = getLastCompletedBuild();
         }
         if (b == null) {
-            return Collections.emptySet();
+            return definedSCMs;
         }
         Map<String,SCM> scms = new LinkedHashMap<>();
         for (WorkflowRun.SCMCheckout co : b.checkouts(null)) {
             scms.put(co.scm.getKey(), co.scm);
+        }
+        for (SCM scm : definedSCMs) {
+            scms.put(scm.getKey(), scm);
         }
         return scms.values();
     }
