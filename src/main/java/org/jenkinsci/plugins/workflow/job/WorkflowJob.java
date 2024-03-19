@@ -69,6 +69,7 @@ import hudson.triggers.Trigger;
 import hudson.triggers.TriggerDescriptor;
 import hudson.util.AlternativeUiTextProvider;
 import hudson.util.DescribableList;
+import hudson.util.FormValidation;
 import hudson.widgets.HistoryWidget;
 import java.io.File;
 import java.io.IOException;
@@ -98,12 +99,14 @@ import org.jenkinsci.plugins.workflow.job.properties.PipelineTriggersJobProperty
 import org.kohsuke.accmod.Restricted;
 import org.kohsuke.accmod.restrictions.DoNotUse;
 import org.kohsuke.accmod.restrictions.NoExternalUse;
+import org.kohsuke.stapler.AncestorInPath;
+import org.kohsuke.stapler.QueryParameter;
 import org.kohsuke.stapler.StaplerRequest;
 import org.kohsuke.stapler.StaplerResponse;
 import org.kohsuke.stapler.export.Exported;
 
 @SuppressWarnings({"unchecked", "rawtypes"})
-public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements LazyBuildMixIn.LazyLoadingJob<WorkflowJob,WorkflowRun>, ParameterizedJobMixIn.ParameterizedJob<WorkflowJob, WorkflowRun>, TopLevelItem, Queue.FlyweightTask, SCMTriggerItem, BlockableResume {
+public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements LazyBuildMixIn.LazyLoadingJob<WorkflowJob,WorkflowRun>, ParameterizedJobMixIn.ParameterizedJob<WorkflowJob, WorkflowRun>, TopLevelItem, Queue.FlyweightTask, SCMTriggerItem, BlockableResume, AbstractItemDescriptor {
 
     private static final Logger LOGGER = Logger.getLogger(WorkflowJob.class.getName());
 
@@ -192,7 +195,6 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements L
         getTriggersJobProperty().stopTriggers();
         getTriggersJobProperty().startTriggers(Items.currentlyUpdatingByXml());
     }
-
 
     @Override public void addProperty(JobProperty jobProp) throws IOException {
         super.addProperty(jobProp);
