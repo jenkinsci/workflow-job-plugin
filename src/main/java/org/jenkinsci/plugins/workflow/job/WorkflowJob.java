@@ -306,6 +306,18 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements L
         save();
     }
 
+    @Exported
+    @Override
+    public boolean isInQueue() {
+        return Jenkins.get().getQueue().contains(this);
+    }
+
+    @Exported
+    @Override
+    public Queue.Item getQueueItem() {
+        return Jenkins.get().getQueue().getItem(this);
+    }
+
     @Override public CauseOfBlockage getCauseOfBlockage() {
         if (!isConcurrentBuild() && isLogUpdated()) {
             WorkflowRun lastBuild = getLastBuild();
@@ -380,14 +392,6 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements L
             }
         }
         return acl;
-    }
-
-    @Override public void checkAbortPermission() {
-        checkPermission(CANCEL);
-    }
-
-    @Override public boolean hasAbortPermission() {
-        return hasPermission(CANCEL);
     }
 
     /**
@@ -536,16 +540,22 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements L
 
     @NonNull
     @Override public Collection<? extends SCM> getSCMs() {
+        Collection<? extends SCM> definedSCMs = definition != null
+            ? definition.getSCMs()
+            : Collections.emptySet();
         WorkflowRun b = getLastSuccessfulBuild();
         if (b == null) {
             b = getLastCompletedBuild();
         }
         if (b == null) {
-            return Collections.emptySet();
+            return definedSCMs;
         }
         Map<String,SCM> scms = new LinkedHashMap<>();
         for (WorkflowRun.SCMCheckout co : b.checkouts(null)) {
             scms.put(co.scm.getKey(), co.scm);
+        }
+        for (SCM scm : definedSCMs) {
+            scms.put(scm.getKey(), scm);
         }
         return scms.values();
     }
@@ -656,7 +666,8 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements L
     }
 
     @Override protected void performDelete() throws IOException, InterruptedException {
-        makeDisabled(true);
+        setDisabled(true);
+        Jenkins.get().getQueue().cancel(this);
         // TODO call SCM.processWorkspaceBeforeDeletion
         super.performDelete();
     }

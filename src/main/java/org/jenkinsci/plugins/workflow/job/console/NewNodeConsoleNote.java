@@ -46,6 +46,7 @@ import org.jenkinsci.plugins.workflow.graph.FlowNode;
 import org.jenkinsci.plugins.workflow.job.WorkflowRun;
 import org.jenkinsci.plugins.workflow.log.LogStorage;
 import org.kohsuke.accmod.Restricted;
+import org.kohsuke.accmod.restrictions.Beta;
 import org.kohsuke.accmod.restrictions.NoExternalUse;
 
 /**
@@ -59,7 +60,7 @@ import org.kohsuke.accmod.restrictions.NoExternalUse;
  * </ul>
  * @see LogStorage#startStep
  */
-@Restricted(NoExternalUse.class)
+@Restricted(Beta.class)
 public class NewNodeConsoleNote extends ConsoleNote<WorkflowRun> {
 
     private static final Logger LOGGER = Logger.getLogger(NewNodeConsoleNote.class.getName());
@@ -103,7 +104,7 @@ public class NewNodeConsoleNote extends ConsoleNote<WorkflowRun> {
             StringBuilder startTag = startTagFor(context, id, start, enclosing);
             text.addMarkup(0, text.length(), startTag.toString(), "</span>");
         } catch (RuntimeException x) {
-            LOGGER.log(Level.WARNING, null, x);
+            LOGGER.log(Level.WARNING, "problem in " + context, x);
         }
         return null;
     }
@@ -130,7 +131,7 @@ public class NewNodeConsoleNote extends ConsoleNote<WorkflowRun> {
                     }
                 }
             } catch (IOException x) {
-                Logger.getLogger(NewNodeConsoleNote.class.getName()).log(Level.WARNING, null, x);
+                LOGGER.log(Level.FINE, x, () -> "unloadable " + context);
             }
         }
         startTag.append("\">");
