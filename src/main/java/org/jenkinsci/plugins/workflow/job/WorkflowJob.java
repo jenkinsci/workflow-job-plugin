@@ -724,6 +724,11 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements L
             return "plugin/workflow-job/images/pipelinejob.svg";
         }
 
+        @Override
+        public String getIconClassName() {
+            return "symbol-pipeline plugin-workflow-job";
+        }
+
         /** TODO JENKINS-20020 can delete this in case {@code f:dropdownDescriptorSelector} defaults to applying {@code h.filterDescriptors} */
         @Restricted(DoNotUse.class) // Jelly
         public Collection<FlowDefinitionDescriptor> getDefinitionDescriptors(WorkflowJob context) {
