@@ -69,7 +69,6 @@ import hudson.triggers.Trigger;
 import hudson.triggers.TriggerDescriptor;
 import hudson.util.AlternativeUiTextProvider;
 import hudson.util.DescribableList;
-import hudson.widgets.HistoryWidget;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -252,10 +251,6 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements L
 
     @Override protected List<WorkflowRun> getEstimatedDurationCandidates() {
         return buildMixIn.getEstimatedDurationCandidates();
-    }
-
-    @Override protected HistoryWidget createHistoryWidget() {
-        return buildMixIn.createHistoryWidget();
     }
 
     @Override public @CheckForNull QueueTaskFuture<WorkflowRun> scheduleBuild2(int quietPeriod, Action... actions) {
@@ -720,6 +715,11 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements L
          */
         @Override public String getIconFilePathPattern() {
             return "plugin/workflow-job/images/pipelinejob.svg";
+        }
+
+        @Override
+        public String getIconClassName() {
+            return "symbol-pipeline plugin-workflow-job";
         }
 
         /** TODO JENKINS-20020 can delete this in case {@code f:dropdownDescriptorSelector} defaults to applying {@code h.filterDescriptors} */
