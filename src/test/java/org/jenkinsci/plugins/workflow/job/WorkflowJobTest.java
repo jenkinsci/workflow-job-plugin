@@ -130,7 +130,7 @@ public class WorkflowJobTest {
         form = wc.getPage(p, "configure").getFormByName("config");
         checkbox = form.getInputByName("enable");
         assertFalse(checkbox.isChecked());
-        checkbox.setChecked(false);
+        checkbox.setChecked(true);
         j.submit(form);
         assertFalse(p.isDisabled());
         assertTrue(p.isBuildable());
