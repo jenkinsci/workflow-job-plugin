@@ -83,7 +83,7 @@ THE SOFTWARE.
               <j:out value="${it.flowGraphDataAsHtml}"/>
             </div>
           </j:if>
-          <pre class="console-output">
+          <pre class="console-output" id="out">
             <st:getOutput var="output" />
             <j:whitespace>${it.writeLogTo(offset,output)}</j:whitespace>
           </pre>
