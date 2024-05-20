@@ -32,7 +32,21 @@ THE SOFTWARE.
   <l:layout title="${it.fullDisplayName} Console" norefresh="true">
     <st:include page="sidepanel.jelly" />
     <l:main-panel>
-      <t:buildCaption>${%Console Output}</t:buildCaption>
+      <j:set var="controls">
+        <a class="jenkins-button" href="consoleText" download="${it.displayName}.txt">
+          <l:icon src="symbol-download" />
+          ${%Download}
+        </a>
+        <l:copyButton ref="out" label="${%Copy}" />
+        <a class="jenkins-button" href="consoleText">
+          ${%View as plain text}
+        </a>
+      </j:set>
+
+      <t:buildCaption controls="${controls}">
+        ${%Console Output}
+      </t:buildCaption>
+
       <j:set var="threshold" value="${h.getSystemProperty('hudson.consoleTailKB')?:'150'}" />
       <!-- Show at most last 150KB (can override with system property) unless consoleFull is set -->
       <j:set var="offset" value="${empty(consoleFull) ? it.logText.length()-threshold*1024 : 0}" />
