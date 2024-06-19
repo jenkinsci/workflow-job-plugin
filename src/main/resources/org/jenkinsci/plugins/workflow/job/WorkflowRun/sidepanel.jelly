@@ -30,17 +30,7 @@
             <j:set var="buildUrl" value="${h.decompose(request)}"/>
             <l:task icon="symbol-reader-outline plugin-ionicons-api" href="${buildUrl.baseUrl}/" title="${%Status}" contextMenu="false"/>
             <l:task icon="symbol-code-slash-outline plugin-ionicons-api" href="${buildUrl.baseUrl}/changes" title="${%Changes}"/>
-            <j:choose> <!-- TODO <p:console-link/> may not currently be used as it calls getLogFile -->
-                <j:when test="${it.logText.length() > 200000}">
-                    <l:task href="${h.getConsoleUrl(it)}" icon="symbol-terminal-outline plugin-ionicons-api" title="${%Console Output}"/>
-                    <l:task href="${buildUrl.baseUrl}/consoleText" icon="symbol-document-text-outline plugin-ionicons-api" title="${%View as plain text}"/>
-                </j:when>
-                <j:otherwise>
-                    <l:task icon="symbol-terminal-outline plugin-ionicons-api" href="${h.getConsoleUrl(it)}" title="${%Console Output}">
-                        <l:task href="${buildUrl.baseUrl}/consoleText" icon="symbol-document-text-outline plugin-ionicons-api" title="${%View as plain text}"/>
-                    </l:task>
-                </j:otherwise>
-            </j:choose>
+            <l:task href="${h.getConsoleUrl(it)}" icon="symbol-terminal-outline plugin-ionicons-api" title="${%Console Output}"/>
             <!-- Build Information -->
             <j:choose>
                 <j:when test="${h.hasPermission(it,it.UPDATE)}">
