@@ -116,15 +116,25 @@ public class WorkflowJobTest {
         assertFalse(p.isDisabled());
         assertTrue(p.isBuildable());
         JenkinsRule.WebClient wc = j.createWebClient();
-        j.submit(wc.getPage(p).getHtmlElementById("disable-project"));
-        assertTrue(p.isDisabled());
-        assertFalse(p.isBuildable());
+
+        // Disable the project
         HtmlForm form = wc.getPage(p, "configure").getFormByName("config");
         HtmlCheckBoxInput checkbox = form.getInputByName("enable");
+        assertTrue(checkbox.isChecked());
+        checkbox.setChecked(false);
+        j.submit(form);
+        assertTrue(p.isDisabled());
+        assertFalse(p.isBuildable());
+
+        // Re-enable the project
+        form = wc.getPage(p, "configure").getFormByName("config");
+        checkbox = form.getInputByName("enable");
         assertFalse(checkbox.isChecked());
         checkbox.setChecked(true);
         j.submit(form);
         assertFalse(p.isDisabled());
+        assertTrue(p.isBuildable());
+
         wc.getPage(new WebRequest(wc.createCrumbedUrl(p.getUrl() + "disable"), HttpMethod.POST));
         assertTrue(p.isDisabled());
         assertNull(p.scheduleBuild2(0));
