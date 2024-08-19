@@ -27,14 +27,5 @@ THE SOFTWARE.
 -->
 <?jelly escape-by-default='true'?>
 <j:jelly xmlns:j="jelly:core" xmlns:st="jelly:stapler" xmlns:d="jelly:define" xmlns:l="/lib/layout" xmlns:t="/lib/hudson" xmlns:f="/lib/form">
-    <!-- build triggers config pane -->
-    <j:invokeStatic var="triggers" className="hudson.triggers.Trigger" method="for_">
-        <j:arg value="${it}" type="hudson.model.Item" />
-    </j:invokeStatic>
-    <f:descriptorList field="triggers"
-                      title="${%Build Triggers}"
-                      descriptors="${triggers}"
-                      instances="${it.triggers}">
-        <d:invokeBody />
-    </f:descriptorList>
+    <st:include page="/hudson/project/config-trigger.jelly" />
 </j:jelly>
