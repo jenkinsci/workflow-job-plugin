@@ -26,6 +26,7 @@ THE SOFTWARE.
   Configure build triggers for WorkflowJob
 -->
 <?jelly escape-by-default='true'?>
-<j:jelly xmlns:j="jelly:core" xmlns:st="jelly:stapler" xmlns:d="jelly:define" xmlns:l="/lib/layout" xmlns:t="/lib/hudson" xmlns:f="/lib/form">
-    <st:include page="/hudson/project/config-trigger.jelly" />
+<j:jelly xmlns:j="jelly:core" xmlns:p="/lib/hudson/project">
+    <!-- https://issues.jenkins.io/browse/JENKINS-69057?jql=status%20%3D%20Open%20AND%20text%20~%20%22pipeline%20triggers%20sidebar%22 -->
+    <p:config-trigger/>
 </j:jelly>
