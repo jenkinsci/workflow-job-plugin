@@ -28,7 +28,7 @@
     <parent>
         <groupId>org.jenkins-ci.plugins</groupId>
         <artifactId>plugin</artifactId>
-        <version>4.85</version>
+        <version>4.88</version>
         <relativePath/>
     </parent>
     <groupId>org.jenkins-ci.plugins.workflow</groupId>
@@ -63,7 +63,11 @@
     </pluginRepositories>
     <properties>
         <changelist>999999-SNAPSHOT</changelist>
-        <jenkins.version>2.454</jenkins.version>
+        <!-- TODO: Waiting for https://github.com/jenkinsci/workflow-job-plugin/pull/468 to make it to an LTS line. -->
+        <jenkins.version>2.479-rc35394.6ec50c7e34f9</jenkins.version>
+        <!-- Waiting for a release of https://github.com/jenkinsci/plugin-pom/pull/1004 -->
+        <jenkins-test-harness.version>2289.vfd344a_6d1660</jenkins-test-harness.version>
+        <hpi-plugin.version>3.58</hpi-plugin.version>
         <no-test-jar>false</no-test-jar>
         <useBeta>true</useBeta>
         <hpi.compatibleSinceVersion>2.26</hpi.compatibleSinceVersion>
@@ -73,14 +77,21 @@
         <dependencies>
             <dependency>
                 <groupId>io.jenkins.tools.bom</groupId>
-                <artifactId>bom-2.452.x</artifactId>
-                <version>3023.v02a_987a_b_3ff9</version>
+                <artifactId>bom-weekly</artifactId>
+                <version>3387.v0f2773fa_3200</version>
                 <scope>import</scope>
                 <type>pom</type>
             </dependency>
         </dependencies>
     </dependencyManagement>
     <dependencies>
+        <dependency>
+            <!-- Waiting for a release of https://github.com/jenkinsci/plugin-pom/pull/1004 -->
+            <groupId>jakarta.servlet</groupId>
+            <artifactId>jakarta.servlet-api</artifactId>
+            <version>5.0.0</version>
+            <scope>provided</scope>
+        </dependency>
         <dependency>
             <groupId>io.jenkins.plugins</groupId>
             <artifactId>ionicons-api</artifactId>

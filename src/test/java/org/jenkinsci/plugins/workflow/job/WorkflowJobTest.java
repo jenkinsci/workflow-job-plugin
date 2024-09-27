@@ -20,19 +20,24 @@ import hudson.plugins.git.GitSCM;
 import hudson.security.WhoAmI;
 import hudson.triggers.SCMTrigger;
 import java.util.Objects;
+import java.util.logging.Logger;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import jenkins.plugins.git.GitSampleRepoRule;
 import org.jenkinsci.plugins.workflow.cps.CpsFlowDefinition;
 import org.jenkinsci.plugins.workflow.cps.CpsScmFlowDefinition;
+import org.junit.ClassRule;
 import org.junit.Rule;
 import org.junit.Test;
+import org.jvnet.hudson.test.BuildWatcher;
 import org.jvnet.hudson.test.Issue;
 import org.jvnet.hudson.test.JenkinsRule;
 import org.jvnet.hudson.test.RunLoadCounter;
 
-
 public class WorkflowJobTest {
+    private static final Logger LOGGER = Logger.getLogger(WorkflowJobTest.class.getName());
+
+    @ClassRule public static BuildWatcher watcher = new BuildWatcher();
 
     @Rule public JenkinsRule j = new JenkinsRule();
     @Rule public GitSampleRepoRule sampleRepo = new GitSampleRepoRule();
@@ -164,38 +169,35 @@ public class WorkflowJobTest {
         });
     }
 
+    @Issue("JENKINS-73824")
     @Test
     public void deletionShouldWaitForBuildsToComplete() throws Throwable {
         var p = j.createProject(WorkflowJob.class);
         p.setDefinition(new CpsFlowDefinition(
-                    "import java.time.Duration\n" +
-                    "import java.time.Instant\n" +
-                    "@NonCPS def tightLoop() {\n" +
-                    "  echo 'uninterruptible'\n" +
-                    "  def start = Instant.now()\n" +
-                    "  while (Duration.between(start, Instant.now()).toSeconds() < 3) {\n" +
-                    "    try {\n" +
-                    "      Thread.sleep(100)\n" +
-                    "    } catch (InterruptedException e) { }\n" +
-                    "  }\n" +
-                    "}\n" +
-                    "tightLoop()", false));
+                """
+                try {
+                  echo 'about to sleep'
+                  sleep 999
+                } catch(e) {
+                  echo 'aborting soon'
+                  sleep 3
+                }
+                """, true));
         var b = p.scheduleBuild2(0).waitForStart();
-        j.waitForMessage("uninterruptible", b);
-        // The build isn't done and can't be interrupted, so ItemDeletion.cancelBuildsInProgress should have to wait at least 3 seconds for it to complete.
-        // (but right now it completes immediately)
+        j.waitForMessage("about to sleep", b);
+        // The build isn't done and catches the interruption, so ItemDeletion.cancelBuildsInProgress should have to wait at least 3 seconds for it to complete.
+        LOGGER.info(() -> "Deleting " + p);
         p.delete();
+        LOGGER.info(() -> "Deleted " + p);
         // Make sure that the job really has been deleted.
         assertThat(j.jenkins.getItemByFullName(p.getFullName()), nullValue());
         // ItemDeletion.cancelBuildsInProgress should guarantee that the queue is empty at this point.
-        // (but right now test0 #1 will still be running)
         var executables = Stream.of(j.jenkins.getComputers())
                 .flatMap(c -> c.getAllExecutors().stream())
                 .map(Executor::getCurrentExecutable)
                 .filter(Objects::nonNull)
                 .collect(Collectors.toList());
         assertThat(executables, empty());
-        // (right now we end up waiting 3 seconds here for test0 #1 to complete while shutting down Jenkins)
     }
 
 }
