@@ -660,13 +660,6 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
                 listener = null;
             }
             saveWithoutFailing(true);
-            Timer.get().submit(() -> {
-                try {
-                    getParent().logRotate();
-                } catch (Exception x) {
-                    LOGGER.log(Level.WARNING, "failed to perform log rotation after " + this, x);
-                }
-            });
             onEndBuilding();
         } finally {  // Ensure this is ALWAYS removed from FlowExecutionList
             FlowExecutionList.get().unregister(new Owner(this));
