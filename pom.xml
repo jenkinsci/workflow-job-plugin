@@ -64,7 +64,7 @@
     <properties>
         <changelist>999999-SNAPSHOT</changelist>
         <!-- TODO: Waiting for https://github.com/jenkinsci/jenkins/pull/9810 to make it to an LTS line. -->
-        <jenkins.version>2.479-rc35393.97fb_6a_a_25d9b_</jenkins.version>
+        <jenkins.version>2.479-rc35395.f676b_e52239c</jenkins.version>
         <!-- Waiting for a release of https://github.com/jenkinsci/plugin-pom/pull/1004 -->
         <jenkins-test-harness.version>2289.vfd344a_6d1660</jenkins-test-harness.version>
         <hpi-plugin.version>3.58</hpi-plugin.version>
