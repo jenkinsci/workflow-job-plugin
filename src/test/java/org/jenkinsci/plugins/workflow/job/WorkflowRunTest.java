@@ -713,7 +713,7 @@ public class WorkflowRunTest {
         for (int i = 0; i < buildsToRun; i++) {
             r.waitForCompletion(builds[i]);
         }
-        LOGGER.info("Checking that all build directories are empty ");
+        LOGGER.info("Checking that all build directories are empty");
         for (int i = 0; i < buildsToRun; i++) {
             String[] filesInBuildDir = buildDirs[i].list();
             if (filesInBuildDir == null) {
