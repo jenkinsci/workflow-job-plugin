@@ -83,13 +83,6 @@
     </dependencyManagement>
     <dependencies>
         <dependency>
-            <!-- Waiting for a release of https://github.com/jenkinsci/plugin-pom/pull/1004 -->
-            <groupId>jakarta.servlet</groupId>
-            <artifactId>jakarta.servlet-api</artifactId>
-            <version>5.0.0</version>
-            <scope>provided</scope>
-        </dependency>
-        <dependency>
             <groupId>io.jenkins.plugins</groupId>
             <artifactId>ionicons-api</artifactId>
         </dependency>
