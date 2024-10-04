@@ -63,8 +63,8 @@
     </pluginRepositories>
     <properties>
         <changelist>999999-SNAPSHOT</changelist>
-        <!-- TODO https://github.com/jenkinsci/jenkins/pull/9826 -->
-        <jenkins.version>2.480-rc35439.5b_ea_90442260</jenkins.version>
+        <!-- TODO https://github.com/jenkinsci/jenkins/pull/9827 -->
+        <jenkins.version>2.480-rc35439.16a_0d2374dd7</jenkins.version>
         <no-test-jar>false</no-test-jar>
         <useBeta>true</useBeta>
         <hpi.compatibleSinceVersion>2.26</hpi.compatibleSinceVersion>
