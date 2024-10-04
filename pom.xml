@@ -28,7 +28,7 @@
     <parent>
         <groupId>org.jenkins-ci.plugins</groupId>
         <artifactId>plugin</artifactId>
-        <version>4.88</version>
+        <version>5.1</version>
         <relativePath/>
     </parent>
     <groupId>org.jenkins-ci.plugins.workflow</groupId>
@@ -65,9 +65,6 @@
         <changelist>999999-SNAPSHOT</changelist>
         <!-- TODO: Waiting for https://github.com/jenkinsci/workflow-job-plugin/pull/468 to make it to an LTS line. -->
         <jenkins.version>2.479-rc35394.6ec50c7e34f9</jenkins.version>
-        <!-- Waiting for a release of https://github.com/jenkinsci/plugin-pom/pull/1004 -->
-        <jenkins-test-harness.version>2289.vfd344a_6d1660</jenkins-test-harness.version>
-        <hpi-plugin.version>3.58</hpi-plugin.version>
         <no-test-jar>false</no-test-jar>
         <useBeta>true</useBeta>
         <hpi.compatibleSinceVersion>2.26</hpi.compatibleSinceVersion>
