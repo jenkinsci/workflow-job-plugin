@@ -14,7 +14,7 @@ Behaviour.specify("span.pipeline-new-node", 'NewNodeConsoleNote', 0, function(e)
     var nodeId = e.getAttribute('nodeId')
     var startId = e.getAttribute('startId')
     if (startId == null || startId == nodeId) {
-        e.innerHTML = e.innerHTML.replace(/.+/, '$&<span class="pipeline-show-hide"> (<a href="#" onclick="showHidePipelineSection(this); return false">hide</a>)</span>')
+        e.innerHTML = e.innerHTML.replace(/.+/, '$&<span class="pipeline-show-hide"> (<a href="#" class="pipeline-toggle">hide</a>)</span>')
         // TODO automatically hide second and subsequent branches: namely, in case a node has the same parent as an earlier one
     }
     // The CSS rule for branch names only needs to be added once per node, so we
@@ -127,3 +127,12 @@ function showHidePipelineSection(link) {
         }
     }
 }
+
+document.addEventListener('DOMContentLoaded', function() {
+    document.body.addEventListener('click', function(event) {
+        if (event.target.classList.contains('pipeline-toggle')) {
+            event.preventDefault();
+            showHidePipelineSection(event.target);
+        }
+    });
+});
