@@ -39,7 +39,7 @@ import net.sf.json.JSONObject;
 import org.jenkinsci.Symbol;
 import org.jenkinsci.plugins.workflow.job.WorkflowJob;
 import org.kohsuke.stapler.DataBoundConstructor;
-import org.kohsuke.stapler.StaplerRequest;
+import org.kohsuke.stapler.StaplerRequest2;
 
 import edu.umd.cs.findbugs.annotations.CheckForNull;
 import edu.umd.cs.findbugs.annotations.NonNull;
@@ -149,7 +149,7 @@ public class PipelineTriggersJobProperty extends JobProperty<WorkflowJob> {
 
     @CheckForNull
     @Override
-    public PipelineTriggersJobProperty reconfigure(@NonNull StaplerRequest req, @CheckForNull JSONObject form) throws Descriptor.FormException {
+    public PipelineTriggersJobProperty reconfigure(@NonNull StaplerRequest2 req, @CheckForNull JSONObject form) throws Descriptor.FormException {
         DescribableList<Trigger<?>, TriggerDescriptor> trigList = new DescribableList<>(Saveable.NOOP);
         try {
             JSONObject triggerSection = new JSONObject();
@@ -198,7 +198,7 @@ public class PipelineTriggersJobProperty extends JobProperty<WorkflowJob> {
         }
 
         @Override
-        public JobProperty<?> newInstance(StaplerRequest req, JSONObject formData) throws FormException {
+        public JobProperty<?> newInstance(StaplerRequest2 req, JSONObject formData) throws FormException {
             PipelineTriggersJobProperty prop = (PipelineTriggersJobProperty) super.newInstance(req, formData);
             return prop.triggers.isEmpty() ? null : prop;
         }
