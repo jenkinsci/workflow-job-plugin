@@ -17,7 +17,8 @@ Behaviour.specify("span.pipeline-new-node", 'NewNodeConsoleNote', 0, function(e)
         e.innerHTML = e.innerHTML.replace(/.+/, '$&<span class="pipeline-show-hide"> (<a href="#" class="pipeline-toggle">hide</a>)</span>')
         // TODO automatically hide second and subsequent branches: namely, in case a node has the same parent as an earlier one
 
-        const toggle = e.querySelector('.pipeline-show-hide:last-child .pipeline-toggle');
+        const toggles = e.querySelectorAll('.pipeline-show-hide .pipeline-toggle');
+        const toggle = toggles[toggles.length - 1];
 
         toggle.addEventListener('click', function(event) {
             event.preventDefault();
