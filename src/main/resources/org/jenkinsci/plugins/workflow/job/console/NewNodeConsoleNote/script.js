@@ -16,16 +16,13 @@ Behaviour.specify("span.pipeline-new-node", 'NewNodeConsoleNote', 0, function(e)
     if (startId == null || startId == nodeId) {
         e.innerHTML = e.innerHTML.replace(/.+/, '$&<span class="pipeline-show-hide"> (<a href="#" class="pipeline-toggle">hide</a>)</span>')
         // TODO automatically hide second and subsequent branches: namely, in case a node has the same parent as an earlier one
-
         const toggles = e.querySelectorAll('.pipeline-show-hide .pipeline-toggle');
         const toggle = toggles[toggles.length - 1];
-
         toggle.addEventListener('click', function(event) {
             event.preventDefault();
             showHidePipelineSection(this);
         });
     }
-
     // The CSS rule for branch names only needs to be added once per node, so we
     // check in case we are viewing the truncated log and have already processed
     // a duplicate synthetic span element for this node.
