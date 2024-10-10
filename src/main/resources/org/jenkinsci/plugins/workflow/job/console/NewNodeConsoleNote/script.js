@@ -18,12 +18,11 @@ Behaviour.specify("span.pipeline-new-node", 'NewNodeConsoleNote', 0, function(e)
         // TODO automatically hide second and subsequent branches: namely, in case a node has the same parent as an earlier one
 
         const toggle = e.querySelector('.pipeline-toggle');
-        if (toggle) {
-            toggle.addEventListener('click', function(event) {
-                event.preventDefault();
-                showHidePipelineSection(this);
-            });
-        }
+
+        toggle.addEventListener('click', function(event) {
+            event.preventDefault();
+            showHidePipelineSection(this);
+        });
     }
 
     // The CSS rule for branch names only needs to be added once per node, so we
