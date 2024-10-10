@@ -29,6 +29,7 @@ import static org.hamcrest.collection.IsEmptyCollection.empty;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.notNullValue;
 import static org.hamcrest.Matchers.nullValue;
 import static org.junit.Assert.assertEquals;
@@ -598,6 +599,15 @@ public class WorkflowRunTest {
         WorkflowRun b3 = r.buildAndAssertSuccess(p);
         //Both have their baselines wiped
         assertPollingBaselines(b3.checkouts(listener), nullValue(), nullValue());
+    }
+
+    @Test public void reloadOwner() throws Exception {
+        WorkflowJob p = r.jenkins.createProject(WorkflowJob.class, "p");
+        p.setDefinition(new CpsFlowDefinition("", true));
+        WorkflowRun b = r.buildAndAssertSuccess(p);
+        assertThat("right owner before reload", b.getExecution().getOwner(), is(b.asFlowExecutionOwner()));
+        b.reload();
+        assertThat("right owner after reload", b.getExecution().getOwner(), is(b.asFlowExecutionOwner()));
     }
 
     // This test is to ensure that the shortDescription on the CancelCause is escaped properly on summary.jelly
