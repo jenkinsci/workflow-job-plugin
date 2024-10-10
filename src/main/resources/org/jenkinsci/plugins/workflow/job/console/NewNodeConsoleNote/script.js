@@ -20,9 +20,9 @@ Behaviour.specify("span.pipeline-new-node", 'NewNodeConsoleNote', 0, function(e)
         const toggles = e.querySelectorAll('.pipeline-show-hide .pipeline-toggle');
         const toggle = toggles[toggles.length - 1];
 
-        toggle.addEventListener('click', function(event) {
+        toggle.addEventListener('click', (event) => {
             event.preventDefault();
-            showHidePipelineSection(this);
+            showHidePipelineSection(toggle);
         });
     }
 
