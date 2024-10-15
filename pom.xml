@@ -63,7 +63,8 @@
     </pluginRepositories>
     <properties>
         <changelist>999999-SNAPSHOT</changelist>
-        <jenkins.version>2.479</jenkins.version>
+        <!-- TODO: Waiting for JENKINS-73824 and JENKINS-73835 to make it into an LTS line -->
+        <jenkins.version>2.481</jenkins.version>
         <no-test-jar>false</no-test-jar>
         <useBeta>true</useBeta>
         <hpi.compatibleSinceVersion>2.26</hpi.compatibleSinceVersion>
@@ -73,8 +74,8 @@
         <dependencies>
             <dependency>
                 <groupId>io.jenkins.tools.bom</groupId>
-                <artifactId>bom-2.462.x</artifactId>
-                <version>3221.ve8f7b_fdd149d</version>
+                <artifactId>bom-2.479.x</artifactId>
+                <version>3482.vc10d4f6da_28a_</version>
                 <scope>import</scope>
                 <type>pom</type>
             </dependency>
