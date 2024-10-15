@@ -1123,7 +1123,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
 
     @Override public void doConsoleText(StaplerRequest req, StaplerResponse rsp) throws IOException {
         rsp.setContentType("text/plain;charset=UTF-8");
-        try (OutputStream os = rsp.getCompressedOutputStream(req)) {
+        try (OutputStream os = rsp.getOutputStream()) {
             writeLogTo(getLogText()::writeLogTo, os);
         }
     }

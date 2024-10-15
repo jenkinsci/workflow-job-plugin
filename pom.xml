@@ -28,7 +28,7 @@
     <parent>
         <groupId>org.jenkins-ci.plugins</groupId>
         <artifactId>plugin</artifactId>
-        <version>4.88</version>
+        <version>5.1</version>
         <relativePath/>
     </parent>
     <groupId>org.jenkins-ci.plugins.workflow</groupId>
@@ -63,11 +63,8 @@
     </pluginRepositories>
     <properties>
         <changelist>999999-SNAPSHOT</changelist>
-        <!-- TODO: Waiting for https://github.com/jenkinsci/jenkins/pull/9810 to make it to an LTS line. -->
-        <jenkins.version>2.479-rc35395.f676b_e52239c</jenkins.version>
-        <!-- Waiting for a release of https://github.com/jenkinsci/plugin-pom/pull/1004 -->
-        <jenkins-test-harness.version>2289.vfd344a_6d1660</jenkins-test-harness.version>
-        <hpi-plugin.version>3.58</hpi-plugin.version>
+        <!-- TODO: Waiting for JENKINS-73824 and JENKINS-73835 to make it into an LTS line -->
+        <jenkins.version>2.481</jenkins.version>
         <no-test-jar>false</no-test-jar>
         <useBeta>true</useBeta>
         <hpi.compatibleSinceVersion>2.26</hpi.compatibleSinceVersion>
@@ -77,21 +74,14 @@
         <dependencies>
             <dependency>
                 <groupId>io.jenkins.tools.bom</groupId>
-                <artifactId>bom-weekly</artifactId>
-                <version>3387.v0f2773fa_3200</version>
+                <artifactId>bom-2.462.x</artifactId>
+                <version>3221.ve8f7b_fdd149d</version>
                 <scope>import</scope>
                 <type>pom</type>
             </dependency>
         </dependencies>
     </dependencyManagement>
     <dependencies>
-        <dependency>
-            <!-- Waiting for a release of https://github.com/jenkinsci/plugin-pom/pull/1004 -->
-            <groupId>jakarta.servlet</groupId>
-            <artifactId>jakarta.servlet-api</artifactId>
-            <version>5.0.0</version>
-            <scope>provided</scope>
-        </dependency>
         <dependency>
             <groupId>io.jenkins.plugins</groupId>
             <artifactId>ionicons-api</artifactId>

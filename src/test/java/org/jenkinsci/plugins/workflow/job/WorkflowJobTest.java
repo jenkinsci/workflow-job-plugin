@@ -1,6 +1,8 @@
 package org.jenkinsci.plugins.workflow.job;
 
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.empty;
+import static org.hamcrest.Matchers.nullValue;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
@@ -12,20 +14,30 @@ import org.htmlunit.WebRequest;
 import org.htmlunit.html.HtmlCheckBoxInput;
 import org.htmlunit.html.HtmlForm;
 import hudson.cli.CLICommandInvoker;
+import hudson.model.Executor;
 import hudson.model.Result;
 import hudson.plugins.git.GitSCM;
 import hudson.security.WhoAmI;
 import hudson.triggers.SCMTrigger;
+import java.util.Objects;
+import java.util.logging.Logger;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import jenkins.plugins.git.GitSampleRepoRule;
 import org.jenkinsci.plugins.workflow.cps.CpsFlowDefinition;
 import org.jenkinsci.plugins.workflow.cps.CpsScmFlowDefinition;
+import org.junit.ClassRule;
 import org.junit.Rule;
 import org.junit.Test;
+import org.jvnet.hudson.test.BuildWatcher;
 import org.jvnet.hudson.test.Issue;
 import org.jvnet.hudson.test.JenkinsRule;
 import org.jvnet.hudson.test.RunLoadCounter;
 
 public class WorkflowJobTest {
+    private static final Logger LOGGER = Logger.getLogger(WorkflowJobTest.class.getName());
+
+    @ClassRule public static BuildWatcher watcher = new BuildWatcher();
 
     @Rule public JenkinsRule j = new JenkinsRule();
     @Rule public GitSampleRepoRule sampleRepo = new GitSampleRepoRule();
@@ -155,6 +167,37 @@ public class WorkflowJobTest {
             }
             return null;
         });
+    }
+
+    @Issue("JENKINS-73824")
+    @Test
+    public void deletionShouldWaitForBuildsToComplete() throws Throwable {
+        var p = j.createProject(WorkflowJob.class);
+        p.setDefinition(new CpsFlowDefinition(
+                """
+                try {
+                  echo 'about to sleep'
+                  sleep 999
+                } catch(e) {
+                  echo 'aborting soon'
+                  sleep 3
+                }
+                """, true));
+        var b = p.scheduleBuild2(0).waitForStart();
+        j.waitForMessage("about to sleep", b);
+        // The build isn't done and catches the interruption, so ItemDeletion.cancelBuildsInProgress should have to wait at least 3 seconds for it to complete.
+        LOGGER.info(() -> "Deleting " + p);
+        p.delete();
+        LOGGER.info(() -> "Deleted " + p);
+        // Make sure that the job really has been deleted.
+        assertThat(j.jenkins.getItemByFullName(p.getFullName()), nullValue());
+        // ItemDeletion.cancelBuildsInProgress should guarantee that the queue is empty at this point.
+        var executables = Stream.of(j.jenkins.getComputers())
+                .flatMap(c -> c.getAllExecutors().stream())
+                .map(Executor::getCurrentExecutable)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toList());
+        assertThat(executables, empty());
     }
 
 }
