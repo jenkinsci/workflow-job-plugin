@@ -42,7 +42,7 @@ import org.jenkinsci.plugins.workflow.graph.FlowNode;
 import org.jenkinsci.plugins.workflow.job.WorkflowRun;
 import org.kohsuke.stapler.HttpResponse;
 import org.kohsuke.stapler.HttpResponses;
-import org.kohsuke.stapler.StaplerResponse;
+import org.kohsuke.stapler.StaplerResponse2;
 
 /**
  * Debugging-only view of the flow graph.
@@ -79,7 +79,7 @@ public final class GraphVizAction implements Action {
     }
 
     @SuppressFBWarnings("DM_DEFAULT_ENCODING")
-    public void doIndex(StaplerResponse rsp) throws IOException {
+    public void doIndex(StaplerResponse2 rsp) throws IOException {
         Process p = new ProcessBuilder("dot", "-Tpng").start();
         writeDot(new PrintWriter(p.getOutputStream()));
 

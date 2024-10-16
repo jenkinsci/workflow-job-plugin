@@ -37,7 +37,7 @@
     <f:section title="${%Advanced Project Options}" icon="symbol-build-outline plugin-ionicons-api">
         <f:advanced>
             <f:entry title="${%Display Name}" field="displayNameOrNull">
-                <f:textbox checkUrl="'${rootURL}/checkDisplayName?displayName='+encodeURIComponent(this.value)+'&amp;jobName='+encodeURIComponent('${h.jsStringEscape(it.name)}')"/>
+                <f:textbox />
             </f:entry>
         </f:advanced>
     </f:section>
