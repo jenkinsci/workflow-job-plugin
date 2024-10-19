@@ -64,7 +64,8 @@
     <properties>
         <changelist>999999-SNAPSHOT</changelist>
         <!-- TODO: Waiting for JENKINS-73824 and JENKINS-73835 to make it into an LTS line -->
-        <jenkins.version>2.481</jenkins.version>
+        <!-- <jenkins.version>2.481</jenkins.version> -->
+        <jenkins.version>2.481-rc35491.56cb_9df6e9cd</jenkins.version>
         <no-test-jar>false</no-test-jar>
         <useBeta>true</useBeta>
         <hpi.compatibleSinceVersion>2.26</hpi.compatibleSinceVersion>

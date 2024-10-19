@@ -25,20 +25,23 @@
   -->
 
 <j:jelly xmlns:j="jelly:core" xmlns:st="jelly:stapler" xmlns:f="/lib/form" xmlns:p="/lib/hudson/project">
-    <p:config-quietPeriod/>
-
     <!-- pseudo-trigger to configure URL to trigger builds remotely. -->
     <st:include page="/hudson/model/BuildAuthorizationToken/config.jelly" />
 
-    <f:section title="${%Advanced Project Options}" icon="symbol-build-outline plugin-ionicons-api">
+    <f:section title="${%Pipeline}" icon="symbol-pipeline plugin-workflow-job">
+        <div class="jenkins-section__description">
+            ${%pipeline.description}
+        </div>
+        <f:dropdownDescriptorSelector title="${%Definition}" field="definition" descriptors="${descriptor.getDefinitionDescriptors(it)}"/>
+    </f:section>
+
+    <f:section title="${%Advanced}" icon="symbol-build-outline plugin-ionicons-api">
         <f:advanced>
+            <p:config-quietPeriod/>
+
             <f:entry title="${%Display Name}" field="displayNameOrNull">
                 <f:textbox />
             </f:entry>
         </f:advanced>
-    </f:section>
-
-    <f:section title="${%Pipeline}" icon="symbol-pipeline plugin-workflow-job">
-        <f:dropdownDescriptorSelector title="${%Definition}" field="definition" descriptors="${descriptor.getDefinitionDescriptors(it)}"/>
     </f:section>
 </j:jelly>
