@@ -26,7 +26,15 @@ THE SOFTWARE.
   Configure build triggers for WorkflowJob
 -->
 <?jelly escape-by-default='true'?>
-<j:jelly xmlns:j="jelly:core" xmlns:p="/lib/hudson/project">
-    <!-- https://issues.jenkins.io/browse/JENKINS-69057?jql=status%20%3D%20Open%20AND%20text%20~%20%22pipeline%20triggers%20sidebar%22 -->
-    <p:config-trigger/>
+<j:jelly xmlns:j="jelly:core" xmlns:st="jelly:stapler" xmlns:d="jelly:define" xmlns:l="/lib/layout" xmlns:t="/lib/hudson" xmlns:f="/lib/form">
+    <!-- build triggers config pane -->
+    <j:invokeStatic var="triggers" className="hudson.triggers.Trigger" method="for_">
+        <j:arg value="${it}" type="hudson.model.Item" />
+    </j:invokeStatic>
+    <f:descriptorList field="triggers"
+                      title="${%Build Triggers}"
+                      descriptors="${triggers}"
+                      instances="${it.triggers}">
+        <d:invokeBody />
+    </f:descriptorList>
 </j:jelly>
