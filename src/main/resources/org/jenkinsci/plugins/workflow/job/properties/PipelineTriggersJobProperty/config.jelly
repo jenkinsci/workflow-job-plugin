@@ -32,8 +32,10 @@ THE SOFTWARE.
         <j:arg value="${it}" type="hudson.model.Item" />
     </j:invokeStatic>
     <f:descriptorList field="triggers"
-                      title="${%Build Triggers}"
+                      title="${%Triggers}"
+                      description="${%description}"
                       descriptors="${triggers}"
+                      icon="symbol-trigger"
                       instances="${it.triggers}">
         <d:invokeBody />
     </f:descriptorList>
