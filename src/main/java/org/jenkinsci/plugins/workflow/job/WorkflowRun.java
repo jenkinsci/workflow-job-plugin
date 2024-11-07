@@ -560,7 +560,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
         try {
             synchronized (getMetadataGuard()) {
                 if (executionLoaded) {
-                    LOGGER.log(Level.WARNING, "Double onLoad of build "+this);
+                    LOGGER.log(Level.WARNING, "Double onLoad of build " + this, new Throwable());
                     return;
                 }
                 boolean needsToPersist = completed == null;
