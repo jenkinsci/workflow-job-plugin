@@ -30,6 +30,7 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.emptyArray;
 import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.notNullValue;
 import static org.hamcrest.Matchers.nullValue;
 import static org.junit.Assert.assertEquals;
@@ -616,6 +617,15 @@ public class WorkflowRunTest {
         return "    checkout(changelog:" + changelog +", poll:" + polling +
                 ", scm: [$class: 'GitSCM', branches: [[name: '*/master']], " +
                 ", userRemoteConfigs: [[url: $/" + repo.fileUrl() + "/$]]])\n";
+    }
+
+    @Test public void reloadOwner() throws Exception {
+        WorkflowJob p = r.jenkins.createProject(WorkflowJob.class, "reloadOwner");
+        p.setDefinition(new CpsFlowDefinition("", true));
+        WorkflowRun b = r.buildAndAssertSuccess(p);
+        assertThat("right owner before reload", b.getExecution().getOwner(), is(b.asFlowExecutionOwner()));
+        b.reload();
+        assertThat("right owner after reload", b.getExecution().getOwner(), is(b.asFlowExecutionOwner()));
     }
 
     // This test is to ensure that the shortDescription on the CancelCause is escaped properly on summary.jelly
