@@ -556,6 +556,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
     }
 
     @Override protected void onLoad() {
+        super.onLoad();
         try {
             synchronized (getMetadataGuard()) {
                 if (executionLoaded) {
@@ -563,8 +564,6 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
                     return;
                 }
                 boolean needsToPersist = completed == null;
-                super.onLoad();
-
                 if (Boolean.TRUE.equals(completed) && result == null) {
                     LOGGER.log(Level.FINE, "Completed build with no result set, defaulting to failure for "+this);
                     setResult(Result.FAILURE);
