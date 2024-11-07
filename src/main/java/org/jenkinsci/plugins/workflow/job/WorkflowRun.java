@@ -554,7 +554,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
         // super.reload() forces result to be FAILURE, so working around that
         new XmlFile(XSTREAM,new File(getRootDir(),"build.xml")).unmarshal(this);
         synchronized (getMetadataGuard()) {
-            if (Boolean.TRUE.equals(this.completed) && execution != null && executionLoaded) {
+            if (Boolean.TRUE.equals(completed) && execution != null && executionLoaded) {
                 execution.onLoad(new Owner(this));
             }
         }
