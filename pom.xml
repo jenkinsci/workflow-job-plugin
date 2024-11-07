@@ -28,7 +28,7 @@
     <parent>
         <groupId>org.jenkins-ci.plugins</groupId>
         <artifactId>plugin</artifactId>
-        <version>4.88</version>
+        <version>5.2</version>
         <relativePath/>
     </parent>
     <groupId>org.jenkins-ci.plugins.workflow</groupId>
@@ -63,29 +63,22 @@
     </pluginRepositories>
     <properties>
         <changelist>999999-SNAPSHOT</changelist>
-        <jenkins.version>2.477</jenkins.version>
+        <!-- https://www.jenkins.io/doc/developer/plugin-development/choosing-jenkins-baseline/ -->
+        <jenkins.baseline>2.479</jenkins.baseline>
+        <jenkins.version>${jenkins.baseline}.1</jenkins.version>
         <no-test-jar>false</no-test-jar>
         <useBeta>true</useBeta>
         <hpi.compatibleSinceVersion>2.26</hpi.compatibleSinceVersion>
         <gitHubRepo>jenkinsci/${project.artifactId}-plugin</gitHubRepo>
-        <!-- TODO JENKINS-73339 until in parent POM -->
-        <jenkins-test-harness.version>2254.vcff7a_d4969e5</jenkins-test-harness.version>
-        <maven.compiler.release>17</maven.compiler.release>
     </properties>
     <dependencyManagement>
         <dependencies>
             <dependency>
                 <groupId>io.jenkins.tools.bom</groupId>
-                <artifactId>bom-2.462.x</artifactId>
-                <version>3221.ve8f7b_fdd149d</version>
+                <artifactId>bom-${jenkins.baseline}.x</artifactId>
+                <version>3482.vc10d4f6da_28a_</version>
                 <scope>import</scope>
                 <type>pom</type>
-            </dependency>
-            <!-- TODO JENKINS-73339 until in parent POM, work around https://github.com/jenkinsci/plugin-pom/issues/936 -->
-            <dependency>
-                <groupId>jakarta.servlet</groupId>
-                <artifactId>jakarta.servlet-api</artifactId>
-                <version>5.0.0</version>
             </dependency>
         </dependencies>
     </dependencyManagement>
