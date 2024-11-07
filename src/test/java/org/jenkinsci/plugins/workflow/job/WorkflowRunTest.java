@@ -620,7 +620,7 @@ public class WorkflowRunTest {
     }
 
     @Test public void reloadOwner() throws Exception {
-        WorkflowJob p = r.jenkins.createProject(WorkflowJob.class, "p");
+        WorkflowJob p = r.jenkins.createProject(WorkflowJob.class, "reloadOwner");
         p.setDefinition(new CpsFlowDefinition("", true));
         WorkflowRun b = r.buildAndAssertSuccess(p);
         assertThat("right owner before reload", b.getExecution().getOwner(), is(b.asFlowExecutionOwner()));
