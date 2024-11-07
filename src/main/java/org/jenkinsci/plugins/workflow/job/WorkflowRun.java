@@ -555,9 +555,8 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
         new XmlFile(XSTREAM,new File(getRootDir(),"build.xml")).unmarshal(this);
         synchronized (getMetadataGuard()) {
             if (Boolean.TRUE.equals(this.completed)) {
-                var _execution = execution;
-                if (_execution != null) {
-                    _execution.onLoad(new Owner(this));
+                if (execution != null) {
+                    execution.onLoad(new Owner(this));
                 }
             }
         }
