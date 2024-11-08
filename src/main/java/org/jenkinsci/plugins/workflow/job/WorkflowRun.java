@@ -127,8 +127,8 @@ import org.kohsuke.accmod.Restricted;
 import org.kohsuke.accmod.restrictions.DoNotUse;
 import org.kohsuke.stapler.HttpResponse;
 import org.kohsuke.stapler.HttpResponses;
-import org.kohsuke.stapler.StaplerRequest;
-import org.kohsuke.stapler.StaplerResponse;
+import org.kohsuke.stapler.StaplerRequest2;
+import org.kohsuke.stapler.StaplerResponse2;
 import org.kohsuke.stapler.WebMethod;
 import org.kohsuke.stapler.export.Exported;
 import org.kohsuke.stapler.interceptor.RequirePOST;
@@ -553,18 +553,25 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
 
         // super.reload() forces result to be FAILURE, so working around that
         new XmlFile(XSTREAM,new File(getRootDir(),"build.xml")).unmarshal(this);
+        synchronized (getMetadataGuard()) {
+            if (Boolean.TRUE.equals(completed) && executionLoaded) {
+                var _execution = execution;
+                if (_execution != null) {
+                    _execution.onLoad(new Owner(this));
+                }
+            }
+        }
     }
 
     @Override protected void onLoad() {
+        super.onLoad();
         try {
             synchronized (getMetadataGuard()) {
                 if (executionLoaded) {
-                    LOGGER.log(Level.WARNING, "Double onLoad of build "+this);
+                    LOGGER.log(Level.WARNING, "Double onLoad of build " + this, new Throwable());
                     return;
                 }
                 boolean needsToPersist = completed == null;
-                super.onLoad();
-
                 if (Boolean.TRUE.equals(completed) && result == null) {
                     LOGGER.log(Level.FINE, "Completed build with no result set, defaulting to failure for "+this);
                     setResult(Result.FAILURE);
@@ -660,13 +667,6 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
                 listener = null;
             }
             saveWithoutFailing(true);
-            Timer.get().submit(() -> {
-                try {
-                    getParent().logRotate();
-                } catch (Exception x) {
-                    LOGGER.log(Level.WARNING, "failed to perform log rotation after " + this, x);
-                }
-            });
             onEndBuilding();
         } finally {  // Ensure this is ALWAYS removed from FlowExecutionList
             FlowExecutionList.get().unregister(new Owner(this));
@@ -1128,9 +1128,9 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
         return new ByteArrayInputStream(baos.toByteArray());
     }
 
-    @Override public void doConsoleText(StaplerRequest req, StaplerResponse rsp) throws IOException {
+    @Override public void doConsoleText(StaplerRequest2 req, StaplerResponse2 rsp) throws IOException {
         rsp.setContentType("text/plain;charset=UTF-8");
-        try (OutputStream os = rsp.getCompressedOutputStream(req)) {
+        try (OutputStream os = rsp.getOutputStream()) {
             writeLogTo(getLogText()::writeLogTo, os);
         }
     }

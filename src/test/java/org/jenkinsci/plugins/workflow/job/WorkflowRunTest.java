@@ -28,7 +28,9 @@ import static org.awaitility.Awaitility.await;
 import static org.hamcrest.collection.IsEmptyCollection.empty;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.emptyArray;
 import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.notNullValue;
 import static org.hamcrest.Matchers.nullValue;
 import static org.junit.Assert.assertEquals;
@@ -58,6 +60,7 @@ import hudson.security.Permission;
 import hudson.slaves.EnvironmentVariablesNodeProperty;
 import hudson.slaves.NodeProperty;
 import hudson.slaves.NodePropertyDescriptor;
+import hudson.tasks.LogRotator;
 import hudson.util.DescribableList;
 import hudson.util.StreamTaskListener;
 import java.io.File;
@@ -73,6 +76,7 @@ import java.util.Set;
 import java.util.TreeSet;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
+import java.util.logging.Logger;
 import jenkins.model.CauseOfInterruption;
 import jenkins.model.InterruptedBuildAction;
 import jenkins.model.Jenkins;
@@ -109,6 +113,7 @@ import org.jvnet.hudson.test.TestExtension;
 import org.xml.sax.SAXException;
 
 public class WorkflowRunTest {
+    private static final Logger LOGGER = Logger.getLogger(WorkflowRunTest.class.getName());
 
     @ClassRule public static BuildWatcher buildWatcher = new BuildWatcher();
     @Rule public JenkinsRule r = new JenkinsRule();
@@ -520,7 +525,7 @@ public class WorkflowRunTest {
         assertThat(await().until(() -> ExtensionList.lookupSingleton(CheckCompletedFlag.class).buildXml.get(b.getExternalizableId()), notNullValue()),
             containsString("<completed>true</completed>"));
     }
-    @TestExtension public static final class CheckCompletedFlag extends RunListener<WorkflowRun> {
+    @TestExtension("completedFlag") public static final class CheckCompletedFlag extends RunListener<WorkflowRun> {
         final Map<String, String> buildXml = new HashMap<>();
         @Override public void onFinalized(WorkflowRun r) {
             try {
@@ -600,6 +605,29 @@ public class WorkflowRunTest {
         assertPollingBaselines(b3.checkouts(listener), nullValue(), nullValue());
     }
 
+    @SafeVarargs
+    private static void assertPollingBaselines(List<WorkflowRun.SCMCheckout> checkouts, Matcher<Object>... indexedMatchers) {
+        assertThat("Number of checkouts should match number of matchers", checkouts.size(), equalTo(indexedMatchers.length));
+        for (int i = 0; i < checkouts.size(); i++) {
+            assertThat("Unexpected baseline for checkout at index " + i, checkouts.get(i).pollingBaseline, indexedMatchers[i]);
+        }
+    }
+
+    private static String checkoutString(GitSampleRepoRule repo, boolean changelog, boolean polling) {
+        return "    checkout(changelog:" + changelog +", poll:" + polling +
+                ", scm: [$class: 'GitSCM', branches: [[name: '*/master']], " +
+                ", userRemoteConfigs: [[url: $/" + repo.fileUrl() + "/$]]])\n";
+    }
+
+    @Test public void reloadOwner() throws Exception {
+        WorkflowJob p = r.jenkins.createProject(WorkflowJob.class, "reloadOwner");
+        p.setDefinition(new CpsFlowDefinition("", true));
+        WorkflowRun b = r.buildAndAssertSuccess(p);
+        assertThat("right owner before reload", b.getExecution().getOwner(), is(b.asFlowExecutionOwner()));
+        b.reload();
+        assertThat("right owner after reload", b.getExecution().getOwner(), is(b.asFlowExecutionOwner()));
+    }
+
     // This test is to ensure that the shortDescription on the CancelCause is escaped properly on summary.jelly
     @Issue("SECURITY-3042")
     @Test public void escapedDisplayNameAfterAbort() throws Exception {
@@ -667,19 +695,42 @@ public class WorkflowRunTest {
 
     }
 
-
-    @SafeVarargs
-    private static void assertPollingBaselines(List<WorkflowRun.SCMCheckout> checkouts, Matcher<Object>... indexedMatchers) {
-        assertThat("Number of checkouts should match number of matchers", checkouts.size(), equalTo(indexedMatchers.length));
-        for (int i = 0; i < checkouts.size(); i++) {
-            assertThat("Unexpected baseline for checkout at index " + i, checkouts.get(i).pollingBaseline, indexedMatchers[i]);
+    @Issue("JENKINS-73835")
+    @Test public void logRotationOnlyProcessesCompletedBuilds() throws Throwable {
+        logging.record(LogRotator.class, Level.FINER);
+        var p = r.createProject(WorkflowJob.class);
+        p.setDefinition(new CpsFlowDefinition(
+                "echo params.FOO; semaphore 'wait'", true));
+        p.addProperty(new ParametersDefinitionProperty(List.of(new StringParameterDefinition("FOO"))));
+        // Keep 0 builds, i.e. delete all builds immediately.
+        LogRotator logRotator = new LogRotator(-1, 0, -1, -1);
+        logRotator.setRemoveLastBuild(true);
+        p.setBuildDiscarder(logRotator);
+        int buildsToRun = 10; // Increase this number to reproduce the issue more easily prior to the fix.
+        Run[] builds = new Run[buildsToRun];
+        File[] buildDirs = new File[buildsToRun];
+        // Run a large number of builds that should finish around the same time to check race conditions with log rotation and build completion.
+        for (int i = 0; i < buildsToRun; i++) {
+            var b = p.scheduleBuild2(0, new ParametersAction(List.of(new StringParameterValue("FOO", "b" + i)))).waitForStart();
+            builds[i] = b;
+            buildDirs[i] = b.getRootDir();
+            SemaphoreStep.waitForStart("wait/" + (i+1), b);
         }
-    }
-
-    private static String checkoutString(GitSampleRepoRule repo, boolean changelog, boolean polling) {
-        return "    checkout(changelog:" + changelog +", poll:" + polling +
-                ", scm: [$class: 'GitSCM', branches: [[name: '*/master']], " +
-                ", userRemoteConfigs: [[url: $/" + repo.fileUrl() + "/$]]])\n";
+        for (int i = 0; i < buildsToRun; i++) {
+            SemaphoreStep.success("wait/" + (i+1), null);
+        }
+        LOGGER.info("Waiting for all builds to complete");
+        for (int i = 0; i < buildsToRun; i++) {
+            r.waitForCompletion(builds[i]);
+        }
+        LOGGER.info("Checking that all build directories are empty");
+        for (int i = 0; i < buildsToRun; i++) {
+            String[] filesInBuildDir = buildDirs[i].list();
+            if (filesInBuildDir == null) {
+                filesInBuildDir = new String[0];
+            }
+            assertThat("Expected " + buildDirs[i] + " to be empty but saw: " + Arrays.toString(filesInBuildDir), filesInBuildDir, emptyArray());
+        }
     }
 
 }
