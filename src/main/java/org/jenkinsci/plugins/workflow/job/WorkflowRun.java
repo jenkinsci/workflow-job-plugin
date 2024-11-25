@@ -547,6 +547,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
 
     /** Hack to allow {@link #execution} to use an {@link Owner} referring to this run, even when it has not yet been loaded. */
     @Override public void reload() throws IOException {
+        LOGGER.fine(() -> "Adding " + key() + " to LOADING_RUNS");
         synchronized (LOADING_RUNS) {
             LOADING_RUNS.put(key(), this);
         }
@@ -612,6 +613,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
             }
         } finally {  // Ensure the run is ALWAYS removed from loading even if something failed, so threads awaken.
             checkouts(null); // only for diagnostics
+            LOGGER.fine(() -> "Removing " + key() + " from LOADING_RUNS");
             synchronized (LOADING_RUNS) {
                 LOADING_RUNS.remove(key()); // or could just make the value type be WeakReference<WorkflowRun>
                 LOADING_RUNS.notifyAll();
