@@ -663,6 +663,11 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements L
     @Override protected void performDelete() throws IOException, InterruptedException {
         setDisabled(true);
         Jenkins.get().getQueue().cancel(this);
+
+        for (WorkflowRun workflowRun : getBuilds()) {
+            workflowRun.delete();
+        }
+
         // TODO call SCM.processWorkspaceBeforeDeletion
         super.performDelete();
     }
