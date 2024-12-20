@@ -93,7 +93,6 @@ import jenkins.model.lazy.LazyBuildMixIn;
 import jenkins.model.queue.AsynchronousExecution;
 import jenkins.scm.RunWithSCM;
 import jenkins.util.Timer;
-import org.acegisecurity.Authentication;
 import org.jenkinsci.plugins.workflow.FilePathUtils;
 import org.jenkinsci.plugins.workflow.actions.TimingAction;
 import org.jenkinsci.plugins.workflow.flow.BlockableResume;
@@ -132,6 +131,7 @@ import org.kohsuke.stapler.StaplerResponse2;
 import org.kohsuke.stapler.WebMethod;
 import org.kohsuke.stapler.export.Exported;
 import org.kohsuke.stapler.interceptor.RequirePOST;
+import org.springframework.security.core.Authentication;
 
 @SuppressWarnings("SynchronizeOnNonFinalField")
 @SuppressFBWarnings(value={"RC_REF_COMPARISON_BAD_PRACTICE_BOOLEAN"},
@@ -289,10 +289,10 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
             charset = "UTF-8"; // cannot override getCharset, and various Run methods do not call it anyway
             BuildListener myListener = getListener();
             myListener.started(getCauses());
-            Authentication auth = Jenkins.getAuthentication();
-            if (!auth.equals(ACL.SYSTEM)) {
+            Authentication auth = Jenkins.getAuthentication2();
+            if (!auth.equals(ACL.SYSTEM2)) {
                 String name = auth.getName();
-                if (!auth.equals(Jenkins.ANONYMOUS)) {
+                if (!auth.equals(Jenkins.ANONYMOUS2)) {
                     User user = User.getById(name, false);
                     if (user != null) {
                         name = ModelHyperlinkNote.encodeTo(user);
