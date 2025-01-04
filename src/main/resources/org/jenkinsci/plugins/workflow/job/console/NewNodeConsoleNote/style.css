@@ -1,5 +1,5 @@
 span.pipeline-new-node {
-    color: #9A9999
+    color: var(--text-color-secondary)
 }
 span.pipeline-show-hide {
     visibility: hidden
