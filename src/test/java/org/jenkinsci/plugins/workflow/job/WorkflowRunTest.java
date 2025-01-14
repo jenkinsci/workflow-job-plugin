@@ -25,10 +25,9 @@
 package org.jenkinsci.plugins.workflow.job;
 
 import static org.awaitility.Awaitility.await;
-import static org.hamcrest.collection.IsEmptyCollection.empty;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
-import static org.hamcrest.Matchers.emptyArray;
+import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.notNullValue;
@@ -725,11 +724,14 @@ public class WorkflowRunTest {
         }
         LOGGER.info("Checking that all build directories are empty");
         for (int i = 0; i < buildsToRun; i++) {
-            String[] filesInBuildDir = buildDirs[i].list();
-            if (filesInBuildDir == null) {
-                filesInBuildDir = new String[0];
-            }
-            assertThat("Expected " + buildDirs[i] + " to be empty but saw: " + Arrays.toString(filesInBuildDir), filesInBuildDir, emptyArray());
+            var dir = buildDirs[i];
+            await(dir + " should be empty").until(() -> {
+                var filesInBuildDir = dir.list();
+                if (filesInBuildDir == null) {
+                    filesInBuildDir = new String[0];
+                }
+                return Arrays.asList(filesInBuildDir);
+            }, empty());
         }
     }
 
