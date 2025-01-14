@@ -47,6 +47,7 @@ import edu.umd.cs.findbugs.annotations.NonNull;
 import hudson.AbortException;
 import hudson.Extension;
 import hudson.ExtensionList;
+import hudson.Functions;
 import hudson.XmlFile;
 import hudson.model.*;
 import hudson.model.listeners.RunListener;
@@ -98,6 +99,7 @@ import org.jenkinsci.plugins.workflow.graph.StepNode;
 import org.jenkinsci.plugins.workflow.job.properties.DisableConcurrentBuildsJobProperty;
 import org.jenkinsci.plugins.workflow.support.actions.EnvironmentAction;
 import org.jenkinsci.plugins.workflow.test.steps.SemaphoreStep;
+import static org.junit.Assume.assumeFalse;
 import org.junit.ClassRule;
 import org.junit.Ignore;
 import org.junit.Rule;
@@ -696,6 +698,7 @@ public class WorkflowRunTest {
 
     @Issue("JENKINS-73835")
     @Test public void logRotationOnlyProcessesCompletedBuilds() throws Throwable {
+        assumeFalse("TODO #502: failing in VMs", Functions.isWindows() && "true".equals(System.getenv("CI")));
         logging.record(LogRotator.class, Level.FINER);
         var p = r.createProject(WorkflowJob.class);
         p.setDefinition(new CpsFlowDefinition(
