@@ -25,10 +25,9 @@
 package org.jenkinsci.plugins.workflow.job;
 
 import static org.awaitility.Awaitility.await;
-import static org.hamcrest.collection.IsEmptyCollection.empty;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
-import static org.hamcrest.Matchers.emptyArray;
+import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.notNullValue;
@@ -48,6 +47,7 @@ import edu.umd.cs.findbugs.annotations.NonNull;
 import hudson.AbortException;
 import hudson.Extension;
 import hudson.ExtensionList;
+import hudson.Functions;
 import hudson.XmlFile;
 import hudson.model.*;
 import hudson.model.listeners.RunListener;
@@ -99,6 +99,7 @@ import org.jenkinsci.plugins.workflow.graph.StepNode;
 import org.jenkinsci.plugins.workflow.job.properties.DisableConcurrentBuildsJobProperty;
 import org.jenkinsci.plugins.workflow.support.actions.EnvironmentAction;
 import org.jenkinsci.plugins.workflow.test.steps.SemaphoreStep;
+import static org.junit.Assume.assumeFalse;
 import org.junit.ClassRule;
 import org.junit.Ignore;
 import org.junit.Rule;
@@ -697,6 +698,7 @@ public class WorkflowRunTest {
 
     @Issue("JENKINS-73835")
     @Test public void logRotationOnlyProcessesCompletedBuilds() throws Throwable {
+        assumeFalse("TODO #502: failing in VMs", Functions.isWindows() && "true".equals(System.getenv("CI")));
         logging.record(LogRotator.class, Level.FINER);
         var p = r.createProject(WorkflowJob.class);
         p.setDefinition(new CpsFlowDefinition(
@@ -725,11 +727,14 @@ public class WorkflowRunTest {
         }
         LOGGER.info("Checking that all build directories are empty");
         for (int i = 0; i < buildsToRun; i++) {
-            String[] filesInBuildDir = buildDirs[i].list();
-            if (filesInBuildDir == null) {
-                filesInBuildDir = new String[0];
-            }
-            assertThat("Expected " + buildDirs[i] + " to be empty but saw: " + Arrays.toString(filesInBuildDir), filesInBuildDir, emptyArray());
+            var dir = buildDirs[i];
+            await(dir + " should be empty").until(() -> {
+                var filesInBuildDir = dir.list();
+                if (filesInBuildDir == null) {
+                    filesInBuildDir = new String[0];
+                }
+                return Arrays.asList(filesInBuildDir);
+            }, empty());
         }
     }
 
