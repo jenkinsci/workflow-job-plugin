@@ -541,15 +541,12 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
 
     private static final Map<String,WorkflowRun> LOADING_RUNS = new HashMap<>();
 
-    private String key() {
-        return getParent().getFullName() + '/' + getId();
-    }
 
     /** Hack to allow {@link #execution} to use an {@link Owner} referring to this run, even when it has not yet been loaded. */
     @Override public void reload() throws IOException {
-        LOGGER.fine(() -> "Adding " + key() + " to LOADING_RUNS");
+        LOGGER.fine(() -> "Adding " + getExternalizableId() + " to LOADING_RUNS");
         synchronized (LOADING_RUNS) {
-            LOADING_RUNS.put(key(), this);
+            LOADING_RUNS.put(getExternalizableId(), this);
         }
 
         // super.reload() forces result to be FAILURE, so working around that
@@ -613,9 +610,9 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
             }
         } finally {  // Ensure the run is ALWAYS removed from loading even if something failed, so threads awaken.
             checkouts(null); // only for diagnostics
-            LOGGER.fine(() -> "Removing " + key() + " from LOADING_RUNS");
+            LOGGER.fine(() -> "Removing " + getExternalizableId() + " from LOADING_RUNS");
             synchronized (LOADING_RUNS) {
-                LOADING_RUNS.remove(key()); // or could just make the value type be WeakReference<WorkflowRun>
+                LOADING_RUNS.remove(getExternalizableId()); // or could just make the value type be WeakReference<WorkflowRun>
                 LOADING_RUNS.notifyAll();
             }
         }
@@ -944,14 +941,11 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
             id = run.getId();
             this.run = run;
         }
-        private String key() {
-            return job + '/' + id;
-        }
         private @NonNull WorkflowRun run() throws IOException {
             if (run==null) {
                 WorkflowRun candidate;
                 synchronized (LOADING_RUNS) {
-                    candidate = LOADING_RUNS.get(key());
+                    candidate = LOADING_RUNS.get(getExternalizableId());
                 }
                 if (candidate != null && candidate.getParent().getFullName().equals(job) && candidate.getId().equals(id)) {
                     run = candidate;
@@ -982,8 +976,8 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
             WorkflowRun r = run();
             synchronized (LOADING_RUNS) {
                 int count = 5;
-                while (r.execution == null && LOADING_RUNS.containsKey(key()) && count-- > 0) {
-                    try (WithThreadName naming = new WithThreadName(": waiting for " + key())) {
+                while (r.execution == null && LOADING_RUNS.containsKey(getExternalizableId()) && count-- > 0) {
+                    try (WithThreadName naming = new WithThreadName(": waiting for " + getExternalizableId())) {
                         LOADING_RUNS.wait(/* 1m */60_000);
                     } catch (InterruptedException x) {
                         LOGGER.log(Level.WARNING, "failed to wait for " + r + " to be loaded", x);
@@ -1020,13 +1014,16 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
         @Override public String getUrl() throws IOException {
             return run().getUrl();
         }
+        @Override public @NonNull String getExternalizableId() {
+            return job + '#' + id;
+        }
 
         @NonNull
         @Override public TaskListener getListener() throws IOException {
             return run().getListener();
         }
         @Override public String toString() {
-            return "Owner[" + key() + ":" + run + "]";
+            return getExternalizableId();
         }
 
         @Override
