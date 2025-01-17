@@ -884,7 +884,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
     }
 
     @RequirePOST
-    public synchronized HttpResponse doStop() {
+    public HttpResponse doStop() {
         Executor e = getOneOffExecutor();
         if (e != null) {
             return e.doStop();
