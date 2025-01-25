@@ -76,15 +76,9 @@
             <dependency>
                 <groupId>io.jenkins.tools.bom</groupId>
                 <artifactId>bom-${jenkins.baseline}.x</artifactId>
-                <version>3482.vc10d4f6da_28a_</version>
+                <version>4023.va_eeb_b_4e45f07</version>
                 <scope>import</scope>
                 <type>pom</type>
-            </dependency>
-            <!-- TODO until in BOM: -->
-            <dependency>
-                <groupId>org.jenkins-ci.plugins.workflow</groupId>
-                <artifactId>workflow-api</artifactId>
-                <version>1358.vfb_5780da_64cb_</version>
             </dependency>
         </dependencies>
     </dependencyManagement>
