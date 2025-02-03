@@ -28,8 +28,8 @@ THE SOFTWARE.
     <l:layout title="${%changes.title(it.name)}">
         <st:include page="sidepanel.jelly"/>
         <l:main-panel>
-            <j:set var="from" value="${request.getParameter('from')}"/>
-            <j:set var="to" value="${request.getParameter('to')}"/>
+            <j:set var="from" value="${request2.getParameter('from')}"/>
+            <j:set var="to" value="${request2.getParameter('to')}"/>
             <h1>
                 ${%Changes}
                 <j:if test="${from!=null}">${%from.label(from)}</j:if>
