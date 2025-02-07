@@ -191,6 +191,13 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
     volatile Boolean completed;  // Non-private for testing
 
     /**
+     * Whether {@link #onLoad} might be needed from {@link #reload}.
+     * Unfortunately {@link #reload} can be called either directly or implicitly via {@link #WorkflowRun(WorkflowJob, File)}
+     * and this is the only way to tell which of those cases this is.
+     */
+    private transient volatile boolean loaded;
+
+    /**
      * Protects access to {@link #completed} etc.
      * @see #getMetadataGuard
      */
@@ -245,6 +252,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
     public WorkflowRun(WorkflowJob job) throws IOException {
         super(job);
         firstTime = true;
+        loaded = true;
         checkouts = new PersistedList<>(this);
         //System.err.printf("created %s @%h%n", this, this);
     }
@@ -552,12 +560,18 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
         // super.reload() forces result to be FAILURE, so working around that
         new XmlFile(XSTREAM,new File(getRootDir(),"build.xml")).unmarshal(this);
         synchronized (getMetadataGuard()) {
-            if (Boolean.TRUE.equals(completed) && executionLoaded) {
-                var _execution = execution;
-                if (_execution != null) {
-                    _execution.onLoad(new Owner(this));
+            LOGGER.fine(() -> getExternalizableId() + " completed=" + completed + " executionLoaded=" + executionLoaded + " loaded=" + loaded);
+            if (Boolean.TRUE.equals(completed)) {
+                if (executionLoaded) {
+                    var _execution = execution;
+                    if (_execution != null) {
+                        _execution.onLoad(new Owner(this));
+                    }
                 }
             }
+            if (loaded) {
+                super.onLoad();
+            } // else from WorkflowRun(WorkflowJob, File), and RunMap.retrieve will call onLoad
         }
     }
 
@@ -565,6 +579,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
         super.onLoad();
         try {
             synchronized (getMetadataGuard()) {
+                loaded = true;
                 if (executionLoaded) {
                     LOGGER.log(Level.WARNING, "Double onLoad of build " + this, new Throwable());
                     return;
