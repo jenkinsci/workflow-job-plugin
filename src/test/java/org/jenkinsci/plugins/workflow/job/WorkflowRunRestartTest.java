@@ -468,8 +468,13 @@ public class WorkflowRunRestartTest {
             var p = r.jenkins.getItemByFullName("p", WorkflowJob.class);
             var b = p.getBuildByNumber(1);
             var a = b.getAction(A.class);
-            assertThat("not attached in this instance", a.attached, is(0));
-            assertThat("loaded", a.loaded, is(1));
+            assertThat("after restart, not attached in this instance", a.attached, is(0));
+            assertThat("after restart, loaded", a.loaded, is(1));
+            b.reload();
+            assertThat("after restart, owner after reload", b.getExecution().getOwner(), is(b.asFlowExecutionOwner()));
+            a = b.getAction(A.class);
+            assertThat("after restart, not attached in this instance", a.attached, is(0));
+            assertThat("after restart, loaded", a.loaded, is(1));
         });
     }
     private static final class A extends InvisibleAction implements RunAction2 {
