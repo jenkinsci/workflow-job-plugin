@@ -557,6 +557,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
                 if (_execution != null) {
                     _execution.onLoad(new Owner(this));
                 }
+                super.onLoad();
             }
         }
     }

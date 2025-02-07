@@ -80,6 +80,7 @@ import java.util.logging.Logger;
 import jenkins.model.CauseOfInterruption;
 import jenkins.model.InterruptedBuildAction;
 import jenkins.model.Jenkins;
+import jenkins.model.RunAction2;
 import jenkins.plugins.git.GitSampleRepoRule;
 import jenkins.security.QueueItemAuthenticatorConfiguration;
 import net.sf.json.JSONArray;
@@ -620,13 +621,30 @@ public class WorkflowRunTest {
                 ", userRemoteConfigs: [[url: $/" + repo.fileUrl() + "/$]]])\n";
     }
 
-    @Test public void reloadOwner() throws Exception {
-        WorkflowJob p = r.jenkins.createProject(WorkflowJob.class, "reloadOwner");
+    @Test public void reloadOwnerAndActions() throws Exception {
+        WorkflowJob p = r.jenkins.createProject(WorkflowJob.class, "p");
         p.setDefinition(new CpsFlowDefinition("", true));
         WorkflowRun b = r.buildAndAssertSuccess(p);
+        var a = new A();
+        b.addAction(a);
+        b.save();
         assertThat("right owner before reload", b.getExecution().getOwner(), is(b.asFlowExecutionOwner()));
+        assertThat("attached once", a.attached, is(1));
+        assertThat("not yet loaded", a.loaded, is(0));
         b.reload();
         assertThat("right owner after reload", b.getExecution().getOwner(), is(b.asFlowExecutionOwner()));
+        a = b.getAction(A.class);
+        assertThat("not attached in this instance", a.attached, is(0));
+        assertThat("loaded", a.loaded, is(1));
+    }
+    private static final class A extends InvisibleAction implements RunAction2 {
+        transient volatile int attached, loaded;
+        @Override public void onAttached(Run<?, ?> r) {
+            attached++;
+        }
+        @Override public void onLoad(Run<?, ?> r) {
+            loaded++;
+        }
     }
 
     // This test is to ensure that the shortDescription on the CancelCause is escaped properly on summary.jelly
