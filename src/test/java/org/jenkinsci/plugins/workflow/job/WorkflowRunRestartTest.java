@@ -35,11 +35,17 @@ import static org.junit.Assert.assertTrue;
 import edu.umd.cs.findbugs.annotations.NonNull;
 import hudson.ExtensionList;
 import hudson.model.Executor;
+import hudson.model.InvisibleAction;
 import hudson.model.Result;
+import hudson.model.Run;
 import hudson.model.TaskListener;
 import java.util.Collections;
 import java.util.List;
 import java.util.Set;
+import java.util.logging.Level;
+import jenkins.model.RunAction2;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.is;
 import org.jenkinsci.plugins.workflow.cps.CpsFlowDefinition;
 import org.jenkinsci.plugins.workflow.flow.FlowDurabilityHint;
 import org.jenkinsci.plugins.workflow.flow.FlowExecution;
@@ -63,6 +69,7 @@ import org.jvnet.hudson.test.BuildWatcher;
 import org.jvnet.hudson.test.Issue;
 import org.jvnet.hudson.test.JenkinsRule;
 import org.jvnet.hudson.test.JenkinsSessionRule;
+import org.jvnet.hudson.test.LoggerRule;
 import org.jvnet.hudson.test.TestExtension;
 import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.DataBoundSetter;
@@ -71,6 +78,7 @@ public class WorkflowRunRestartTest {
 
     @ClassRule public static BuildWatcher buildWatcher = new BuildWatcher();
     @Rule public JenkinsSessionRule story = new JenkinsSessionRule();
+    @Rule public LoggerRule logging = new LoggerRule();
 
     @Issue("JENKINS-27299")
     @Test public void disabled() throws Throwable {
@@ -437,4 +445,41 @@ public class WorkflowRunRestartTest {
             }
         }
     }
+
+    @Test public void reloadOwnerAndActions() throws Throwable {
+        logging.record(WorkflowRun.class, Level.FINE);
+        story.then(r -> {
+            var p = r.jenkins.createProject(WorkflowJob.class, "p");
+            p.setDefinition(new CpsFlowDefinition("", true));
+            var b = r.buildAndAssertSuccess(p);
+            var a = new A();
+            b.addAction(a);
+            b.save();
+            assertThat("right owner before reload", b.getExecution().getOwner(), is(b.asFlowExecutionOwner()));
+            assertThat("attached once", a.attached, is(1));
+            assertThat("not yet loaded", a.loaded, is(0));
+            b.reload();
+            assertThat("right owner after reload", b.getExecution().getOwner(), is(b.asFlowExecutionOwner()));
+            a = b.getAction(A.class);
+            assertThat("not attached in this instance", a.attached, is(0));
+            assertThat("loaded", a.loaded, is(1));
+        });
+        story.then(r -> {
+            var p = r.jenkins.getItemByFullName("p", WorkflowJob.class);
+            var b = p.getBuildByNumber(1);
+            var a = b.getAction(A.class);
+            assertThat("not attached in this instance", a.attached, is(0));
+            assertThat("loaded", a.loaded, is(1));
+        });
+    }
+    private static final class A extends InvisibleAction implements RunAction2 {
+        transient volatile int attached, loaded;
+        @Override public void onAttached(Run<?, ?> r) {
+            attached++;
+        }
+        @Override public void onLoad(Run<?, ?> r) {
+            loaded++;
+        }
+    }
+
 }
