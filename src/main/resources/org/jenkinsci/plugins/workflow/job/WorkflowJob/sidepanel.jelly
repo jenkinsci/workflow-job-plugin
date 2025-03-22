@@ -28,7 +28,7 @@
     <l:header title="${it.name}"/>
     <l:side-panel>
         <l:tasks>
-            <j:set var="url" value="${h.getNearestAncestorUrl(request,it)}"/>
+            <j:set var="url" value="${h.getNearestAncestorUrl(request2,it)}"/>
             <l:task icon="symbol-reader-outline plugin-ionicons-api"  href="${url}/" title="${%Status}" contextMenu="false"/>
             <l:task icon="symbol-code-slash-outline plugin-ionicons-api" href="${url}/changes" title="${%Changes}"/>
             <p:configurable/>
