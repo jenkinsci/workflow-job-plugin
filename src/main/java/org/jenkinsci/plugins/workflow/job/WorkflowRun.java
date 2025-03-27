@@ -28,7 +28,6 @@ import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import hudson.AbortException;
 import hudson.BulkChange;
 import hudson.EnvVars;
@@ -134,8 +133,6 @@ import org.kohsuke.stapler.interceptor.RequirePOST;
 import org.springframework.security.core.Authentication;
 
 @SuppressWarnings("SynchronizeOnNonFinalField")
-@SuppressFBWarnings(value={"RC_REF_COMPARISON_BAD_PRACTICE_BOOLEAN"},
-        justification="For Boolean comparison, this is for deserializing handle null completion states from legacy builds")
 public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements FlowExecutionOwner.Executable, LazyBuildMixIn.LazyLoadingRun<WorkflowJob,WorkflowRun>, RunWithSCM<WorkflowJob,WorkflowRun> {
 
     private static final Logger LOGGER = Logger.getLogger(WorkflowRun.class.getName());
