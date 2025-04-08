@@ -757,6 +757,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
                     executionLoaded = true;
                     return fetchedExecution;
                 } catch (Exception x) {
+                    setResult(Result.FAILURE);
                     LOGGER.log(Level.WARNING, "error in build " + this, x);
                     executionLoaded = true;
                     completeAsynchronousExecution();
