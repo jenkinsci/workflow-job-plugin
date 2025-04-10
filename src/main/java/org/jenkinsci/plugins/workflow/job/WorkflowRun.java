@@ -562,7 +562,9 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
                 if (executionLoaded) {
                     var _execution = execution;
                     if (_execution != null) {
-                        _execution.onLoad(new Owner(this));
+                        synchronized (this) {
+                            _execution.onLoad(new Owner(this));
+                        }
                     }
                 }
             }
