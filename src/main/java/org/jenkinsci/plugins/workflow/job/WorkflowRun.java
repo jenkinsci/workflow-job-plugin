@@ -306,7 +306,6 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
                 myListener.getLogger().println(/* hudson.model.Messages.Run_running_as_(name) */ "Running as " + name);
             }
             RunListener.fireStarted(this, myListener);
-            updateSymlinks(myListener);
             FlowDefinition definition = getParent().getDefinition();
             if (definition == null) {
                 throw new AbortException("No flow definition, cannot run");
