@@ -556,22 +556,18 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
 
         // super.reload() forces result to be FAILURE, so working around that
         new XmlFile(XSTREAM,new File(getRootDir(),"build.xml")).unmarshal(this);
-        synchronized (getMetadataGuard()) {
-            LOGGER.fine(() -> getExternalizableId() + " completed=" + completed + " executionLoaded=" + executionLoaded + " loaded=" + loaded);
-            if (Boolean.TRUE.equals(completed)) {
-                if (executionLoaded) {
-                    var _execution = execution;
-                    if (_execution != null) {
-                        synchronized (this) {
-                            _execution.onLoad(new Owner(this));
-                        }
-                    }
-                }
+        synchronized (this) {
+            var _completed = completed;
+            var _executionLoaded = executionLoaded;
+            var _execution = execution;
+            LOGGER.fine(() -> getExternalizableId() + " completed=" + _completed + " executionLoaded=" + _executionLoaded);
+            if (Boolean.TRUE.equals(_completed) && _executionLoaded && _execution != null) {
+                _execution.onLoad(new Owner(this));
             }
-            if (loaded) {
-                super.onLoad();
-            } // else from WorkflowRun(WorkflowJob, File), and RunMap.retrieve will call onLoad
         }
+        if (loaded) {
+            super.onLoad();
+        } // else from WorkflowRun(WorkflowJob, File), and RunMap.retrieve will call onLoad
     }
 
     @Override protected void onLoad() {
