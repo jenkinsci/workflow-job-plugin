@@ -263,6 +263,7 @@ public class DefaultLogStorageTest {
 
     // Access large logs via HTTP:
 
+    @Ignore("for interactive use")
     @WithTimeout(600)
     @Issue("JENKINS-75081")
     @Test public void giantLogRunning() throws Exception {
@@ -286,6 +287,7 @@ public class DefaultLogStorageTest {
         r.assertBuildStatusSuccess(r.waitForCompletion(b));
     }
 
+    @Ignore("for interactive use")
     @WithTimeout(600)
     @Issue("JENKINS-75081")
     @Test public void giantLogCompleted() throws Exception {
