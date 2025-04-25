@@ -68,6 +68,7 @@ import org.jenkinsci.plugins.workflow.steps.Step;
 import org.jenkinsci.plugins.workflow.steps.StepContext;
 import org.jenkinsci.plugins.workflow.steps.StepDescriptor;
 import org.jenkinsci.plugins.workflow.steps.StepExecution;
+import org.jenkinsci.plugins.workflow.steps.StepExecutions;
 import org.jenkinsci.plugins.workflow.steps.SynchronousStepExecution;
 import org.jenkinsci.plugins.workflow.test.steps.SemaphoreStep;
 import org.junit.Ignore;
@@ -143,7 +144,7 @@ public class DefaultLogStorageTest {
     @Test public void performance() throws Exception {
         assumeFalse(Functions.isWindows()); // needs newline fixes; not bothering for now
         WorkflowJob p = r.createProject(WorkflowJob.class, "p");
-        p.setDefinition(new CpsFlowDefinition("@NonCPS def giant() {(0..999999).join('\\n')}; echo giant(); sleep 0", true));
+        p.setDefinition(new CpsFlowDefinition("giant(); echo 'quick message at the end'", true));
         long start = System.nanoTime();
         WorkflowRun b = r.buildAndAssertSuccess(p);
         System.out.printf("Took %dms to run the build%n", (System.nanoTime() - start) / 1000 / 1000);
@@ -167,7 +168,7 @@ public class DefaultLogStorageTest {
         System.out.printf("Took %dms to write truncated HTML of whole build%n", (System.nanoTime() - start) / 1000 / 1000);
         assertThat(sw.toString(), not(containsString("\n456789\n")));
         assertThat(sw.toString(), containsString("\n999923\n"));
-        /* Whether or not this echo step is annotated in the truncated log is not really important:
+        /* Whether or not this step is annotated in the truncated log is not really important:
         assertThat(sw.toString(), containsString("\n999999\n</span>"));
         */
         // Plain text:
@@ -180,10 +181,9 @@ public class DefaultLogStorageTest {
         String rawLog = FileUtils.readFileToString(new File(b.getRootDir(), "log"), StandardCharsets.UTF_8);
         assertThat(rawLog, containsString("0\n"));
         assertThat(rawLog, containsString("\n999999\n"));
-        assertThat(rawLog, containsString("sleep any longer"));
+        assertThat(rawLog, containsString("quick message at the end"));
         // Per node:
-        FlowNode echo = new DepthFirstScanner().findFirstMatch(b.getExecution(), new NodeStepTypePredicate("echo"));
-        LogAction la = echo.getAction(LogAction.class);
+        LogAction la = new DepthFirstScanner().findFirstMatch(b.getExecution(), new NodeStepTypePredicate("giant")).getAction(LogAction.class);
         assertNotNull(la);
         baos = new ByteArrayOutputStream();
         la.getLogText().writeRawLogTo(0, baos);
@@ -214,19 +214,37 @@ public class DefaultLogStorageTest {
         System.out.printf("Took %dms to write plain text of one long node%n", (System.nanoTime() - start) / 1000 / 1000);
         assertThat(baos.toString(), containsString("\n456789\n"));
         // Node with litte text:
-        FlowNode sleep = new DepthFirstScanner().findFirstMatch(b.getExecution(), new NodeStepTypePredicate("sleep"));
-        la = sleep.getAction(LogAction.class);
+        la = new DepthFirstScanner().findFirstMatch(b.getExecution(), new NodeStepTypePredicate("echo")).getAction(LogAction.class);
         assertNotNull(la);
         sw = new StringWriter();
         start = System.nanoTime();
         la.getLogText().writeHtmlTo(0, sw);
         System.out.printf("Took %dms to write HTML of one short node%n", (System.nanoTime() - start) / 1000 / 1000);
-        assertThat(sw.toString(), containsString("No need to sleep any longer"));
+        assertThat(sw.toString(), containsString("quick message at the end"));
         // Length check
         start = System.nanoTime();
         length = la.getLogText().length();
         System.out.printf("Took %dms to compute length of one short node%n", (System.nanoTime() - start) / 1000 / 1000);
         assertThat(length, lessThan(50L));
+    }
+    public static final class GiantStep extends Step {
+        @DataBoundConstructor public GiantStep() {}
+        @Override public StepExecution start(StepContext context) throws Exception {
+            return StepExecutions.synchronousNonBlockingVoid(context, c -> {
+                var ps = c.get(TaskListener.class).getLogger();
+                for (int i = 0; i < 1_000_000; i++) {
+                    ps.printf("%06d%n", i);
+                }
+            });
+        }
+        @TestExtension("performance") public static final class DescriptorImpl extends StepDescriptor {
+            @Override public String getFunctionName() {
+                return "giant";
+            }
+            @Override public Set<? extends Class<?>> getRequiredContext() {
+                return Set.of(TaskListener.class);
+            }
+        }
     }
 
     @Ignore("Currently not asserting anything, just here for interactive evaluation.")
