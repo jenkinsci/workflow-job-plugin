@@ -50,6 +50,10 @@ import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.InputStream;
 import java.io.StringWriter;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Set;
@@ -266,14 +270,14 @@ public class DefaultLogStorageTest {
         p.setDefinition(new CpsFlowDefinition("for (int i = 0; i < 10; i++) {giant(7)}", true));
         var b = p.scheduleBuild2(0).waitForStart();
         LOGGER.info("Running");
-        var wc = r.createWebClient();
-        wc.getOptions().setJavaScriptEnabled(false);
+        var base = URI.create(p.getAbsoluteUrl() + "/1/");
+        var client = HttpClient.newHttpClient();
         String start = "0";
         while (true) {
             LOGGER.info("progressiveHtml?start=" + start);
-            var rsp = wc.getPage(b, "logText/progressiveHtml?start=" + start).getWebResponse();
-            if ("true".equals(rsp.getResponseHeaderValue("X-More-Data"))) {
-                start = rsp.getResponseHeaderValue("X-Text-Size");
+            var headers = client.send(HttpRequest.newBuilder(base.resolve("logText/progressiveHtml?start=" + start)).build(), HttpResponse.BodyHandlers.discarding()).headers();
+            if (Boolean.parseBoolean(headers.firstValue("X-More-Data").orElse("false"))) {
+                start = headers.firstValue("X-Text-Size").get();
             } else {
                 break;
             }
@@ -290,18 +294,18 @@ public class DefaultLogStorageTest {
         LOGGER.info("running build");
         var b = r.buildAndAssertSuccess(p);
         LOGGER.info("completed");
-        var wc = r.createWebClient();
-        wc.getOptions().setJavaScriptEnabled(false);
+        var base = URI.create(p.getAbsoluteUrl() + "/1/");
+        var client = HttpClient.newHttpClient();
         LOGGER.info("console");
-        errors.checkSucceeds(() -> wc.getPage(b, "console"));
+        errors.checkSucceeds(() -> client.send(HttpRequest.newBuilder(base.resolve("console")).build(), HttpResponse.BodyHandlers.discarding()));
         LOGGER.info("consoleFull");
-        errors.checkSucceeds(() -> wc.getPage(b, "consoleFull"));
+        errors.checkSucceeds(() -> client.send(HttpRequest.newBuilder(base.resolve("consoleFull")).build(), HttpResponse.BodyHandlers.discarding()));
         LOGGER.info("consoleText");
-        errors.checkSucceeds(() -> wc.goTo(b.getUrl() + "consoleText", "text/plain"));
+        errors.checkSucceeds(() -> client.send(HttpRequest.newBuilder(base.resolve("consoleText")).build(), HttpResponse.BodyHandlers.discarding()));
         LOGGER.info("progressiveText");
-        errors.checkSucceeds(() -> wc.goTo(b.getUrl() + "logText/progressiveText", "text/plain"));
+        errors.checkSucceeds(() -> client.send(HttpRequest.newBuilder(base.resolve("logText/progressiveText")).build(), HttpResponse.BodyHandlers.discarding()));
         LOGGER.info("progressiveHtml");
-        errors.checkSucceeds(() -> wc.getPage(b, "logText/progressiveHtml"));
+        errors.checkSucceeds(() -> client.send(HttpRequest.newBuilder(base.resolve("logText/progressiveHtml")).build(), HttpResponse.BodyHandlers.discarding()));
     }
 
     @Ignore("Currently not asserting anything, just here for interactive evaluation.")
