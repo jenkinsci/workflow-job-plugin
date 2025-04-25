@@ -54,6 +54,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Set;
 import java.util.logging.Level;
+import java.util.logging.Logger;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.IOUtils;
 import org.jenkinsci.plugins.workflow.actions.LogAction;
@@ -74,17 +75,22 @@ import org.jenkinsci.plugins.workflow.test.steps.SemaphoreStep;
 import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
+import org.junit.rules.ErrorCollector;
 import org.jvnet.hudson.test.Issue;
 import org.jvnet.hudson.test.JenkinsRule;
 import org.jvnet.hudson.test.LoggerRule;
 import org.jvnet.hudson.test.TestExtension;
+import org.jvnet.hudson.test.recipes.WithTimeout;
 import org.kohsuke.stapler.DataBoundConstructor;
 
 @Issue("JENKINS-38381")
 public class DefaultLogStorageTest {
 
+    private static final Logger LOGGER = Logger.getLogger(DefaultLogStorageTest.class.getName());
+
     @Rule public JenkinsRule r = new JenkinsRule();
     @Rule public LoggerRule logging = new LoggerRule();
+    @Rule public ErrorCollector errors = new ErrorCollector();
 
     @Test public void consoleNotes() throws Exception {
         r.jenkins.setSecurityRealm(r.createDummySecurityRealm());
@@ -144,7 +150,7 @@ public class DefaultLogStorageTest {
     @Test public void performance() throws Exception {
         assumeFalse(Functions.isWindows()); // needs newline fixes; not bothering for now
         WorkflowJob p = r.createProject(WorkflowJob.class, "p");
-        p.setDefinition(new CpsFlowDefinition("giant(); echo 'quick message at the end'", true));
+        p.setDefinition(new CpsFlowDefinition("giant(6); echo 'quick message at the end'", true));
         long start = System.nanoTime();
         WorkflowRun b = r.buildAndAssertSuccess(p);
         System.out.printf("Took %dms to run the build%n", (System.nanoTime() - start) / 1000 / 1000);
@@ -227,17 +233,21 @@ public class DefaultLogStorageTest {
         System.out.printf("Took %dms to compute length of one short node%n", (System.nanoTime() - start) / 1000 / 1000);
         assertThat(length, lessThan(50L));
     }
+
     public static final class GiantStep extends Step {
-        @DataBoundConstructor public GiantStep() {}
+        final int digits;
+        @DataBoundConstructor public GiantStep(int digits) {
+            this.digits = digits;
+        }
         @Override public StepExecution start(StepContext context) throws Exception {
             return StepExecutions.synchronousNonBlockingVoid(context, c -> {
                 var ps = c.get(TaskListener.class).getLogger();
-                for (int i = 0; i < 1_000_000; i++) {
-                    ps.printf("%06d%n", i);
+                for (int i = 0; i < Math.pow(10, digits); i++) {
+                    ps.printf("%0" + digits + "d%n", i);
                 }
             });
         }
-        @TestExtension("performance") public static final class DescriptorImpl extends StepDescriptor {
+        @TestExtension public static final class DescriptorImpl extends StepDescriptor {
             @Override public String getFunctionName() {
                 return "giant";
             }
@@ -245,6 +255,53 @@ public class DefaultLogStorageTest {
                 return Set.of(TaskListener.class);
             }
         }
+    }
+
+    // Access large logs via HTTP:
+
+    @WithTimeout(600)
+    @Issue("JENKINS-75081")
+    @Test public void giantLogRunning() throws Exception {
+        var p = r.createProject(WorkflowJob.class, "p");
+        p.setDefinition(new CpsFlowDefinition("for (int i = 0; i < 10; i++) {giant(7)}", true));
+        var b = p.scheduleBuild2(0).waitForStart();
+        LOGGER.info("Running");
+        var wc = r.createWebClient();
+        wc.getOptions().setJavaScriptEnabled(false);
+        String start = "0";
+        while (true) {
+            LOGGER.info("progressiveHtml?start=" + start);
+            var rsp = wc.getPage(b, "logText/progressiveHtml?start=" + start).getWebResponse();
+            if ("true".equals(rsp.getResponseHeaderValue("X-More-Data"))) {
+                start = rsp.getResponseHeaderValue("X-Text-Size");
+            } else {
+                break;
+            }
+        }
+        LOGGER.info("Complete");
+        r.assertBuildStatusSuccess(r.waitForCompletion(b));
+    }
+
+    @WithTimeout(600)
+    @Issue("JENKINS-75081")
+    @Test public void giantLogCompleted() throws Exception {
+        var p = r.createProject(WorkflowJob.class, "p");
+        p.setDefinition(new CpsFlowDefinition("giant(8)", true)); // 859Mb
+        LOGGER.info("running build");
+        var b = r.buildAndAssertSuccess(p);
+        LOGGER.info("completed");
+        var wc = r.createWebClient();
+        wc.getOptions().setJavaScriptEnabled(false);
+        LOGGER.info("console");
+        errors.checkSucceeds(() -> wc.getPage(b, "console"));
+        LOGGER.info("consoleFull");
+        errors.checkSucceeds(() -> wc.getPage(b, "consoleFull"));
+        LOGGER.info("consoleText");
+        errors.checkSucceeds(() -> wc.goTo(b.getUrl() + "consoleText", "text/plain"));
+        LOGGER.info("progressiveText");
+        errors.checkSucceeds(() -> wc.goTo(b.getUrl() + "logText/progressiveText", "text/plain"));
+        LOGGER.info("progressiveHtml");
+        errors.checkSucceeds(() -> wc.getPage(b, "logText/progressiveHtml"));
     }
 
     @Ignore("Currently not asserting anything, just here for interactive evaluation.")
