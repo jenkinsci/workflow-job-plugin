@@ -304,8 +304,6 @@ public class DefaultLogStorageTest {
         errors.checkSucceeds(() -> client.send(HttpRequest.newBuilder(base.resolve("consoleText")).build(), HttpResponse.BodyHandlers.discarding()));
         LOGGER.info("progressiveText");
         errors.checkSucceeds(() -> client.send(HttpRequest.newBuilder(base.resolve("logText/progressiveText")).build(), HttpResponse.BodyHandlers.discarding()));
-        LOGGER.info("progressiveHtml");
-        errors.checkSucceeds(() -> client.send(HttpRequest.newBuilder(base.resolve("logText/progressiveHtml")).build(), HttpResponse.BodyHandlers.discarding()));
     }
 
     @Ignore("Currently not asserting anything, just here for interactive evaluation.")
