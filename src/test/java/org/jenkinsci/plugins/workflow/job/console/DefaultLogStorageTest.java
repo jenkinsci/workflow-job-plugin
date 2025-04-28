@@ -50,10 +50,15 @@ import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.InputStream;
 import java.io.StringWriter;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Set;
 import java.util.logging.Level;
+import java.util.logging.Logger;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.IOUtils;
 import org.jenkinsci.plugins.workflow.actions.LogAction;
@@ -68,22 +73,28 @@ import org.jenkinsci.plugins.workflow.steps.Step;
 import org.jenkinsci.plugins.workflow.steps.StepContext;
 import org.jenkinsci.plugins.workflow.steps.StepDescriptor;
 import org.jenkinsci.plugins.workflow.steps.StepExecution;
+import org.jenkinsci.plugins.workflow.steps.StepExecutions;
 import org.jenkinsci.plugins.workflow.steps.SynchronousStepExecution;
 import org.jenkinsci.plugins.workflow.test.steps.SemaphoreStep;
 import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
+import org.junit.rules.ErrorCollector;
 import org.jvnet.hudson.test.Issue;
 import org.jvnet.hudson.test.JenkinsRule;
 import org.jvnet.hudson.test.LoggerRule;
 import org.jvnet.hudson.test.TestExtension;
+import org.jvnet.hudson.test.recipes.WithTimeout;
 import org.kohsuke.stapler.DataBoundConstructor;
 
 @Issue("JENKINS-38381")
 public class DefaultLogStorageTest {
 
+    private static final Logger LOGGER = Logger.getLogger(DefaultLogStorageTest.class.getName());
+
     @Rule public JenkinsRule r = new JenkinsRule();
     @Rule public LoggerRule logging = new LoggerRule();
+    @Rule public ErrorCollector errors = new ErrorCollector();
 
     @Test public void consoleNotes() throws Exception {
         r.jenkins.setSecurityRealm(r.createDummySecurityRealm());
@@ -143,7 +154,7 @@ public class DefaultLogStorageTest {
     @Test public void performance() throws Exception {
         assumeFalse(Functions.isWindows()); // needs newline fixes; not bothering for now
         WorkflowJob p = r.createProject(WorkflowJob.class, "p");
-        p.setDefinition(new CpsFlowDefinition("@NonCPS def giant() {(0..999999).join('\\n')}; echo giant(); sleep 0", true));
+        p.setDefinition(new CpsFlowDefinition("giant(6); echo 'quick message at the end'", true));
         long start = System.nanoTime();
         WorkflowRun b = r.buildAndAssertSuccess(p);
         System.out.printf("Took %dms to run the build%n", (System.nanoTime() - start) / 1000 / 1000);
@@ -167,7 +178,7 @@ public class DefaultLogStorageTest {
         System.out.printf("Took %dms to write truncated HTML of whole build%n", (System.nanoTime() - start) / 1000 / 1000);
         assertThat(sw.toString(), not(containsString("\n456789\n")));
         assertThat(sw.toString(), containsString("\n999923\n"));
-        /* Whether or not this echo step is annotated in the truncated log is not really important:
+        /* Whether or not this step is annotated in the truncated log is not really important:
         assertThat(sw.toString(), containsString("\n999999\n</span>"));
         */
         // Plain text:
@@ -180,10 +191,9 @@ public class DefaultLogStorageTest {
         String rawLog = FileUtils.readFileToString(new File(b.getRootDir(), "log"), StandardCharsets.UTF_8);
         assertThat(rawLog, containsString("0\n"));
         assertThat(rawLog, containsString("\n999999\n"));
-        assertThat(rawLog, containsString("sleep any longer"));
+        assertThat(rawLog, containsString("quick message at the end"));
         // Per node:
-        FlowNode echo = new DepthFirstScanner().findFirstMatch(b.getExecution(), new NodeStepTypePredicate("echo"));
-        LogAction la = echo.getAction(LogAction.class);
+        LogAction la = new DepthFirstScanner().findFirstMatch(b.getExecution(), new NodeStepTypePredicate("giant")).getAction(LogAction.class);
         assertNotNull(la);
         baos = new ByteArrayOutputStream();
         la.getLogText().writeRawLogTo(0, baos);
@@ -214,19 +224,88 @@ public class DefaultLogStorageTest {
         System.out.printf("Took %dms to write plain text of one long node%n", (System.nanoTime() - start) / 1000 / 1000);
         assertThat(baos.toString(), containsString("\n456789\n"));
         // Node with litte text:
-        FlowNode sleep = new DepthFirstScanner().findFirstMatch(b.getExecution(), new NodeStepTypePredicate("sleep"));
-        la = sleep.getAction(LogAction.class);
+        la = new DepthFirstScanner().findFirstMatch(b.getExecution(), new NodeStepTypePredicate("echo")).getAction(LogAction.class);
         assertNotNull(la);
         sw = new StringWriter();
         start = System.nanoTime();
         la.getLogText().writeHtmlTo(0, sw);
         System.out.printf("Took %dms to write HTML of one short node%n", (System.nanoTime() - start) / 1000 / 1000);
-        assertThat(sw.toString(), containsString("No need to sleep any longer"));
+        assertThat(sw.toString(), containsString("quick message at the end"));
         // Length check
         start = System.nanoTime();
         length = la.getLogText().length();
         System.out.printf("Took %dms to compute length of one short node%n", (System.nanoTime() - start) / 1000 / 1000);
         assertThat(length, lessThan(50L));
+    }
+
+    public static final class GiantStep extends Step {
+        final int digits;
+        @DataBoundConstructor public GiantStep(int digits) {
+            this.digits = digits;
+        }
+        @Override public StepExecution start(StepContext context) throws Exception {
+            return StepExecutions.synchronousNonBlockingVoid(context, c -> {
+                var ps = c.get(TaskListener.class).getLogger();
+                for (int i = 0; i < Math.pow(10, digits); i++) {
+                    ps.printf("%0" + digits + "d%n", i);
+                }
+            });
+        }
+        @TestExtension public static final class DescriptorImpl extends StepDescriptor {
+            @Override public String getFunctionName() {
+                return "giant";
+            }
+            @Override public Set<? extends Class<?>> getRequiredContext() {
+                return Set.of(TaskListener.class);
+            }
+        }
+    }
+
+    // Access large logs via HTTP:
+
+    @Ignore("for interactive use")
+    @WithTimeout(600)
+    @Issue("JENKINS-75081")
+    @Test public void giantLogRunning() throws Exception {
+        var p = r.createProject(WorkflowJob.class, "p");
+        p.setDefinition(new CpsFlowDefinition("for (int i = 0; i < 10; i++) {giant(7)}", true));
+        var b = p.scheduleBuild2(0).waitForStart();
+        LOGGER.info("Running");
+        var base = URI.create(p.getAbsoluteUrl() + "/1/");
+        var client = HttpClient.newHttpClient();
+        String start = "0";
+        while (true) {
+            LOGGER.info("progressiveHtml?start=" + start);
+            var headers = client.send(HttpRequest.newBuilder(base.resolve("logText/progressiveHtml?start=" + start)).build(), HttpResponse.BodyHandlers.discarding()).headers();
+            if (Boolean.parseBoolean(headers.firstValue("X-More-Data").orElse("false"))) {
+                start = headers.firstValue("X-Text-Size").get();
+            } else {
+                break;
+            }
+        }
+        LOGGER.info("Complete");
+        r.assertBuildStatusSuccess(r.waitForCompletion(b));
+    }
+
+    @Ignore("for interactive use")
+    @WithTimeout(600)
+    @Issue("JENKINS-75081")
+    @Test public void giantLogCompleted() throws Exception {
+        var p = r.createProject(WorkflowJob.class, "p");
+        p.setDefinition(new CpsFlowDefinition("giant(8)", true)); // 859Mb
+        LOGGER.info("running build");
+        var b = r.buildAndAssertSuccess(p);
+        LOGGER.info("completed");
+        var base = URI.create(p.getAbsoluteUrl() + "/1/");
+        var client = HttpClient.newHttpClient();
+        LOGGER.info("console");
+        errors.checkSucceeds(() -> client.send(HttpRequest.newBuilder(base.resolve("console")).build(), HttpResponse.BodyHandlers.discarding()));
+        LOGGER.info("consoleFull");
+        errors.checkSucceeds(() -> client.send(HttpRequest.newBuilder(base.resolve("consoleFull")).build(), HttpResponse.BodyHandlers.discarding()));
+        LOGGER.info("consoleText");
+        errors.checkSucceeds(() -> client.send(HttpRequest.newBuilder(base.resolve("consoleText")).build(), HttpResponse.BodyHandlers.discarding()));
+        LOGGER.info("progressiveText");
+        errors.checkSucceeds(() -> client.send(HttpRequest.newBuilder(base.resolve("logText/progressiveText")).build(), HttpResponse.BodyHandlers.discarding()));
     }
 
     @Ignore("Currently not asserting anything, just here for interactive evaluation.")
