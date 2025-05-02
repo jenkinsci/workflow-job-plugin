@@ -140,7 +140,7 @@ public class DisableConcurrentBuildsJobPropertyTest {
         SemaphoreStep.waitForStart("run/5", b5);
         WorkflowRun b6 = p.scheduleBuild2(0).waitForStart();
         SemaphoreStep.waitForStart("run/6", b6);
-        r.assertBuildStatus(Result.NOT_BUILT, r.waitForCompletion(b5));
+        r.assertBuildStatus(Result.ABORTED, r.waitForCompletion(b5));
         InterruptedBuildAction iba = b5.getAction(InterruptedBuildAction.class);
         assertNotNull(iba);
         assertEquals(1, iba.getCauses().size());

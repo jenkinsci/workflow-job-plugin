@@ -641,8 +641,8 @@ public class WorkflowRunTest {
         b2.save();
         SemaphoreStep.waitForStart("hang/2", b2);
 
-        // Check that the first build has been aborted with a status of 'NOT_BUILT'
-        r.assertBuildStatus(Result.NOT_BUILT, r.waitForCompletion(b1));
+        // Check that the first build has been aborted with a status of 'ABORTED'
+        r.assertBuildStatus(Result.ABORTED, r.waitForCompletion(b1));
 
         // Kill the second build, then delete it and check it has been deleted
         b2.doKill();
