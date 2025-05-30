@@ -261,6 +261,7 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements L
         return getParameterizedJobMixIn().extendSearchIndex(super.makeSearchIndex());
     }
 
+    @Exported
     @Override public boolean isDisabled() {
         return disabled;
     }
