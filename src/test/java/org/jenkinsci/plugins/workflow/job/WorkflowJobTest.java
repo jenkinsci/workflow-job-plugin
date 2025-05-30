@@ -2,6 +2,7 @@ package org.jenkinsci.plugins.workflow.job;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.empty;
+import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.nullValue;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
@@ -24,6 +25,7 @@ import java.util.logging.Logger;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import jenkins.plugins.git.GitSampleRepoRule;
+import net.sf.json.JSONObject;
 import org.jenkinsci.plugins.workflow.cps.CpsFlowDefinition;
 import org.jenkinsci.plugins.workflow.cps.CpsScmFlowDefinition;
 import org.junit.ClassRule;
@@ -125,9 +127,8 @@ public class WorkflowJobTest {
     @Issue("JENKINS-27299")
     @Test public void disabled() throws Exception {
         WorkflowJob p = j.jenkins.createProject(WorkflowJob.class, "p");
-        assertFalse(p.isDisabled());
-        assertTrue(p.isBuildable());
         JenkinsRule.WebClient wc = j.createWebClient();
+        assertDisabled(p, false, wc);
 
         // Disable the project
         HtmlForm form = wc.getPage(p, "configure").getFormByName("config");
@@ -135,8 +136,7 @@ public class WorkflowJobTest {
         assertTrue(checkbox.isChecked());
         checkbox.setChecked(false);
         j.submit(form);
-        assertTrue(p.isDisabled());
-        assertFalse(p.isBuildable());
+        assertDisabled(p, true, wc);
 
         // Re-enable the project
         form = wc.getPage(p, "configure").getFormByName("config");
@@ -144,14 +144,20 @@ public class WorkflowJobTest {
         assertFalse(checkbox.isChecked());
         checkbox.setChecked(true);
         j.submit(form);
-        assertFalse(p.isDisabled());
-        assertTrue(p.isBuildable());
+        assertDisabled(p, false, wc);
 
         wc.getPage(new WebRequest(wc.createCrumbedUrl(p.getUrl() + "disable"), HttpMethod.POST));
-        assertTrue(p.isDisabled());
+        assertDisabled(p, true, wc);
         assertNull(p.scheduleBuild2(0));
         assertThat(new CLICommandInvoker(j, "enable-job").invokeWithArgs("p"), CLICommandInvoker.Matcher.succeededSilently());
-        assertFalse(p.isDisabled());
+        assertDisabled(p, false, wc);
+    }
+
+    private void assertDisabled(WorkflowJob p, boolean disabled, JenkinsRule.WebClient wc) throws Exception {
+        assertThat(p.isDisabled(), is(disabled));
+        assertThat(p.isBuildable(), is(!disabled));
+        assertThat(wc.getJSON(p.getUrl() + "api/json?tree=disabled,buildable").getJSONObject(),
+            is(new JSONObject().accumulate("_class", WorkflowJob.class.getName()).accumulate("disabled", disabled).accumulate("buildable", !disabled)));
     }
 
     @Test
