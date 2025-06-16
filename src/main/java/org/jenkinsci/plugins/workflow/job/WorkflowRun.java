@@ -91,6 +91,7 @@ import jenkins.model.lazy.BuildReference;
 import jenkins.model.lazy.LazyBuildMixIn;
 import jenkins.model.queue.AsynchronousExecution;
 import jenkins.scm.RunWithSCM;
+import jenkins.util.SystemProperties;
 import jenkins.util.Timer;
 import org.jenkinsci.plugins.workflow.FilePathUtils;
 import org.jenkinsci.plugins.workflow.actions.TimingAction;
@@ -755,7 +756,13 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
                     return fetchedExecution;
                 } catch (Exception x) {
                     setResult(Result.FAILURE);
-                    LOGGER.log(Level.WARNING, "error in build " + this, x);
+                    if (SystemProperties.getBoolean("org.jenkinsci.plugins.workflow.cps.CpsFlowExecution.initializeStorageFromOnLoad", true)) {
+                        LOGGER.log(Level.WARNING, "Nulling out FlowExecution due to error in build " + this, x);
+                        execution = null; // probably too broken to use
+                        saveWithoutFailing(true); // Ensure we do not try to load again
+                    } else {
+                        LOGGER.log(Level.WARNING, "error in build " + this, x);
+                    }
                     executionLoaded = true;
                     completeAsynchronousExecution();
                     return null;
