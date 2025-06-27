@@ -85,6 +85,7 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 import edu.umd.cs.findbugs.annotations.CheckForNull;
 import edu.umd.cs.findbugs.annotations.NonNull;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import jenkins.model.CauseOfInterruption;
 import jenkins.model.Jenkins;
 import jenkins.model.lazy.BuildReference;
@@ -705,6 +706,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
      * Performs all the needed initialization for the execution pre-loading too -- sets the executionPromise, adds Listener, calls onLoad on it etc.
      * @return non-null after the flow has started, even after finished (but may be null temporarily when about to start, or if starting failed)
      */
+    @SuppressFBWarnings(value = "REC_CATCH_EXCEPTION", justification = "deliberate")
     public @CheckForNull FlowExecution getExecution() {
         if (executionLoaded || execution == null) {  // Avoids highly-contended synchronization on run
             return execution;
