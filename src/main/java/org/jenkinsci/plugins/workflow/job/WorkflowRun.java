@@ -328,6 +328,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
             synchronized (getMetadataGuard()) {  // Technically safe but it makes FindBugs happy
                 FlowExecutionList.get().register(owner);
                 newExecution.addListener(new GraphL());
+                newExecution.addListener(new TimingListener());
                 newExecution.addListener(new NodePrintListener());
                 completed = Boolean.FALSE;
                 executionLoaded = true;
@@ -757,6 +758,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
                             // need the build to be loaded and can result in loading loops otherwise.
                             fetchedExecution.removeListener(finishListener);
                             fetchedExecution.addListener(new GraphL());
+                            fetchedExecution.addListener(new TimingListener());
                             fetchedExecution.addListener(new NodePrintListener());
                         }
                     }
@@ -1085,12 +1087,16 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
         }
     }
 
-    private final class GraphL implements GraphListener {
+    private final class TimingListener implements GraphListener {
         @Override public void onNewHead(FlowNode node) {
             if (node.getPersistentAction(TimingAction.class) == null) {
                 node.addAction(new TimingAction());
             }
+        }
+    }
 
+    private final class GraphL implements GraphListener {
+        @Override public void onNewHead(FlowNode node) {
             FlowExecution exec = getExecution();
             if (node instanceof FlowEndNode) {
                 finish(((FlowEndNode) node).getResult(), exec != null ? exec.getCauseOfFailure() : null);
@@ -1099,6 +1105,12 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
                     saveWithoutFailing(false);
                 }
             }
+        }
+
+        @Override public double ordinal() {
+            // We want this to run last, so that all other listeners have a chance to do things before the build is
+            // marked as completed.
+            return -1000;
         }
     }
 
