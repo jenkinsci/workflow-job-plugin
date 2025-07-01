@@ -1087,10 +1087,6 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
 
     private final class GraphL implements GraphListener {
         @Override public void onNewHead(FlowNode node) {
-            if (node.getPersistentAction(TimingAction.class) == null) {
-                node.addAction(new TimingAction());
-            }
-
             FlowExecution exec = getExecution();
             if (node instanceof FlowEndNode) {
                 finish(((FlowEndNode) node).getResult(), exec != null ? exec.getCauseOfFailure() : null);
