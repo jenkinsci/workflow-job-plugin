@@ -64,7 +64,7 @@
     <properties>
         <changelist>999999-SNAPSHOT</changelist>
         <!-- https://www.jenkins.io/doc/developer/plugin-development/choosing-jenkins-baseline/ -->
-        <jenkins.baseline>2.479</jenkins.baseline>
+        <jenkins.baseline>2.504</jenkins.baseline>
         <jenkins.version>${jenkins.baseline}.1</jenkins.version>
         <no-test-jar>false</no-test-jar>
         <useBeta>true</useBeta>
@@ -76,12 +76,13 @@
             <dependency>
                 <groupId>io.jenkins.tools.bom</groupId>
                 <artifactId>bom-${jenkins.baseline}.x</artifactId>
-                <version>4023.va_eeb_b_4e45f07</version>
+                <version>4710.v016f0a_07e34d</version>
                 <scope>import</scope>
                 <type>pom</type>
             </dependency>
             <dependency>
-                <!-- TODO: -->
+                <!-- TODO: https://github.com/jenkinsci/workflow-api-plugin/pull/410 -->
+                <!-- TODO: Remove when included in BOM -->
                 <groupId>org.jenkins-ci.plugins.workflow</groupId>
                 <artifactId>workflow-api</artifactId>
                 <version>1377.v6fdf65c6195c</version>
