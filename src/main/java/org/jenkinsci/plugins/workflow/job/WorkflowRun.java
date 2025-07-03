@@ -95,7 +95,6 @@ import jenkins.scm.RunWithSCM;
 import jenkins.util.SystemProperties;
 import jenkins.util.Timer;
 import org.jenkinsci.plugins.workflow.FilePathUtils;
-import org.jenkinsci.plugins.workflow.actions.TimingAction;
 import org.jenkinsci.plugins.workflow.flow.BlockableResume;
 import org.jenkinsci.plugins.workflow.flow.DurabilityHintProvider;
 import org.jenkinsci.plugins.workflow.flow.FlowCopier;
