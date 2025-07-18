@@ -52,7 +52,10 @@ THE SOFTWARE.
       <j:set var="offset" value="${empty(consoleFull) ? it.logText.length()-threshold*1024 : 0}" />
       <j:choose>
         <j:when test="${offset > 0}">
-          ${%skipSome(offset/1024,"consoleFull")}
+          <a class="jenkins-button jenkins-!-accent-color jenkins-!-padding-2 jenkins-!-margin-bottom-2" style="width: 100%; justify-content: start" href="consoleFull">
+            <l:icon src="symbol-help-circle" />
+            ${%skipSome(offset / 1024)}
+          </a>
         </j:when>
         <j:otherwise>
           <j:set var="offset" value="${0}" />
