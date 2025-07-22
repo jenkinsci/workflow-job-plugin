@@ -708,10 +708,8 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
      */
     @SuppressFBWarnings(value = "REC_CATCH_EXCEPTION", justification = "deliberate")
     public @CheckForNull FlowExecution getExecution() {
-        if (executionLoaded || execution == null) {  // Avoids highly-contended synchronization on run
-            return execution;
-        } else {  // Try to lazy-load execution
-            synchronized (this) {  // Double-checked locking rendered safe by use of volatile field
+        // Try to lazy-load execution
+            synchronized (getMetadataGuard()) {
                 FlowExecution fetchedExecution = execution;
                 if (executionLoaded || fetchedExecution == null) {
                     return fetchedExecution;
@@ -780,7 +778,6 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
                     return null;
                 }
             }
-        }
     }
 
     /**
