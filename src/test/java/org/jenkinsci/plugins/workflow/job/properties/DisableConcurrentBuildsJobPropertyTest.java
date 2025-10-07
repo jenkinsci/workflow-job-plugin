@@ -37,31 +37,41 @@ import org.jenkinsci.plugins.workflow.cps.CpsFlowDefinition;
 import org.jenkinsci.plugins.workflow.job.WorkflowJob;
 import org.jenkinsci.plugins.workflow.job.WorkflowRun;
 import org.jenkinsci.plugins.workflow.test.steps.SemaphoreStep;
-import static org.junit.Assert.assertEquals;
-import org.junit.ClassRule;
-import org.junit.Rule;
-import org.junit.Test;
-import org.jvnet.hudson.test.BuildWatcher;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.RegisterExtension;
 import org.jvnet.hudson.test.Issue;
 import org.jvnet.hudson.test.JenkinsRule;
+import org.jvnet.hudson.test.junit.jupiter.BuildWatcherExtension;
+import org.jvnet.hudson.test.junit.jupiter.WithJenkins;
 import org.jvnet.hudson.test.recipes.LocalData;
 
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertNull;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
-public class DisableConcurrentBuildsJobPropertyTest {
-    @ClassRule
-    public static BuildWatcher buildWatcher = new BuildWatcher();
-    @Rule
-    public JenkinsRule r = new JenkinsRule();
+@WithJenkins
+class DisableConcurrentBuildsJobPropertyTest {
+    
+    @SuppressWarnings("unused")
+    @RegisterExtension
+    private static final BuildWatcherExtension BUILD_WATCHER = new BuildWatcherExtension();
+    private JenkinsRule r;
+
+    @BeforeEach
+    void beforeEach(JenkinsRule rule) {
+        r = rule;
+    }
 
 
     @Issue("JENKINS-34547")
     @LocalData
     @Test
-    public void concurrentBuildsMigrationOnByDefault() {
+    void concurrentBuildsMigrationOnByDefault() {
         WorkflowJob p = r.jenkins.getItemByFullName("p", WorkflowJob.class);
         assertNotNull(p);
         assertNull(p.getProperty(DisableConcurrentBuildsJobProperty.class));
@@ -70,7 +80,8 @@ public class DisableConcurrentBuildsJobPropertyTest {
 
     @Issue("JENKINS-34547")
     @LocalData
-    @Test public void concurrentBuildsMigrationFromFalse() {
+    @Test
+    void concurrentBuildsMigrationFromFalse() {
         WorkflowJob p = r.jenkins.getItemByFullName("p", WorkflowJob.class);
         assertNotNull(p);
         assertNotNull(p.getProperty(DisableConcurrentBuildsJobProperty.class));
@@ -78,7 +89,8 @@ public class DisableConcurrentBuildsJobPropertyTest {
     }
 
     @Issue("JENKINS-34547")
-    @Test public void configRoundTrip() throws Exception {
+    @Test
+    void configRoundTrip() throws Exception {
         WorkflowJob defaultCase = r.jenkins.createProject(WorkflowJob.class, "defaultCase");
         assertTrue(defaultCase.isConcurrentBuild());
 
@@ -104,7 +116,8 @@ public class DisableConcurrentBuildsJobPropertyTest {
     }
 
     @Issue("JENKINS-43353")
-    @Test public void abortPrevious() throws Exception {
+    @Test
+    void abortPrevious() throws Exception {
         WorkflowJob p = r.createProject(WorkflowJob.class);
         p.setDefinition(new CpsFlowDefinition("semaphore 'run'", true));
 

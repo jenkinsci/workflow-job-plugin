@@ -34,13 +34,14 @@ import hudson.triggers.TimerTrigger;
 import hudson.triggers.Trigger;
 import org.apache.commons.io.IOUtils;
 import org.jenkinsci.plugins.workflow.job.WorkflowJob;
-import org.junit.After;
-import org.junit.ClassRule;
-import org.junit.Rule;
-import org.junit.Test;
-import org.jvnet.hudson.test.BuildWatcher;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.RegisterExtension;
 import org.jvnet.hudson.test.Issue;
 import org.jvnet.hudson.test.JenkinsRule;
+import org.jvnet.hudson.test.junit.jupiter.BuildWatcherExtension;
+import org.jvnet.hudson.test.junit.jupiter.WithJenkins;
 import org.jvnet.hudson.test.recipes.LocalData;
 
 import java.net.URL;
@@ -48,30 +49,37 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertNull;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
-public class PipelineTriggersJobPropertyTest {
-    @ClassRule
-    public static BuildWatcher buildWatcher = new BuildWatcher();
-    @Rule
-    public JenkinsRule r = new JenkinsRule();
+@WithJenkins
+class PipelineTriggersJobPropertyTest {
+
+    @SuppressWarnings("unused")
+    @RegisterExtension
+    private static final BuildWatcherExtension BUILD_WATCHER = new BuildWatcherExtension();
+    private JenkinsRule r;
+
+    @BeforeEach
+    void beforeEach(JenkinsRule rule) {
+        r = rule;
+    }
 
     /**
      * Needed to ensure that we get a fresh {@code startsAndStops} with each test run. Has to be *after* rather than
      * *before* to avoid weird ordering issues with {@code @LocalData}.
      */
-    @After
-    public void resetStartsAndStops() {
+    @AfterEach
+    void afterEach() {
         MockTrigger.startsAndStops = new ArrayList<>();
         QueryingMockTrigger.startsAndStops = new ArrayList<>();
     }
 
     @Test
-    public void loadCallsStartFalse() throws Exception {
+    void loadCallsStartFalse() throws Exception {
         WorkflowJob p = r.jenkins.createProject(WorkflowJob.class, "p");
         MockTrigger t = new MockTrigger();
         p.addTrigger(t);
@@ -87,7 +95,7 @@ public class PipelineTriggersJobPropertyTest {
     }
 
     @Test
-    public void submitCallsStartTrue() throws Exception {
+    void submitCallsStartTrue() throws Exception {
         WorkflowJob p = r.jenkins.createProject(WorkflowJob.class, "p");
         MockTrigger t = new MockTrigger();
         p.addTrigger(t);
@@ -103,7 +111,7 @@ public class PipelineTriggersJobPropertyTest {
     }
 
     @Test
-    public void previousTriggerStopped() throws Exception {
+    void previousTriggerStopped() throws Exception {
         WorkflowJob p = r.jenkins.createProject(WorkflowJob.class, "p");
         MockTrigger t = new MockTrigger();
         p.addTrigger(t);
@@ -118,7 +126,7 @@ public class PipelineTriggersJobPropertyTest {
 
     @LocalData
     @Test
-    public void triggerMigration() throws Exception {
+    void triggerMigration() throws Exception {
         WorkflowJob p = r.jenkins.getItemByFullName("p", WorkflowJob.class);
         assertNotNull(p);
 
@@ -160,7 +168,7 @@ public class PipelineTriggersJobPropertyTest {
     }
 
     @Test
-    public void configRoundTrip() throws Exception {
+    void configRoundTrip() throws Exception {
         WorkflowJob defaultCase = r.jenkins.createProject(WorkflowJob.class, "defaultCase");
         assertTrue(defaultCase.getTriggers().isEmpty());
         assertNull(defaultCase.getProperty(PipelineTriggersJobProperty.class));
@@ -190,7 +198,7 @@ public class PipelineTriggersJobPropertyTest {
 
     @Issue("JENKINS-42446")
     @Test
-    public void triggerPresentDuringStart() throws Exception {
+    void triggerPresentDuringStart() throws Exception {
         WorkflowJob p = r.jenkins.createProject(WorkflowJob.class, "triggerPresent");
         assertNull(getTriggerFromList(QueryingMockTrigger.class,
                 p.getTriggersJobProperty().getTriggers()));

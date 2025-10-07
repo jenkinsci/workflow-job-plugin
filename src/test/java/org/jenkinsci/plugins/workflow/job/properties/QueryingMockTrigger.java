@@ -49,11 +49,13 @@ public class QueryingMockTrigger extends Trigger<BuildableItem> {
     @DataBoundConstructor
     public QueryingMockTrigger() {}
 
-    @Override public void start(BuildableItem project, boolean newInstance) {
+    @Override
+    public void start(BuildableItem project, boolean newInstance) {
         super.start(project, newInstance);
         for (Trigger<?> t : ((ParameterizedJobMixIn.ParameterizedJob<?, ?>) project).getTriggers().values()) {
             if (t instanceof QueryingMockTrigger) {
                 foundSelf = true;
+                break;
             }
         }
 
@@ -61,7 +63,8 @@ public class QueryingMockTrigger extends Trigger<BuildableItem> {
         isStarted = true;
     }
 
-    @Override public void stop() {
+    @Override
+    public void stop() {
         super.stop();
         startsAndStops.add(null);
         isStarted = false;
@@ -75,10 +78,12 @@ public class QueryingMockTrigger extends Trigger<BuildableItem> {
         }
     }
 
+    @SuppressWarnings("unused")
     @Extension
     public static class DescriptorImpl extends TriggerDescriptor {
 
-        @Override public boolean isApplicable(Item item) {
+        @Override
+        public boolean isApplicable(Item item) {
             return true;
         }
 

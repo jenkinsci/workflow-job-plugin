@@ -37,6 +37,7 @@ import hudson.model.TaskListener;
 import hudson.remoting.Channel;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.io.Serial;
 import java.io.Serializable;
 import java.util.Collections;
 import java.util.Set;
@@ -53,25 +54,34 @@ import org.jenkinsci.plugins.workflow.steps.StepContext;
 import org.jenkinsci.plugins.workflow.steps.StepDescriptor;
 import org.jenkinsci.plugins.workflow.steps.StepExecution;
 import org.jenkinsci.plugins.workflow.steps.SynchronousNonBlockingStepExecution;
-import org.junit.ClassRule;
-import org.junit.Rule;
-import org.junit.Test;
-import org.jvnet.hudson.test.BuildWatcher;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.RegisterExtension;
 import org.jvnet.hudson.test.For;
 import org.jvnet.hudson.test.Issue;
 import org.jvnet.hudson.test.JenkinsRule;
 import org.jvnet.hudson.test.TestExtension;
+import org.jvnet.hudson.test.junit.jupiter.BuildWatcherExtension;
+import org.jvnet.hudson.test.junit.jupiter.WithJenkins;
 import org.kohsuke.stapler.DataBoundConstructor;
 
 @Issue("JENKINS-45693")
 @For(TaskListenerDecorator.class)
-public class TaskListenerDecoratorTest {
+@WithJenkins
+class TaskListenerDecoratorTest {
 
-    @ClassRule public static BuildWatcher buildWatcher = new BuildWatcher();
+    @SuppressWarnings("unused")
+    @RegisterExtension
+    private static final BuildWatcherExtension BUILD_WATCHER = new BuildWatcherExtension();
+    private JenkinsRule r;
 
-    @Rule public JenkinsRule r = new JenkinsRule();
+    @BeforeEach
+    void beforeEach(JenkinsRule rule) {
+        r = rule;
+    }
 
-    @Test public void smokes() throws Exception {
+    @Test
+    void smokes() throws Exception {
         r.createSlave("remote", null, null);
         WorkflowJob p = r.createProject(WorkflowJob.class, "p");
         p.setDefinition(new CpsFlowDefinition("filter {decorate {node('remote') {remotePrint()}}}", true));
@@ -84,40 +94,54 @@ public class TaskListenerDecoratorTest {
     }
 
     private static final class DecoratorImpl extends TaskListenerDecorator {
+        @Serial
         private static final long serialVersionUID = 1L;
         
         private final String message;
+
         DecoratorImpl(String message) {
             this.message = message;
         }
+
+        @Serial
         private Object writeReplace() {
             Channel ch = Channel.current();
             return ch != null ? new DecoratorImpl(message + " via " + ch.getName()) : this;
         }
 
         @NonNull
-        @Override public OutputStream decorate(@NonNull OutputStream logger) {
+        @Override
+        public OutputStream decorate(@NonNull OutputStream logger) {
             return new LineTransformationOutputStream() {
-                @Override protected void eol(byte[] b, int len) throws IOException {
+                @Override
+                protected void eol(byte[] b, int len) throws IOException {
                     logger.write(("[" + message + "] ").getBytes());
                     logger.write(b, 0, len);
                 }
-                @Override public void close() throws IOException {
+                @Override
+                public void close() throws IOException {
                     super.close();
                     logger.close();
                 }
-                @Override public void flush() throws IOException {
+                @Override
+                public void flush() throws IOException {
                     logger.flush();
                 }
             };
         }
-        @Override public String toString() {
+
+        @Override
+        public String toString() {
             return "DecoratorImpl[" + message + "]";
         }
     }
 
-    @TestExtension public static final class DecoratorFactory implements TaskListenerDecorator.Factory {
-        @Override public TaskListenerDecorator of(FlowExecutionOwner owner) {
+    @SuppressWarnings("unused")
+    @TestExtension
+    public static final class DecoratorFactory implements TaskListenerDecorator.Factory {
+
+        @Override
+        public TaskListenerDecorator of(FlowExecutionOwner owner) {
             try {
                 return new DecoratorImpl(owner.getUrl());
             } catch (IOException x) {
@@ -126,116 +150,175 @@ public class TaskListenerDecoratorTest {
         }
     }
 
+    @SuppressWarnings("unused")
     public static final class DecoratorStep extends Step {
-        @DataBoundConstructor public DecoratorStep() {}
-        @Override public StepExecution start(StepContext context) {
+
+        @DataBoundConstructor
+        public DecoratorStep() {}
+
+        @Override
+        public StepExecution start(StepContext context) {
             return new Execution(context);
         }
+
         private static final class Execution extends StepExecution {
+            @Serial
             private static final long serialVersionUID = 1L;
             
             Execution(StepContext context) {
                 super(context);
             }
-            @Override public boolean start() {
+
+            @Override
+            public boolean start() {
                 getContext().newBodyInvoker().withContext(new DecoratorImpl("decorated")).withCallback(BodyExecutionCallback.wrap(getContext())).start();
                 return false;
             }
         }
-        @TestExtension public static final class DescriptorImpl extends StepDescriptor {
-            @Override public Set<? extends Class<?>> getRequiredContext() {
+
+        @TestExtension
+        public static final class DescriptorImpl extends StepDescriptor {
+
+            @Override
+            public Set<? extends Class<?>> getRequiredContext() {
                 return Collections.emptySet();
             }
-            @Override public String getFunctionName() {
+            @Override
+            public String getFunctionName() {
                 return "decorate";
             }
-            @Override public boolean takesImplicitBlockArgument() {
+            @Override
+            public boolean takesImplicitBlockArgument() {
                 return true;
             }
         }
     }
 
+    @SuppressWarnings("unused")
     public static final class FilterStep extends Step {
-        @DataBoundConstructor public FilterStep() {}
-        @Override public StepExecution start(StepContext context) {
+
+        @DataBoundConstructor
+        public FilterStep() {}
+
+        @Override
+        public StepExecution start(StepContext context) {
             return new Execution(context);
         }
+
         private static final class Execution extends StepExecution {
+            @Serial
             private static final long serialVersionUID = 1L;
             
             Execution(StepContext context) {
                 super(context);
             }
-            @Override public boolean start() {
+
+            @Override
+            public boolean start() {
                 getContext().newBodyInvoker().withContext(new Filter("filtered")).withCallback(BodyExecutionCallback.wrap(getContext())).start();
                 return false;
             }
         }
+
         private static final class Filter extends ConsoleLogFilter implements Serializable {
+            @Serial
             private static final long serialVersionUID = 1L;
             
             private final String message;
+
             Filter(String message) {
                 this.message = message;
             }
+
+            @Serial
             private Object writeReplace() {
                 Channel ch = Channel.current();
                 return ch != null ? new Filter(message + " via " + ch.getName()) : this;
             }
-            @SuppressWarnings("rawtypes")
-            @Override public OutputStream decorateLogger(AbstractBuild _ignore, OutputStream logger) {
+
+            @Override
+            public OutputStream decorateLogger(AbstractBuild _ignore, OutputStream logger) {
                 return new DecoratorImpl(message).decorate(logger);
             }
-            @Override public String toString() {
+            @Override
+            public String toString() {
                 return "Filter[" + message + "]";
             }
         }
-        @TestExtension public static final class DescriptorImpl extends StepDescriptor {
-            @Override public Set<? extends Class<?>> getRequiredContext() {
+
+        @TestExtension
+        public static final class DescriptorImpl extends StepDescriptor {
+
+            @Override
+            public Set<? extends Class<?>> getRequiredContext() {
                 return Collections.emptySet();
             }
-            @Override public String getFunctionName() {
+
+            @Override
+            public String getFunctionName() {
                 return "filter";
             }
-            @Override public boolean takesImplicitBlockArgument() {
+
+            @Override
+            public boolean takesImplicitBlockArgument() {
                 return true;
             }
         }
     }
 
+    @SuppressWarnings("unused")
     public static final class RemotePrintStep extends Step {
-        @DataBoundConstructor public RemotePrintStep() {}
-        @Override public StepExecution start(StepContext context) {
+
+        @DataBoundConstructor
+        public RemotePrintStep() {}
+
+        @Override
+        public StepExecution start(StepContext context) {
             return new Execution(context);
         }
+
         private static final class Execution extends SynchronousNonBlockingStepExecution<Void> {
+            @Serial
             private static final long serialVersionUID = 1L;
             
             Execution(StepContext context) {
                 super(context);
             }
-            @Override protected Void run() throws Exception {
+
+            @Override
+            protected Void run() throws Exception {
                 return getContext().get(Node.class).getChannel().call(new PrintCallable(getContext().get(TaskListener.class)));
             }
         }
+
         private static final class PrintCallable extends MasterToSlaveCallable<Void, RuntimeException> {            
+            @Serial
             private static final long serialVersionUID = 1L;
             
             private final TaskListener listener;
+
             PrintCallable(TaskListener listener) {
                 this.listener = listener;
             }
-            @Override public Void call() throws RuntimeException {
+
+            @Override
+            public Void call() throws RuntimeException {
                 listener.getLogger().println("printed a message on controller=" + JenkinsJVM.isJenkinsJVM());
                 listener.getLogger().flush();
                 return null;
             }
         }
-        @TestExtension public static final class DescriptorImpl extends StepDescriptor {
-            @Override public Set<? extends Class<?>> getRequiredContext() {
+
+        @TestExtension
+        public static final class DescriptorImpl extends StepDescriptor {
+
+            @Override
+            public Set<? extends Class<?>> getRequiredContext() {
                 return ImmutableSet.of(Node.class, TaskListener.class);
             }
-            @Override public String getFunctionName() {
+
+            @Override
+            public String getFunctionName() {
                 return "remotePrint";
             }
         }

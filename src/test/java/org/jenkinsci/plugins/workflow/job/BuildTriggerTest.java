@@ -24,8 +24,8 @@
 
 package org.jenkinsci.plugins.workflow.job;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 import hudson.model.Cause;
 import hudson.model.FreeStyleBuild;
@@ -35,33 +35,43 @@ import hudson.tasks.BuildTrigger;
 import hudson.util.FormValidation;
 import java.util.Collections;
 import org.jenkinsci.plugins.workflow.cps.CpsFlowDefinition;
-import org.junit.ClassRule;
-import org.junit.Rule;
-import org.junit.Test;
-import org.jvnet.hudson.test.BuildWatcher;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.RegisterExtension;
 import org.jvnet.hudson.test.Issue;
 import org.jvnet.hudson.test.JenkinsRule;
+import org.jvnet.hudson.test.junit.jupiter.BuildWatcherExtension;
+import org.jvnet.hudson.test.junit.jupiter.WithJenkins;
 
-public class BuildTriggerTest {
+@WithJenkins
+class BuildTriggerTest {
     
-    @ClassRule public static BuildWatcher buildWatcher = new BuildWatcher();
-    @Rule public JenkinsRule r = new JenkinsRule();
+    @SuppressWarnings("unused")
+    @RegisterExtension
+    private static final BuildWatcherExtension BUILD_WATCHER = new BuildWatcherExtension();
+    private JenkinsRule r;
+
+    @BeforeEach
+    void beforeEach(JenkinsRule rule) {
+        r = rule;
+    }
 
     @Issue("JENKINS-28113")
-    @Test public void smokes() throws Exception {
+    @Test
+    void smokes() throws Exception {
         BuildTrigger.DescriptorImpl d = r.jenkins.getDescriptorByType(BuildTrigger.DescriptorImpl.class);
         FreeStyleProject us = r.createProject(FreeStyleProject.class, "us");
         WorkflowJob ds = r.createProject(WorkflowJob.class, "ds");
         ds.setDefinition(new CpsFlowDefinition("", true));
         assertEquals(Collections.singletonList("ds"), d.doAutoCompleteChildProjects("d", us, r.jenkins).getValues());
         FormValidation validation = d.doCheck(us, "ds");
-        assertEquals(validation.renderHtml(), FormValidation.Kind.OK, validation.kind);
+        assertEquals(FormValidation.Kind.OK, validation.kind, validation.renderHtml());
         us.getPublishersList().add(new BuildTrigger("ds", Result.SUCCESS));
         r.jenkins.setQuietPeriod(0);
         FreeStyleBuild us1 = r.buildAndAssertSuccess(us);
         r.waitUntilNoActivity();
         WorkflowRun ds1 = ds.getLastBuild();
-        assertNotNull("triggered", ds1);
+        assertNotNull(ds1, "triggered");
         Cause.UpstreamCause cause = ds1.getCause(Cause.UpstreamCause.class);
         assertNotNull(cause);
         assertEquals(us1, cause.getUpstreamRun());
