@@ -27,15 +27,27 @@
 <j:jelly xmlns:j="jelly:core" xmlns:st="jelly:stapler" xmlns:l="/lib/layout" xmlns:p="/lib/hudson/project">
     <l:header title="${it.name}"/>
     <l:side-panel>
-        <l:tasks>
-            <j:set var="url" value="${h.getNearestAncestorUrl(request2,it)}"/>
-            <l:task icon="symbol-reader-outline plugin-ionicons-api"  href="${url}/" title="${%Status}" contextMenu="false"/>
-            <l:task icon="symbol-code-slash-outline plugin-ionicons-api" href="${url}/changes" title="${%Changes}"/>
-            <p:configurable/>
-            <st:include page="actions.jelly"/>
-        </l:tasks>
-        <j:forEach var="w" items="${it.widgets}">
-            <st:include it="${w}" page="index.jelly"/>
-        </j:forEach>
+        <l:userExperimentalFlag var="newJobPage" flagClassName="jenkins.model.experimentalflags.NewJobPageUserExperimentalFlag" />
+
+        <j:choose>
+            <j:when test="${newJobPage}">
+                <l:tasks>
+                    <l:task icon="symbol-code-slash-outline plugin-ionicons-api" href="${url}/changes" title="${%Changes}"/>
+                    <p:configurable/>
+                    <st:include page="actions.jelly"/>
+                </l:tasks>
+            </j:when>
+            <j:otherwise>
+                <l:tasks>
+                    <l:task icon="symbol-reader-outline plugin-ionicons-api"  href="${url}/" title="${%Status}" contextMenu="false"/>
+                    <l:task icon="symbol-code-slash-outline plugin-ionicons-api" href="${url}/changes" title="${%Changes}"/>
+                    <p:configurable/>
+                    <st:include page="actions.jelly"/>
+                </l:tasks>
+                <j:forEach var="w" items="${it.widgets}">
+                    <st:include it="${w}" page="index.jelly"/>
+                </j:forEach>
+            </j:otherwise>
+        </j:choose>
     </l:side-panel>
 </j:jelly>
