@@ -32,7 +32,6 @@
 
             <j:choose>
                 <j:when test="${newBuildPage}">
-                    <l:task icon="symbol-code-slash-outline plugin-ionicons-api" href="${buildUrl.baseUrl}/changes" title="${%Changes}"/>
                     <!-- Build Information -->
                     <j:choose>
                         <j:when test="${h.hasPermission(it,it.UPDATE)}">
