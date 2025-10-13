@@ -699,8 +699,6 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
         }
     }
 
-    private static final ThreadLocal<Boolean> LOADING_EXECUTION = ThreadLocal.withInitial(() -> false);
-
     /**
      * Gets the associated execution state, and do a more expensive loading operation if not initialized.
      * Performs all the needed initialization for the execution pre-loading too -- sets the executionPromise, adds Listener, calls onLoad on it etc.
@@ -729,15 +727,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
                         finishListener = new FailOnLoadListener();
                         fetchedExecution.addListener(finishListener);  // So we can still ensure build finishes if onLoad generates a FlowEndNode
                     }
-                    if (LOADING_EXECUTION.get()) {
-                        throw new IllegalStateException("reëntrant call");
-                    }
-                    LOADING_EXECUTION.set(true);
-                    try {
-                        fetchedExecution.onLoad(new Owner(this));
-                    } finally {
-                        LOADING_EXECUTION.set(false);
-                    }
+                    fetchedExecution.onLoad(new Owner(this));
                     if (!Boolean.TRUE.equals(this.completed)) {
                         if (fetchedExecution.isComplete()) {  // See JENKINS-50199 for cases where the execution is marked complete but build is not
                             // Somehow arrived at one of those weird states
@@ -826,14 +816,9 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
     @Override public boolean isInProgress() {
         if (Boolean.TRUE.equals(completed)) {  // Has a persisted completion state
             return false;
-        } else if (LOADING_EXECUTION.get()) {
-            LOGGER.fine(() -> "avoided reëntrant call to getExecution on " + this);
-            return true;
         } else {
-            // This may seem gratuitous but we MUST to check the execution in case 'completed' has not been set yet
-            // thus avoiding some (rare but possible) race conditions
-            FlowExecution exec = getExecution();
-            return exec != null && !exec.isComplete();
+            var _execution = execution;
+            return _execution != null && !_execution.isComplete();
         }
     }
 
