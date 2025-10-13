@@ -24,13 +24,13 @@
 
 package org.jenkinsci.plugins.workflow.job;
 
-import static org.hamcrest.Matchers.nullValue;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNotEquals;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertNull;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import edu.umd.cs.findbugs.annotations.NonNull;
 import hudson.ExtensionList;
@@ -39,13 +39,18 @@ import hudson.model.InvisibleAction;
 import hudson.model.Result;
 import hudson.model.Run;
 import hudson.model.TaskListener;
+
+import java.io.Serial;
 import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 import java.util.logging.Level;
 import jenkins.model.RunAction2;
+
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
+
 import org.jenkinsci.plugins.workflow.cps.CpsFlowDefinition;
 import org.jenkinsci.plugins.workflow.flow.FlowDurabilityHint;
 import org.jenkinsci.plugins.workflow.flow.FlowExecution;
@@ -61,35 +66,37 @@ import org.jenkinsci.plugins.workflow.steps.StepContext;
 import org.jenkinsci.plugins.workflow.steps.StepDescriptor;
 import org.jenkinsci.plugins.workflow.steps.StepExecution;
 import org.jenkinsci.plugins.workflow.test.steps.SemaphoreStep;
-import org.junit.Assume;
-import org.junit.ClassRule;
-import org.junit.Rule;
-import org.junit.Test;
-import org.jvnet.hudson.test.BuildWatcher;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.RegisterExtension;
 import org.jvnet.hudson.test.Issue;
 import org.jvnet.hudson.test.JenkinsRule;
-import org.jvnet.hudson.test.JenkinsSessionRule;
-import org.jvnet.hudson.test.LoggerRule;
+import org.jvnet.hudson.test.LogRecorder;
 import org.jvnet.hudson.test.TestExtension;
+import org.jvnet.hudson.test.junit.jupiter.BuildWatcherExtension;
+import org.jvnet.hudson.test.junit.jupiter.JenkinsSessionExtension;
 import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.DataBoundSetter;
 
-public class WorkflowRunRestartTest {
+class WorkflowRunRestartTest {
 
-    @ClassRule public static BuildWatcher buildWatcher = new BuildWatcher();
-    @Rule public JenkinsSessionRule story = new JenkinsSessionRule();
-    @Rule public LoggerRule logging = new LoggerRule();
+    @SuppressWarnings("unused")
+    @RegisterExtension
+    private static final BuildWatcherExtension BUILD_WATCHER = new BuildWatcherExtension();
+    @RegisterExtension
+    private final JenkinsSessionExtension sessions = new JenkinsSessionExtension();
+    private final LogRecorder logging = new LogRecorder();
 
     @Issue("JENKINS-27299")
-    @Test public void disabled() throws Throwable {
-        story.then(r -> {
+    @Test
+    void disabled() throws Throwable {
+        sessions.then(r -> {
             WorkflowJob p = r.jenkins.createProject(WorkflowJob.class, "p");
             p.setDefinition(new CpsFlowDefinition("node {semaphore 'wait'}", true));
             WorkflowRun b = p.scheduleBuild2(0).waitForStart();
             SemaphoreStep.waitForStart("wait/1", b);
             p.makeDisabled(true);
         });
-        story.then(r -> {
+        sessions.then(r -> {
             WorkflowJob p = r.jenkins.getItemByFullName("p", WorkflowJob.class);
             assertTrue(p.isDisabled());
             WorkflowRun b = p.getBuildByNumber(1);
@@ -103,15 +110,16 @@ public class WorkflowRunRestartTest {
     }
 
     @Issue("JENKINS-33761")
-    @Test public void resumeDisabled() throws Throwable  {
-        story.then(r -> {
+    @Test
+    void resumeDisabled() throws Throwable  {
+        sessions.then(r -> {
             WorkflowJob p = r.jenkins.createProject(WorkflowJob.class, "p");
             p.setDefinition(new CpsFlowDefinition("node {semaphore 'wait'}", true));
             p.setResumeBlocked(true);
             WorkflowRun b = p.scheduleBuild2(0).waitForStart();
             SemaphoreStep.waitForStart("wait/1", b);
         });
-        story.then(r -> {
+        sessions.then(r -> {
             WorkflowJob p = r.jenkins.getItemByFullName("p", WorkflowJob.class);
             assertTrue(p.isResumeBlocked());
             WorkflowRun b = p.getBuildByNumber(1);
@@ -126,8 +134,9 @@ public class WorkflowRunRestartTest {
     }
 
     @Issue({"JENKINS-45585", "JENKINS-50784"})  // Verifies execution lazy-load
-    @Test public void lazyLoadExecution() throws Throwable  {
-        story.then(r -> {
+    @Test
+    void lazyLoadExecution() throws Throwable  {
+        sessions.then(r -> {
             WorkflowJob p = r.jenkins.createProject(WorkflowJob.class, "p");
             p.addProperty(new DurabilityHintJobProperty(FlowDurabilityHint.MAX_SURVIVABILITY));
             p.setDefinition(new CpsFlowDefinition("echo 'dosomething'", true));
@@ -142,7 +151,7 @@ public class WorkflowRunRestartTest {
             assertTrue(run.executionLoaded);
             assertNotNull(run.getExecution().getOwner());
         });
-        story.then(r -> {
+        sessions.then(r -> {
             WorkflowJob p = r.jenkins.getItemByFullName("p", WorkflowJob.class);
             WorkflowRun b = p.getBuildByNumber(1);
             assertNotNull(b.asFlowExecutionOwner());
@@ -159,7 +168,7 @@ public class WorkflowRunRestartTest {
             assertNotNull(b.asFlowExecutionOwner().getOrNull());
             assertNotNull(b.asFlowExecutionOwner().get());
         });
-        story.then( r-> {  // Verify that the FlowExecutionOwner can trigger lazy-load correctly
+        sessions.then(r-> {  // Verify that the FlowExecutionOwner can trigger lazy-load correctly
             WorkflowJob p = r.jenkins.getItemByFullName("p", WorkflowJob.class);
             WorkflowRun b = p.getBuildByNumber(1);
             assertNotNull(b.asFlowExecutionOwner().get());
@@ -169,8 +178,9 @@ public class WorkflowRunRestartTest {
     }
 
     @Issue("JENKINS-25550")
-    @Test public void hardKill() throws Throwable {
-        story.then(r -> {
+    @Test
+    void hardKill() throws Throwable {
+        sessions.then(r -> {
             WorkflowJob p = r.jenkins.createProject(WorkflowJob.class, "p");
             p.addProperty( new DurabilityHintJobProperty(FlowDurabilityHint.MAX_SURVIVABILITY));
             p.setDefinition(new CpsFlowDefinition("def seq = 0; while (true) {try {zombie id: ++seq} catch (x) {echo(/ignoring $x/)}}", true));
@@ -191,7 +201,7 @@ public class WorkflowRunRestartTest {
             r.waitForCompletion(b);
             r.assertBuildStatus(Result.ABORTED, b);
         });
-        story.then(r -> {
+        sessions.then(r -> {
             WorkflowJob p = r.jenkins.getItemByFullName("p", WorkflowJob.class);
             WorkflowRun b = p.getBuildByNumber(1);
             assertFalse(b.isBuilding());
@@ -200,8 +210,9 @@ public class WorkflowRunRestartTest {
     }
 
     @Issue("JENKINS-33721")
-    @Test public void termAndKillInSidePanel() throws Throwable  {
-        story.then(r -> {
+    @Test
+    void termAndKillInSidePanel() throws Throwable  {
+        sessions.then(r -> {
             WorkflowJob p = r.jenkins.createProject(WorkflowJob.class, "p");
             p.setDefinition(new CpsFlowDefinition("def seq = 0; while (true) {try {zombie id: ++seq} catch (x) {echo(/ignoring $x/)}}", true));
             WorkflowRun b = p.scheduleBuild2(0).waitForStart();
@@ -231,9 +242,10 @@ public class WorkflowRunRestartTest {
     }
 
     @Issue("JENKINS-46961")
-    @Test public void interruptedWhileStartingMaxSurvivability() throws Throwable  {
-        story.then(r -> {
-            Assume.assumeThat("import from LibraryDecorator will not resolve in PCT", r.jenkins.pluginManager.getPlugin("workflow-cps-global-lib"), nullValue());
+    @Test
+    void interruptedWhileStartingMaxSurvivability() throws Throwable  {
+        sessions.then(r -> {
+            assumeTrue(r.jenkins.pluginManager.getPlugin("workflow-cps-global-lib") == null, "import from LibraryDecorator will not resolve in PCT");
             WorkflowJob p = r.createProject(WorkflowJob.class, "p");
             p.setDefinition(new CpsFlowDefinition(
                 "import groovy.transform.*\n" +
@@ -248,17 +260,18 @@ public class WorkflowRunRestartTest {
             WorkflowRun b = r.buildAndAssertStatus(Result.ABORTED, p);
             r.assertLogContains("Aborted by unknown", b);
         });
-        story.then(r -> {
+        sessions.then(r -> {
             WorkflowJob p = r.jenkins.getItemByFullName("p", WorkflowJob.class);
             WorkflowRun b = p.getLastBuild();
-            assertFalse("Build should be completed", b.isBuilding());
+            assertFalse(b.isBuilding(), "Build should be completed");
         });
     }
 
     @Issue("JENKINS-46961")
-    @Test public void interruptedWhileStartingPerformanceOptimized() throws Throwable  {
-        story.then(r -> {
-            Assume.assumeThat("import from LibraryDecorator will not resolve in PCT", r.jenkins.pluginManager.getPlugin("workflow-cps-global-lib"), nullValue());
+    @Test
+    void interruptedWhileStartingPerformanceOptimized() throws Throwable  {
+        sessions.then(r -> {
+            assumeTrue(r.jenkins.pluginManager.getPlugin("workflow-cps-global-lib") == null, "import from LibraryDecorator will not resolve in PCT");
             WorkflowJob p = r.createProject(WorkflowJob.class, "p");
             p.addProperty(new DurabilityHintJobProperty(FlowDurabilityHint.PERFORMANCE_OPTIMIZED));
             p.setDefinition(new CpsFlowDefinition(
@@ -274,10 +287,10 @@ public class WorkflowRunRestartTest {
             WorkflowRun b = r.buildAndAssertStatus(Result.ABORTED, p);
             r.assertLogContains("Aborted by unknown", b);
         });
-        story.then(r -> {
+        sessions.then(r -> {
             WorkflowJob p = r.jenkins.getItemByFullName("p", WorkflowJob.class);
             WorkflowRun b = p.getLastBuild();
-            assertFalse("Build should be completed", b.isBuilding());
+            assertFalse(b.isBuilding(), "Build should be completed");
         });
     }
 
@@ -286,38 +299,59 @@ public class WorkflowRunRestartTest {
                 .getByXPath("//a[@href = '#' and contains(@data-url, '/" + b.getUrl() + termOrKill + "')]").isEmpty();
     }
 
+    @SuppressWarnings("unused")
     public static class Zombie extends Step {
-        @DataBoundSetter public int id;
-        @DataBoundConstructor public Zombie() {}
-        @Override public StepExecution start(StepContext context) {
+        @DataBoundSetter
+        public int id;
+
+        @DataBoundConstructor
+        public Zombie() {}
+
+        @Override
+        public StepExecution start(StepContext context) {
             return new Execution(context, id);
         }
+
         private static class Execution extends StepExecution {
+            @Serial
             private static final long serialVersionUID = 1L;
             
             int id;
             int count;
+
             Execution(StepContext context, int id) {
                 super(context);
                 this.id = id;
             }
-            @Override public boolean start() throws Exception {
+
+            @Override
+            public boolean start() throws Exception {
                 getContext().get(TaskListener.class).getLogger().printf("[%d] undead%n", id);
                 return false;
             }
-            @Override public void stop(Throwable cause) throws Exception {
+
+            @Override
+            public void stop(Throwable cause) throws Exception {
                 getContext().get(TaskListener.class).getLogger().printf("[%d] bwahaha %s #%d%n", id, cause.getClass().getSimpleName(), ++count);
             }
         }
-        @TestExtension public static class DescriptorImpl extends StepDescriptor {
-            @Override public String getFunctionName() {
+
+        @TestExtension
+        public static class DescriptorImpl extends StepDescriptor {
+
+            @Override
+            public String getFunctionName() {
                 return "zombie";
             }
+
             @NonNull
-            @Override public String getDisplayName() {
+            @Override
+            public String getDisplayName() {
                 return "zombie";
             }
-            @Override public Set<? extends Class<?>> getRequiredContext() {
+
+            @Override
+            public Set<? extends Class<?>> getRequiredContext() {
                 return Collections.singleton(TaskListener.class);
             }
         }
@@ -325,16 +359,18 @@ public class WorkflowRunRestartTest {
 
     @Issue("JENKINS-43055")
     @Test
-    public void flowExecutionListener() throws Throwable  {
-        story.then(r -> {
+    void flowExecutionListener() throws Throwable  {
+        sessions.then(r -> {
             WorkflowJob p = r.jenkins.createProject(WorkflowJob.class, "p");
-            p.setDefinition(new CpsFlowDefinition("echo 'Running for listener'\n" +
-                "sleep 0\n" +
-                "semaphore 'wait'\n" +
-                "sleep 0\n" +
-                "semaphore 'post-resume'\n" +
-                "sleep 0\n" +
-                "error 'fail'\n", true));
+            p.setDefinition(new CpsFlowDefinition("""
+                    echo 'Running for listener'
+                    sleep 0
+                    semaphore 'wait'
+                    sleep 0
+                    semaphore 'post-resume'
+                    sleep 0
+                    error 'fail'
+                    """, true));
             WorkflowRun b = p.scheduleBuild2(0).waitForStart();
             SemaphoreStep.waitForStart("wait/1", b);
             ExecListener listener = ExtensionList.lookup(FlowExecutionListener.class).get(ExecListener.class);
@@ -345,7 +381,7 @@ public class WorkflowRunRestartTest {
             assertEquals(0, listener.resumed);
             assertEquals(0, listener.finished);
         });
-        story.then(r -> {
+        sessions.then(r -> {
             WorkflowJob p = r.jenkins.getItemByFullName("p", WorkflowJob.class);
             WorkflowRun b = p.getLastBuild();
             assertTrue(b.isBuilding());
@@ -406,6 +442,7 @@ public class WorkflowRunRestartTest {
             for (FlowExecution e : FlowExecutionList.get()) {
                 if (e.equals(execution)) {
                     listHasExec = true;
+                    break;
                 }
             }
             assertTrue(listHasExec);
@@ -422,7 +459,7 @@ public class WorkflowRunRestartTest {
             assertNotNull(execution.getCauseOfFailure());
             List<FlowNode> heads = execution.getCurrentHeads();
             assertEquals(1, heads.size());
-            assertTrue(heads.get(0) instanceof FlowEndNode);
+            assertInstanceOf(FlowEndNode.class, heads.get(0));
             FlowEndNode node = (FlowEndNode)heads.get(0);
             assertEquals(Result.FAILURE, node.getResult());
         }
@@ -446,9 +483,10 @@ public class WorkflowRunRestartTest {
         }
     }
 
-    @Test public void reloadOwnerAndActions() throws Throwable {
+    @Test
+    void reloadOwnerAndActions() throws Throwable {
         logging.record(WorkflowRun.class, Level.FINE);
-        story.then(r -> {
+        sessions.then(r -> {
             var p = r.jenkins.createProject(WorkflowJob.class, "p");
             p.setDefinition(new CpsFlowDefinition("", true));
             var b = r.buildAndAssertSuccess(p);
@@ -464,7 +502,7 @@ public class WorkflowRunRestartTest {
             assertThat("not attached in this instance", a.attached, is(0));
             assertThat("loaded", a.loaded, is(1));
         });
-        story.then(r -> {
+        sessions.then(r -> {
             var p = r.jenkins.getItemByFullName("p", WorkflowJob.class);
             var b = p.getBuildByNumber(1);
             var a = b.getAction(A.class);
@@ -477,12 +515,17 @@ public class WorkflowRunRestartTest {
             assertThat("after restart, loaded", a.loaded, is(1));
         });
     }
+
     private static final class A extends InvisibleAction implements RunAction2 {
         transient volatile int attached, loaded;
-        @Override public void onAttached(Run<?, ?> r) {
+
+        @Override
+        public void onAttached(Run<?, ?> r) {
             attached++;
         }
-        @Override public void onLoad(Run<?, ?> r) {
+
+        @Override
+        public void onLoad(Run<?, ?> r) {
             loaded++;
         }
     }
