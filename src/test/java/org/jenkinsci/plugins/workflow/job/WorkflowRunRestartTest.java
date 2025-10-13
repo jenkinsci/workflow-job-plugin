@@ -363,14 +363,14 @@ class WorkflowRunRestartTest {
         sessions.then(r -> {
             WorkflowJob p = r.jenkins.createProject(WorkflowJob.class, "p");
             p.setDefinition(new CpsFlowDefinition("""
-                    echo 'Running for listener'
-                    sleep 0
-                    semaphore 'wait'
-                    sleep 0
-                    semaphore 'post-resume'
-                    sleep 0
-                    error 'fail'
-                    """, true));
+                echo 'Running for listener'
+                sleep 0
+                semaphore 'wait'
+                sleep 0
+                semaphore 'post-resume'
+                sleep 0
+                error 'fail'
+                """, true));
             WorkflowRun b = p.scheduleBuild2(0).waitForStart();
             SemaphoreStep.waitForStart("wait/1", b);
             ExecListener listener = ExtensionList.lookup(FlowExecutionListener.class).get(ExecListener.class);

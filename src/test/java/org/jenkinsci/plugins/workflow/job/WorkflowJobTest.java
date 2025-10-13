@@ -61,9 +61,10 @@ class WorkflowJobTest {
         WorkflowJob p = r.jenkins.createProject(WorkflowJob.class, "p");
         p.setDefinition(new CpsFlowDefinition(
                 """
-                        node {
-                          checkout(new hudson.scm.NullSCM())
-                        }""", false /* for hudson.scm.NullSCM */));
+                node {
+                  checkout(new hudson.scm.NullSCM())
+                }
+                """, false /* for hudson.scm.NullSCM */));
         assertTrue(p.getSCMs().isEmpty(), "No runs has been performed and there should be no SCMs");
 
         r.buildAndAssertSuccess(p);

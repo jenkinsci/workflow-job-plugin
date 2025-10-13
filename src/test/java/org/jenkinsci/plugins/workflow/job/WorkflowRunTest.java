@@ -207,10 +207,10 @@ class WorkflowRunTest {
         WorkflowJob p = r.jenkins.createProject(WorkflowJob.class, "p");
         p.setDefinition(new CpsFlowDefinition(
                 """
-                        println('hello')
-                        semaphore 'wait'
-                        println('hello')
-                        """,
+                println('hello')
+                semaphore 'wait'
+                println('hello')
+                """,
             true));
 
         // no build exists yet
@@ -307,11 +307,12 @@ class WorkflowRunTest {
         WorkflowJob p = r.jenkins.createProject(WorkflowJob.class, "p");
         p.setDefinition(new CpsFlowDefinition(
                 """
-                        {{stage 'dev'
-                        def hello = new HelloWorld()
-                        public class HelloWorld()
-                        { // <- invalid class definition }
-                        }}""",
+                {{stage 'dev'
+                def hello = new HelloWorld()
+                public class HelloWorld()
+                { // <- invalid class definition }
+                }}
+                """,
                 true));
         QueueTaskFuture<WorkflowRun> workflowRunQueueTaskFuture = p.scheduleBuild2(0);
         WorkflowRun run = r.assertBuildStatus(Result.FAILURE, workflowRunQueueTaskFuture.get());
