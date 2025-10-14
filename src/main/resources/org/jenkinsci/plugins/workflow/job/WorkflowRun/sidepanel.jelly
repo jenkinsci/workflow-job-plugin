@@ -27,49 +27,90 @@
 <j:jelly xmlns:j="jelly:core" xmlns:st="jelly:stapler" xmlns:l="/lib/layout" xmlns:t="/lib/hudson" xmlns:p="/lib/hudson/project">
     <l:side-panel>
         <l:tasks>
+            <l:userExperimentalFlag var="newBuildPage" flagClassName="jenkins.model.experimentalflags.NewBuildPageUserExperimentalFlag" />
             <j:set var="buildUrl" value="${h.decompose(request2)}"/>
-            <l:task icon="symbol-reader-outline plugin-ionicons-api" href="${buildUrl.baseUrl}/" title="${%Status}" contextMenu="false"/>
-            <l:task icon="symbol-code-slash-outline plugin-ionicons-api" href="${buildUrl.baseUrl}/changes" title="${%Changes}"/>
-            <l:task href="${h.getConsoleUrl(it)}" icon="symbol-terminal-outline plugin-ionicons-api" title="${%Console Output}"/>
-            <!-- Build Information -->
+
             <j:choose>
-                <j:when test="${h.hasPermission(it,it.UPDATE)}">
-                    <l:task icon="symbol-create-outline plugin-ionicons-api" href="${buildUrl.baseUrl}/configure" title="${%Edit Build Information}"/>
+                <j:when test="${newBuildPage}">
+                    <!-- Build Information -->
+                    <j:choose>
+                        <j:when test="${h.hasPermission(it,it.UPDATE)}">
+                            <l:task icon="symbol-create-outline plugin-ionicons-api" href="${buildUrl.baseUrl}/configure" title="${%Edit Build Information}"/>
+                        </j:when>
+                        <j:otherwise>
+                            <l:task icon="symbol-view plugin-workflow-job" href="${buildUrl.baseUrl}/configure" title="${%View Build Information}"/>
+                        </j:otherwise>
+                    </j:choose>
+
+                    <j:if test="${it.hasAllowTerm()}">
+                        <l:task icon="symbol-close-outline plugin-ionicons-api"
+                                href="${buildUrl.baseUrl}/term"
+                                title="${%Abort Running Steps}"
+                                contextMenu="false"
+                                post="true"
+                                permission="${it.CANCEL}"
+                                requiresConfirmation="true"
+                                confirmationMessage="${%Really forcibly abort running steps?}"/>
+                    </j:if>
+                    <j:if test="${it.hasAllowKill()}">
+                        <l:task icon="symbol-close-outline plugin-ionicons-api"
+                                href="${buildUrl.baseUrl}/kill"
+                                title="${%Force Abort of Entire Build}"
+                                contextMenu="false"
+                                post="true"
+                                permission="${it.CANCEL}"
+                                requiresConfirmation="true"
+                                confirmationMessage="${%Really forcibly abort entire build?}"/>
+                    </j:if>
+                    <st:include page="actions.jelly"/>
+                    <t:actions actions="${it.transientActions}"/>
+                    <st:include page="delete.jelly"/>
                 </j:when>
                 <j:otherwise>
-                    <l:task icon="symbol-view plugin-workflow-job" href="${buildUrl.baseUrl}/configure" title="${%View Build Information}"/>
+                    <l:task icon="symbol-reader-outline plugin-ionicons-api" href="${buildUrl.baseUrl}/" title="${%Status}" contextMenu="false"/>
+                    <l:task icon="symbol-code-slash-outline plugin-ionicons-api" href="${buildUrl.baseUrl}/changes" title="${%Changes}"/>
+                    <l:task href="${h.getConsoleUrl(it)}" icon="symbol-terminal-outline plugin-ionicons-api" title="${%Console Output}"/>
+                    <!-- Build Information -->
+                    <j:choose>
+                        <j:when test="${h.hasPermission(it,it.UPDATE)}">
+                            <l:task icon="symbol-create-outline plugin-ionicons-api" href="${buildUrl.baseUrl}/configure" title="${%Edit Build Information}"/>
+                        </j:when>
+                        <j:otherwise>
+                            <l:task icon="symbol-view plugin-workflow-job" href="${buildUrl.baseUrl}/configure" title="${%View Build Information}"/>
+                        </j:otherwise>
+                    </j:choose>
+
+                    <st:include page="delete.jelly"/>
+                    <j:if test="${it.hasAllowTerm()}">
+                        <l:task icon="symbol-close-outline plugin-ionicons-api"
+                                href="${buildUrl.baseUrl}/term"
+                                title="${%Abort Running Steps}"
+                                contextMenu="false"
+                                post="true"
+                                permission="${it.CANCEL}"
+                                requiresConfirmation="true"
+                                confirmationMessage="${%Really forcibly abort running steps?}"/>
+                    </j:if>
+                    <j:if test="${it.hasAllowKill()}">
+                        <l:task icon="symbol-close-outline plugin-ionicons-api"
+                                href="${buildUrl.baseUrl}/kill"
+                                title="${%Force Abort of Entire Build}"
+                                contextMenu="false"
+                                post="true"
+                                permission="${it.CANCEL}"
+                                requiresConfirmation="true"
+                                confirmationMessage="${%Really forcibly abort entire build?}"/>
+                    </j:if>
+                    <st:include page="actions.jelly"/>
+                    <t:actions actions="${it.transientActions}"/>
+                    <j:if test="${it.previousBuild!=null}">
+                        <l:task icon="symbol-arrow-back-outline plugin-ionicons-api" href="${buildUrl.previousBuildUrl}" title="${%Previous Build}" contextMenu="false"/>
+                    </j:if>
+                    <j:if test="${it.nextBuild!=null}">
+                        <l:task icon="symbol-arrow-forward-outline plugin-ionicons-api" href="${buildUrl.nextBuildUrl}" title="${%Next Build}" contextMenu="false"/>
+                    </j:if>
                 </j:otherwise>
             </j:choose>
-
-            <st:include page="delete.jelly"/>
-            <j:if test="${it.hasAllowTerm()}">
-                <l:task icon="symbol-close-outline plugin-ionicons-api"
-                        href="${buildUrl.baseUrl}/term"
-                        title="${%Abort Running Steps}"
-                        contextMenu="false"
-                        post="true"
-                        permission="${it.CANCEL}"
-                        requiresConfirmation="true"
-                        confirmationMessage="${%Really forcibly abort running steps?}"/>
-            </j:if>
-            <j:if test="${it.hasAllowKill()}">
-                <l:task icon="symbol-close-outline plugin-ionicons-api"
-                        href="${buildUrl.baseUrl}/kill"
-                        title="${%Force Abort of Entire Build}"
-                        contextMenu="false"
-                        post="true"
-                        permission="${it.CANCEL}"
-                        requiresConfirmation="true"
-                        confirmationMessage="${%Really forcibly abort entire build?}"/>
-            </j:if>
-            <st:include page="actions.jelly"/>
-            <t:actions actions="${it.transientActions}"/>
-            <j:if test="${it.previousBuild!=null}">
-                <l:task icon="symbol-arrow-back-outline plugin-ionicons-api" href="${buildUrl.previousBuildUrl}" title="${%Previous Build}" contextMenu="false"/>
-            </j:if>
-            <j:if test="${it.nextBuild!=null}">
-                <l:task icon="symbol-arrow-forward-outline plugin-ionicons-api" href="${buildUrl.nextBuildUrl}" title="${%Next Build}" contextMenu="false"/>
-            </j:if>
         </l:tasks>
     </l:side-panel>
 </j:jelly>
