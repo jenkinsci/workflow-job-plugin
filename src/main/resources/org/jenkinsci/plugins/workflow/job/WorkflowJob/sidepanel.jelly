@@ -28,6 +28,7 @@
     <l:header title="${it.name}"/>
     <l:side-panel>
         <l:userExperimentalFlag var="newJobPage" flagClassName="jenkins.model.experimentalflags.NewJobPageUserExperimentalFlag" />
+        <j:set var="url" value="${h.getNearestAncestorUrl(request2,it)}"/>
 
         <j:choose>
             <j:when test="${newJobPage}">
