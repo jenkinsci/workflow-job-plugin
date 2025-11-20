@@ -182,17 +182,20 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
      * This field is semi-final --- once set the value will never be modified.
      */
     private volatile Set<String> culprits;
-    public void bindQueueItem(Queue.Item item) {
-    if (item != null) {
-        long qid = item.getId();
-        setQueueId(qid);
-        try {
-            save();
-        } catch (IOException e) {
-            LOGGER.log(Level.WARNING, "Unable to persist queueId for run " + this, e);
-        }
+    private void bindQueueItemInternal(@CheckForNull Queue.Item item) {
+    if (item == null) {
+        return;
     }
-}
+
+    long qid = item.getId();
+    setQueueId(qid);
+
+    try {
+        save();
+    } catch (IOException e) {
+        LOGGER.log(Level.WARNING, "Unable to persist queueId for run " + this, e);
+    }
+    }
 
 
     /**
@@ -304,17 +307,21 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
             throw sleep();
         }
         try {
+                        // --- FIX: capture queueId early when it was never persisted ---
             if (getQueueId() == 0) {
                 Queue queue = Jenkins.get().getQueue();
+                // The queued task URL always matches "job/<jobName>/<buildNumber>/"
+                String expectedUrl = getParent().getUrl() + getNumber() + "/";
+
                 for (Queue.Item item : queue.getItems()) {
-                    // Match by URL prefix (task URL ends with job/<jobname>/<buildnumber>/)
-                    String expectedUrl = getParent().getUrl() + getNumber() + "/";
                     if (item.task != null && expectedUrl.equals(item.task.getUrl())) {
-                        bindQueueItem(item);
+                        bindQueueItemInternal(item);
                         break;
                     }
                 }
             }
+// ----------------------------------------------------------------
+
 
             onStartBuilding();
             charset = "UTF-8"; // cannot override getCharset, and various Run methods do not call it anyway
