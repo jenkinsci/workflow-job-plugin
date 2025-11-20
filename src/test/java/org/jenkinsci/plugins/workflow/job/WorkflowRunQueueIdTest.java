@@ -1,25 +1,31 @@
 package org.jenkinsci.plugins.workflow.job;
 
 import hudson.model.Queue;
+import org.jenkinsci.plugins.workflow.cps.CpsFlowDefinition;
+import org.jenkinsci.plugins.workflow.test.JenkinsRuleExt;
 import org.junit.jupiter.api.Test;
+import org.jvnet.hudson.test.JenkinsRule;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-public class WorkflowRunQueueIdTest {
+class WorkflowRunQueueIdTest {
 
     @Test
-    public void testQueueIdAssignment() throws Exception {
-        WorkflowJob job = jenkins.createProject(WorkflowJob.class);
-        job.setDefinition(new CpsFlowDefinition("echo 'hello'", true));
+    void testQueueIdCapturedBeforeRunStart() throws Exception {
+        JenkinsRule j = JenkinsRuleExt.create(); // JUnit 5 helper
 
-        Queue.Item item = Queue.getInstance().schedule(job, 0);
-        assertNotNull(item);
+        WorkflowJob job = j.jenkins.createProject(WorkflowJob.class, "unluckyJob");
+        job.setDefinition(new CpsFlowDefinition("echo 'hi'", true));
 
-        WorkflowRun run = job.scheduleBuild2(0).waitForStart();
+        // Schedule build but DO NOT run immediately
+        Queue.Item item = job.scheduleBuild2(0).getStartCondition().get();
+        assertNotNull(item, "Queue item should not be null");
 
-        long expected = item.getId();
-        long actual = run.getQueueId();
+        // Now retrieve the run
+        WorkflowRun run = job.getBuildByNumber(1);
+        assertNotNull(run, "Run should exist");
 
-        assertEquals(expected, actual, "QueueId should match Queue.Item");
+        // The fix ensures queueId is set before run starts
+        assertEquals(item.getId(), run.getQueueId(), "queueId should match Queue.Item ID");
     }
 }
