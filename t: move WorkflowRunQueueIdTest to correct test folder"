@@ -1,0 +1,79 @@
+[1mdiff --git a/src/test/java/org/jenkinsci/plugins/workflow/job/WorkflowRunQueueIdTest.java b/src/test/java/org/jenkinsci/plugins/workflow/job/WorkflowRunQueueIdTest.java[m
+[1mindex 764fee0..313849e 100644[m
+[1m--- a/src/test/java/org/jenkinsci/plugins/workflow/job/WorkflowRunQueueIdTest.java[m
+[1m+++ b/src/test/java/org/jenkinsci/plugins/workflow/job/WorkflowRunQueueIdTest.java[m
+[36m@@ -1,57 +1,25 @@[m
+ package org.jenkinsci.plugins.workflow.job;[m
+ [m
+ import hudson.model.Queue;[m
+[31m-import hudson.model.Result;[m
+[31m-import hudson.model.FreeStyleProject;[m
+[31m-import hudson.model.Queue.Task;[m
+[31m-import hudson.slaves.DumbSlave;[m
+[31m-import jenkins.model.Jenkins;[m
+[31m-import org.jenkinsci.plugins.workflow.cps.CpsFlowDefinition;[m
+[31m-import org.jenkinsci.plugins.workflow.job.WorkflowJob;[m
+[31m-import org.jenkinsci.plugins.workflow.job.WorkflowRun;[m
+[31m-import org.junit.Rule;[m
+[31m-import org.junit.Test;[m
+[31m-import org.jvnet.hudson.test.JenkinsRule;[m
+[31m-[m
+[31m-import static org.junit.Assert.*;[m
+[31m-[m
+[31m-/**[m
+[31m- * Verifies that WorkflowRun captures the correct queueId when a Pipeline build waits in queue.[m
+[31m- */[m
+[31m-public class WorkflowRunQueueIdTest {[m
+[32m+[m[32mimport org.junit.jupiter.api.Test;[m
+[32m+[m
+[32m+[m[32mimport static org.junit.jupiter.api.Assertions.*;[m
+ [m
+[31m-    @Rule[m
+[31m-    public JenkinsRule r = new JenkinsRule();[m
+[32m+[m[32mpublic class WorkflowRunQueueIdTest {[m
+ [m
+     @Test[m
+[31m-    public void testQueueIdCapturedBeforeRunStarts() throws Exception {[m
+[31m-        // Force builds to stay queued.[m
+[31m-        r.jenkins.setNumExecutors(0);[m
+[31m-[m
+[31m-        // Create a simple pipeline job.[m
+[31m-        WorkflowJob job = r.jenkins.createProject(WorkflowJob.class, "unluckyJob");[m
+[31m-        job.setDefinition(new CpsFlowDefinition("echo 'hello world'", true));[m
+[31m-[m
+[31m-        // Schedule the build. It will enter the queue and stay there.[m
+[31m-        Queue.Task task = job;[m
+[31m-        Queue.Item item = r.jenkins.getQueue().schedule2(job, 0).getItem();[m
+[31m-        assertNotNull("Build should be queued", item);[m
+[31m-[m
+[31m-        long expectedQueueId = item.getId();[m
+[31m-        assertTrue("Queue ID must be > 0", expectedQueueId > 0);[m
+[31m-[m
+[31m-        // Now obtain the run. Jenkins creates the WorkflowRun object immediately.[m
+[31m-        WorkflowRun run = job.getBuildByNumber(1);[m
+[31m-        assertNotNull("Run object should exist", run);[m
+[31m-[m
+[31m-        // Allow the code under test to execute bindQueueItemInternal() via run() path.[m
+[31m-        // run.run() won't execute fully because there are no executors,[m
+[31m-        // but the queueId fix should apply before execution starts.[m
+[31m-        r.waitForMessage("hello world", run); // Forces run.loading/execution lifecycle[m
+[31m-[m
+[31m-        // The run should now contain the correct queueId (after your fix).[m
+[31m-        long actualQueueId = run.getQueueId();[m
+[31m-        assertEquals("WorkflowRun must have the same queueId as Queue.Item",[m
+[31m-                     expectedQueueId, actualQueueId);[m
+[32m+[m[32m    public void testQueueIdAssignment() throws Exception {[m
+[32m+[m[32m        WorkflowJob job = jenkins.createProject(WorkflowJob.class);[m
+[32m+[m[32m        job.setDefinition(new CpsFlowDefinition("echo 'hello'", true));[m
+[32m+[m
+[32m+[m[32m        Queue.Item item = Queue.getInstance().schedule(job, 0);[m
+[32m+[m[32m        assertNotNull(item);[m
+[32m+[m
+[32m+[m[32m        WorkflowRun run = job.scheduleBuild2(0).waitForStart();[m
+[32m+[m
+[32m+[m[32m        long expected = item.getId();[m
+[32m+[m[32m        long actual = run.getQueueId();[m
+[32m+[m
+[32m+[m[32m        assertEquals(expected, actual, "QueueId should match Queue.Item");[m
+     }[m
+ }[m
