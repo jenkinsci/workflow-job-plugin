@@ -674,7 +674,7 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements L
         WorkflowRun.alias();
     }
 
-    @Extension(ordinal=1)
+    @Extension(ordinal=Integer.MAX_VALUE)
     @Symbol("pipeline")
     public static final class DescriptorImpl extends TopLevelItemDescriptor {
 
