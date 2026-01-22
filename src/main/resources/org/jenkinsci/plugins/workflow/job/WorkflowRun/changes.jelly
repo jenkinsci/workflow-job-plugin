@@ -24,14 +24,6 @@ THE SOFTWARE.
 -->
 
 <?jelly escape-by-default='true'?>
-<j:jelly xmlns:j="jelly:core" xmlns:st="jelly:stapler" xmlns:l="/lib/layout" xmlns:t="/lib/hudson">
-    <l:layout title="${it.fullDisplayName} ${%Changes}">
-        <st:include page="sidepanel.jelly"/>
-        <l:main-panel>
-            <t:buildCaption>${%Changes}</t:buildCaption>
-            <j:forEach var="changeSet" items="${it.changeSets}">
-                <st:include page="index.jelly" it="${changeSet}"/>
-            </j:forEach>
-        </l:main-panel>
-    </l:layout>
+<j:jelly xmlns:j="jelly:core" xmlns:st="jelly:stapler">
+    <st:include page="changes.jelly" class="hudson.model.AbstractBuild" />
 </j:jelly>
