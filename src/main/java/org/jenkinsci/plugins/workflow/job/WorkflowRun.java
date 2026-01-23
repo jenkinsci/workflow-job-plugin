@@ -95,7 +95,6 @@ import jenkins.scm.RunWithSCM;
 import jenkins.util.SystemProperties;
 import jenkins.util.Timer;
 import org.jenkinsci.plugins.workflow.FilePathUtils;
-import org.jenkinsci.plugins.workflow.actions.TimingAction;
 import org.jenkinsci.plugins.workflow.flow.BlockableResume;
 import org.jenkinsci.plugins.workflow.flow.DurabilityHintProvider;
 import org.jenkinsci.plugins.workflow.flow.FlowCopier;
@@ -1072,10 +1071,6 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
 
     private final class GraphL implements GraphListener {
         @Override public void onNewHead(FlowNode node) {
-            if (node.getPersistentAction(TimingAction.class) == null) {
-                node.addAction(new TimingAction());
-            }
-
             FlowExecution exec = getExecution();
             if (node instanceof FlowEndNode) {
                 finish(((FlowEndNode) node).getResult(), exec != null ? exec.getCauseOfFailure() : null);
