@@ -77,7 +77,7 @@
         <dependencies>
             <dependency>
                 <groupId>io.jenkins.tools.bom</groupId>
-                <artifactId>bom-weekly</artifactId>
+                <artifactId>bom-2.528.x</artifactId>
                 <version>5933.vcf06f7b_5d1a_2</version>
                 <scope>import</scope>
                 <type>pom</type>
