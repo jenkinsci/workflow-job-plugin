@@ -62,6 +62,11 @@
         </pluginRepository>
     </pluginRepositories>
     <properties>
+
+    <!-- Maven plugin versions -->
+<sortpom-maven-plugin.version>3.4.0</sortpom-maven-plugin.version>
+<git-commit-id-maven-plugin.version>9.0.1</git-commit-id-maven-plugin.version>
+<maven-resources-plugin.version>3.3.1</maven-resources-plugin.version>
         <changelist>999999-SNAPSHOT</changelist>
         <!-- https://www.jenkins.io/doc/developer/plugin-development/choosing-jenkins-baseline/ -->
         <jenkins.baseline>2.504</jenkins.baseline>
