@@ -32,16 +32,6 @@
 
             <j:choose>
                 <j:when test="${newBuildPage}">
-                    <!-- Build Information -->
-                    <j:choose>
-                        <j:when test="${h.hasPermission(it,it.UPDATE)}">
-                            <l:task icon="symbol-create-outline plugin-ionicons-api" href="${buildUrl.baseUrl}/configure" title="${%Edit Build Information}"/>
-                        </j:when>
-                        <j:otherwise>
-                            <l:task icon="symbol-view plugin-workflow-job" href="${buildUrl.baseUrl}/configure" title="${%View Build Information}"/>
-                        </j:otherwise>
-                    </j:choose>
-
                     <j:if test="${it.hasAllowTerm()}">
                         <l:task icon="symbol-close-outline plugin-ionicons-api"
                                 href="${buildUrl.baseUrl}/term"
@@ -70,15 +60,6 @@
                     <l:task icon="symbol-reader-outline plugin-ionicons-api" href="${buildUrl.baseUrl}/" title="${%Status}" contextMenu="false"/>
                     <l:task icon="symbol-code-slash-outline plugin-ionicons-api" href="${buildUrl.baseUrl}/changes" title="${%Changes}"/>
                     <l:task href="${h.getConsoleUrl(it)}" icon="symbol-terminal-outline plugin-ionicons-api" title="${%Console Output}"/>
-                    <!-- Build Information -->
-                    <j:choose>
-                        <j:when test="${h.hasPermission(it,it.UPDATE)}">
-                            <l:task icon="symbol-create-outline plugin-ionicons-api" href="${buildUrl.baseUrl}/configure" title="${%Edit Build Information}"/>
-                        </j:when>
-                        <j:otherwise>
-                            <l:task icon="symbol-view plugin-workflow-job" href="${buildUrl.baseUrl}/configure" title="${%View Build Information}"/>
-                        </j:otherwise>
-                    </j:choose>
 
                     <st:include page="delete.jelly"/>
                     <j:if test="${it.hasAllowTerm()}">
