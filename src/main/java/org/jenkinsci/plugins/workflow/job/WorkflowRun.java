@@ -1076,9 +1076,23 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
                 node.addAction(new TimingAction());
             }
 
-            FlowExecution exec = getExecution();
-            if (node instanceof FlowEndNode) {
-                finish(((FlowEndNode) node).getResult(), exec != null ? exec.getCauseOfFailure() : null);
+            // read volatile execution field directly instead of getExecution which may need to acquire lock via
+            // synchronized (this) and possible even more recursive onLoad() calls
+            // this looks safe as this code is active on already loaded execution so this should be always non-null
+            FlowExecution exec = execution;
+            if (node instanceof FlowEndNode flowEndNode) {
+                Result result = flowEndNode.getResult();
+                Throwable cause = exec != null ? exec.getCauseOfFailure() : null;
+                if (Thread.holdsLock(WorkflowRun.this)) {
+                    // already in recursive call from getExecution which holds synchronized (this)
+                    // calling finish() directly would acquire metadataGuard
+                    // so starting a separate thread similar as FailOnLoadListener
+                    // but without trying to acquire metadataGuard as this seems not needed here because
+                    // job already loaded
+                    Timer.get().schedule(() -> finish(result, cause), 0, TimeUnit.SECONDS);
+                } else {
+                    finish(result, cause);
+                }
             } else {
                 if (exec != null && exec.getDurabilityHint().isPersistWithEveryStep()) {
                     saveWithoutFailing(false);
