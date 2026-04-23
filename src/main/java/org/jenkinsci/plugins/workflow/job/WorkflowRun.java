@@ -86,6 +86,8 @@ import java.util.logging.Logger;
 import edu.umd.cs.findbugs.annotations.CheckForNull;
 import edu.umd.cs.findbugs.annotations.NonNull;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import java.time.Duration;
+import java.time.Instant;
 import jenkins.model.CauseOfInterruption;
 import jenkins.model.Jenkins;
 import jenkins.model.lazy.BuildReference;
@@ -598,11 +600,19 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
                         }
 
                         if (Boolean.FALSE.equals(completed)) {
-                            getListener().getLogger().println("Resuming build at " + new Date() + " after Jenkins restart");
-                            Timer.get().submit(() -> Queue.getInstance().schedule(new AfterRestartTask(WorkflowRun.this), 0)); // JENKINS-31614
-
-                            // we've been restarted while we were running. let's get the execution going again.
-                            FlowExecutionListener.fireResumed(fetchedExecution);
+                            if (Instant.ofEpochMilli(getStartTimeInMillis()).plus(MAX_RESUMPTION_AGE).isBefore(Instant.now())) {
+                                LOGGER.warning(() -> "Refusing to resume running build " + this + " because it is too old and might be corrupt");
+                                getListener().getLogger().println("Build started too long ago; cancelling");
+                                completed = true;
+                                needsToPersist = true;
+                                var suddenDeath = new FlowInterruptedException(Result.ABORTED, true);
+                                Timer.get().submit(() -> finish(Result.ABORTED, suddenDeath));
+                                getSettableExecutionPromise().setException(suddenDeath);
+                            } else {
+                                getListener().getLogger().println("Resuming build at " + new Date() + " after Jenkins restart");
+                                Timer.get().submit(() -> Queue.getInstance().schedule(new AfterRestartTask(WorkflowRun.this), 0)); // JENKINS-31614
+                                FlowExecutionListener.fireResumed(fetchedExecution);
+                            }
                         }
                     } else {   // Execution nulled due to a critical failure, explicitly mark completed
                         completed = Boolean.TRUE;
@@ -628,6 +638,8 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
             }
         }
     }
+
+    private static final Duration MAX_RESUMPTION_AGE = SystemProperties.getDuration(WorkflowRun.class.getName() + ".maxResumptionAge", Duration.ofDays(30));
 
     // Overridden since super version has an unwanted assertion about this.state, which we do not use.
     @Override public void setResult(@NonNull Result r) {

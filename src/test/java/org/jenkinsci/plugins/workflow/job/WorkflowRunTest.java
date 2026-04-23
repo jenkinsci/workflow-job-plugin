@@ -81,6 +81,7 @@ import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.hamcrest.Matcher;
+import static org.hamcrest.Matchers.is;
 import org.jenkinsci.plugins.scriptsecurity.scripts.ScriptApproval;
 import org.jenkinsci.plugins.workflow.cps.CpsFlowDefinition;
 import org.jenkinsci.plugins.workflow.cps.CpsFlowExecution;
@@ -114,6 +115,7 @@ import org.jvnet.hudson.test.MockQueueItemAuthenticator;
 import org.jvnet.hudson.test.TestExtension;
 import org.jvnet.hudson.test.junit.jupiter.BuildWatcherExtension;
 import org.jvnet.hudson.test.junit.jupiter.WithJenkins;
+import org.jvnet.hudson.test.recipes.LocalData;
 import org.xml.sax.SAXException;
 
 @WithJenkins
@@ -568,6 +570,16 @@ class WorkflowRunTest {
                 assert false : x;
             }
         }
+    }
+
+    @LocalData
+    @Test
+    void maxResumptionAge() throws Exception {
+        var p = r.jenkins.getItemByFullName("p", WorkflowJob.class);
+        var b = p.getBuildByNumber(1);
+        await().until(() -> b.isLogUpdated(), is(false));
+        assertThat(b.getResult(), is(Result.ABORTED));
+        r.assertLogContains("too long ago", b);
     }
 
     @Test
