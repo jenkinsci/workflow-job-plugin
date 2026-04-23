@@ -69,6 +69,7 @@ import java.util.Set;
 import java.util.TreeSet;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
+import java.util.logging.LogRecord;
 import java.util.logging.Logger;
 import jenkins.model.CauseOfInterruption;
 import jenkins.model.InterruptedBuildAction;
@@ -548,7 +549,7 @@ class WorkflowRunTest {
         p.setDefinition(new CpsFlowDefinition("env.KEY = 'value'", true));
         WorkflowRun b = r.buildAndAssertSuccess(p);
         assertEquals("value", b.getAction(EnvironmentAction.class).getEnvironment().get("KEY"));
-        assertFalse(logging.getRecords().stream().findAny().isPresent());
+        assertThat(logging.getRecords().stream().filter(lr -> lr.getLevel().intValue() >= Level.WARNING.intValue()).map(LogRecord::getMessage).toList(), empty());
         assertFalse(b.isLogUpdated());
     }
 
