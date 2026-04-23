@@ -81,12 +81,14 @@ import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.hamcrest.Matcher;
+import static org.hamcrest.Matchers.emptyIterable;
 import static org.hamcrest.Matchers.is;
 import org.jenkinsci.plugins.scriptsecurity.scripts.ScriptApproval;
 import org.jenkinsci.plugins.workflow.cps.CpsFlowDefinition;
 import org.jenkinsci.plugins.workflow.cps.CpsFlowExecution;
 import org.jenkinsci.plugins.workflow.cps.CpsScmFlowDefinition;
 import org.jenkinsci.plugins.workflow.flow.FlowExecution;
+import org.jenkinsci.plugins.workflow.flow.FlowExecutionList;
 import org.jenkinsci.plugins.workflow.graph.FlowGraphWalker;
 import org.jenkinsci.plugins.workflow.graph.FlowNode;
 import org.jenkinsci.plugins.workflow.graph.StepNode;
@@ -127,7 +129,7 @@ class WorkflowRunTest {
     @SuppressWarnings("unused")
     @RegisterExtension
     private static final BuildWatcherExtension BUILD_WATCHER = new BuildWatcherExtension();
-    private final LogRecorder logging = new LogRecorder();
+    private final LogRecorder logging = new LogRecorder().record(FlowExecutionList.class, Level.FINE);
     private JenkinsRule r;
     private GitSampleRepoRule sampleRepo;
 
@@ -580,6 +582,7 @@ class WorkflowRunTest {
         await().until(() -> b.isLogUpdated(), is(false));
         assertThat(b.getResult(), is(Result.ABORTED));
         r.assertLogContains("too long ago", b);
+        assertThat(FlowExecutionList.get(), emptyIterable());
     }
 
     @Test
