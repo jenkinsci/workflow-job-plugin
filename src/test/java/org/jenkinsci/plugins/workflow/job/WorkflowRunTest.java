@@ -59,6 +59,7 @@ import hudson.util.StreamTaskListener;
 import java.io.File;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -117,6 +118,7 @@ import org.jvnet.hudson.test.MockAuthorizationStrategy;
 import org.jvnet.hudson.test.MockQueueItemAuthenticator;
 import org.jvnet.hudson.test.TestExtension;
 import org.jvnet.hudson.test.junit.jupiter.BuildWatcherExtension;
+import org.jvnet.hudson.test.junit.jupiter.FlagExtension;
 import org.jvnet.hudson.test.junit.jupiter.WithJenkins;
 import org.jvnet.hudson.test.recipes.LocalData;
 import org.xml.sax.SAXException;
@@ -130,6 +132,9 @@ class WorkflowRunTest {
     @SuppressWarnings("unused")
     @RegisterExtension
     private static final BuildWatcherExtension BUILD_WATCHER = new BuildWatcherExtension();
+    @RegisterExtension
+    private static final FlagExtension<Duration> MAX_RESUMPTION_AGE = new FlagExtension<>(() -> WorkflowRun.MAX_RESUMPTION_AGE, x -> WorkflowRun.MAX_RESUMPTION_AGE = x, Duration.ofDays(30));
+
     private final LogRecorder logging = new LogRecorder().record(FlowExecutionList.class, Level.FINE);
     private JenkinsRule r;
     private GitSampleRepoRule sampleRepo;

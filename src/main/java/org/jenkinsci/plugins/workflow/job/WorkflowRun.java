@@ -86,6 +86,7 @@ import java.util.logging.Logger;
 import edu.umd.cs.findbugs.annotations.CheckForNull;
 import edu.umd.cs.findbugs.annotations.NonNull;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import hudson.Main;
 import java.time.Duration;
 import java.time.Instant;
 import jenkins.model.CauseOfInterruption;
@@ -600,7 +601,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
                         }
 
                         if (Boolean.FALSE.equals(completed)) {
-                            if (Instant.ofEpochMilli(getStartTimeInMillis()).plus(MAX_RESUMPTION_AGE).isBefore(Instant.now())) {
+                            if (MAX_RESUMPTION_AGE != null && Instant.ofEpochMilli(getStartTimeInMillis()).plus(MAX_RESUMPTION_AGE).isBefore(Instant.now())) {
                                 LOGGER.warning(() -> "Refusing to resume running build " + this + " because it is too old and might be corrupt");
                                 getListener().getLogger().println("Build started too long ago; cancelling");
                                 completed = true;
@@ -639,7 +640,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
         }
     }
 
-    private static final Duration MAX_RESUMPTION_AGE = SystemProperties.getDuration(WorkflowRun.class.getName() + ".maxResumptionAge", Duration.ofDays(30));
+    static Duration MAX_RESUMPTION_AGE = Main.isUnitTest ? null : SystemProperties.getDuration(WorkflowRun.class.getName() + ".maxResumptionAge", Duration.ofDays(30));
 
     // Overridden since super version has an unwanted assertion about this.state, which we do not use.
     @Override public void setResult(@NonNull Result r) {
