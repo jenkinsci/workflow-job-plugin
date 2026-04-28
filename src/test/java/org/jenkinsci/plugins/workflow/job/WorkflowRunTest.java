@@ -59,6 +59,7 @@ import hudson.util.StreamTaskListener;
 import java.io.File;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -69,6 +70,7 @@ import java.util.Set;
 import java.util.TreeSet;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
+import java.util.logging.LogRecord;
 import java.util.logging.Logger;
 import jenkins.model.CauseOfInterruption;
 import jenkins.model.InterruptedBuildAction;
@@ -81,11 +83,14 @@ import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.hamcrest.Matcher;
+import static org.hamcrest.Matchers.emptyIterable;
+import static org.hamcrest.Matchers.is;
 import org.jenkinsci.plugins.scriptsecurity.scripts.ScriptApproval;
 import org.jenkinsci.plugins.workflow.cps.CpsFlowDefinition;
 import org.jenkinsci.plugins.workflow.cps.CpsFlowExecution;
 import org.jenkinsci.plugins.workflow.cps.CpsScmFlowDefinition;
 import org.jenkinsci.plugins.workflow.flow.FlowExecution;
+import org.jenkinsci.plugins.workflow.flow.FlowExecutionList;
 import org.jenkinsci.plugins.workflow.graph.FlowGraphWalker;
 import org.jenkinsci.plugins.workflow.graph.FlowNode;
 import org.jenkinsci.plugins.workflow.graph.StepNode;
@@ -113,7 +118,9 @@ import org.jvnet.hudson.test.MockAuthorizationStrategy;
 import org.jvnet.hudson.test.MockQueueItemAuthenticator;
 import org.jvnet.hudson.test.TestExtension;
 import org.jvnet.hudson.test.junit.jupiter.BuildWatcherExtension;
+import org.jvnet.hudson.test.junit.jupiter.FlagExtension;
 import org.jvnet.hudson.test.junit.jupiter.WithJenkins;
+import org.jvnet.hudson.test.recipes.LocalData;
 import org.xml.sax.SAXException;
 
 @WithJenkins
@@ -125,7 +132,10 @@ class WorkflowRunTest {
     @SuppressWarnings("unused")
     @RegisterExtension
     private static final BuildWatcherExtension BUILD_WATCHER = new BuildWatcherExtension();
-    private final LogRecorder logging = new LogRecorder();
+    @RegisterExtension
+    private static final FlagExtension<Duration> MAX_RESUMPTION_AGE = new FlagExtension<>(() -> WorkflowRun.MAX_RESUMPTION_AGE, x -> WorkflowRun.MAX_RESUMPTION_AGE = x, Duration.ofDays(30));
+
+    private final LogRecorder logging = new LogRecorder().record(FlowExecutionList.class, Level.FINE);
     private JenkinsRule r;
     private GitSampleRepoRule sampleRepo;
 
@@ -544,7 +554,7 @@ class WorkflowRunTest {
         p.setDefinition(new CpsFlowDefinition("env.KEY = 'value'", true));
         WorkflowRun b = r.buildAndAssertSuccess(p);
         assertEquals("value", b.getAction(EnvironmentAction.class).getEnvironment().get("KEY"));
-        assertFalse(logging.getRecords().stream().findAny().isPresent());
+        assertThat(logging.getRecords().stream().filter(lr -> lr.getLevel().intValue() >= Level.WARNING.intValue()).map(LogRecord::getMessage).toList(), empty());
         assertFalse(b.isLogUpdated());
     }
 
@@ -568,6 +578,17 @@ class WorkflowRunTest {
                 assert false : x;
             }
         }
+    }
+
+    @LocalData
+    @Test
+    void maxResumptionAge() throws Exception {
+        var p = r.jenkins.getItemByFullName("p", WorkflowJob.class);
+        var b = p.getBuildByNumber(1);
+        await().until(() -> b.isLogUpdated(), is(false));
+        assertThat(b.getResult(), is(Result.ABORTED));
+        r.assertLogContains("too long ago", b);
+        assertThat(FlowExecutionList.get(), emptyIterable());
     }
 
     @Test

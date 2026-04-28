@@ -1,0 +1,60 @@
+<?xml version='1.1' encoding='UTF-8'?>
+<flow-build>
+  <actions>
+    <org.jenkinsci.plugins.workflow.libs.LibrariesAction plugin="pipeline-groovy-lib@787.ve2fef0efdca_6">
+      <libraries/>
+    </org.jenkinsci.plugins.workflow.libs.LibrariesAction>
+    <org.jenkinsci.plugins.workflow.support.steps.input.InputAction plugin="pipeline-input-step@540.v14b_100d754dd">
+      <ids class="java.util.concurrent.CopyOnWriteArrayList">
+        <string>527b9cd59ee3e457471284237b8dc8dd</string>
+      </ids>
+    </org.jenkinsci.plugins.workflow.support.steps.input.InputAction>
+  </actions>
+  <queueId>1</queueId>
+  <timestamp>1770000000000</timestamp>
+  <startTime>1770000000000</startTime> <!-- 2026-02-01 -->
+  <duration>0</duration>
+  <charset>UTF-8</charset>
+  <keepLog>false</keepLog>
+  <execution class="org.jenkinsci.plugins.workflow.cps.CpsFlowExecution">
+    <result>SUCCESS</result>
+    <script>input &apos;hangs forever&apos;</script>
+    <loadedScripts class="linked-hash-map"/>
+    <durabilityHint>MAX_SURVIVABILITY</durabilityHint>
+    <timings class="map">
+      <entry>
+        <string>flowNode</string>
+        <long>31100595</long>
+      </entry>
+      <entry>
+        <string>classLoad</string>
+        <long>195779427</long>
+      </entry>
+      <entry>
+        <string>runQueue</string>
+        <long>60378134</long>
+      </entry>
+      <entry>
+        <string>run</string>
+        <long>108022273</long>
+      </entry>
+      <entry>
+        <string>parse</string>
+        <long>187384563</long>
+      </entry>
+      <entry>
+        <string>saveProgram</string>
+        <long>31756482</long>
+      </entry>
+    </timings>
+    <internalCalls class="sorted-set"/>
+    <sandbox>true</sandbox>
+    <iota>3</iota>
+    <head>1:3</head>
+    <start>2</start>
+    <done>false</done>
+    <resumeBlocked>false</resumeBlocked>
+  </execution>
+  <completed>false</completed>
+  <checkouts class="hudson.util.PersistedList"/>
+</flow-build>
