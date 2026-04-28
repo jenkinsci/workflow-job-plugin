@@ -771,7 +771,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
                     return fetchedExecution;
                 } catch (Exception x) {
                     setResult(Result.FAILURE);
-                    if (SystemProperties.getBoolean("org.jenkinsci.plugins.workflow.cps.CpsFlowExecution.initializeStorageFromOnLoad", true)) {
+                    if (SystemProperties.getBoolean("org.jenkinsci.plugins.workflow.cps.CpsFlowExecution.initializeStorageFromOnLoad")) {
                         LOGGER.log(Level.WARNING, "Nulling out FlowExecution due to error in build " + this, x);
                         execution = null; // probably too broken to use
                         saveWithoutFailing(true); // Ensure we do not try to load again
