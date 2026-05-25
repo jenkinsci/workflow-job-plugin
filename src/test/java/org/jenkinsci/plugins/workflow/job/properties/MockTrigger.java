@@ -45,13 +45,15 @@ public class MockTrigger extends Trigger<BuildableItem> {
     @DataBoundConstructor
     public MockTrigger() {}
 
-    @Override public void start(BuildableItem project, boolean newInstance) {
+    @Override
+    public void start(BuildableItem project, boolean newInstance) {
         super.start(project, newInstance);
         startsAndStops.add(newInstance);
         isStarted = true;
     }
 
-    @Override public void stop() {
+    @Override
+    public void stop() {
         super.stop();
         startsAndStops.add(null);
         isStarted = false;
@@ -65,10 +67,12 @@ public class MockTrigger extends Trigger<BuildableItem> {
         }
     }
 
+    @SuppressWarnings("unused")
     @Extension
     public static class DescriptorImpl extends TriggerDescriptor {
 
-        @Override public boolean isApplicable(Item item) {
+        @Override
+        public boolean isApplicable(Item item) {
             return true;
         }
 

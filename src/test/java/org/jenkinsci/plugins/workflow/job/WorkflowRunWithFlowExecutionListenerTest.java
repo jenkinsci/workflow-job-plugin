@@ -30,28 +30,28 @@ import hudson.model.Result;
 import org.jenkinsci.plugins.workflow.cps.CpsFlowDefinition;
 import org.jenkinsci.plugins.workflow.flow.FlowExecution;
 import org.jenkinsci.plugins.workflow.flow.FlowExecutionListener;
-import org.junit.ClassRule;
-import org.junit.Rule;
-import org.junit.Test;
-import org.jvnet.hudson.test.BuildWatcher;
-import org.jvnet.hudson.test.JenkinsSessionRule;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.RegisterExtension;
 import org.jvnet.hudson.test.TestExtension;
 
 import edu.umd.cs.findbugs.annotations.NonNull;
+import org.jvnet.hudson.test.junit.jupiter.BuildWatcherExtension;
+import org.jvnet.hudson.test.junit.jupiter.JenkinsSessionExtension;
+
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import java.io.IOException;
 import java.io.PrintStream;
 
-import static org.junit.Assert.assertNotNull;
+class WorkflowRunWithFlowExecutionListenerTest {
 
-public class WorkflowRunWithFlowExecutionListenerTest {
+    @SuppressWarnings("unused")
+    @RegisterExtension
+    private static final BuildWatcherExtension BUILD_WATCHER = new BuildWatcherExtension();
+    @RegisterExtension
+    private final JenkinsSessionExtension sessions = new JenkinsSessionExtension();
 
-    @ClassRule
-    public static BuildWatcher buildWatcher = new BuildWatcher();
-
-    @Rule
-    public JenkinsSessionRule sessions = new JenkinsSessionRule();
-
-    @Test public void testOnCompleteIsExecutedBeforeListenerIsClosed() throws Throwable {
+    @Test
+    void testOnCompleteIsExecutedBeforeListenerIsClosed() throws Throwable {
         sessions.then(r -> {
             WorkflowJob p = r.jenkins.createProject(WorkflowJob.class, "p");
             p.setDefinition(new CpsFlowDefinition("echo 'Running for listener'", true));
@@ -71,6 +71,7 @@ public class WorkflowRunWithFlowExecutionListenerTest {
 
     @TestExtension("testOnCompleteIsExecutedBeforeListenerIsClosed")
     public static class Listener extends FlowExecutionListener {
+
         @Override
         public void onCompleted(@NonNull FlowExecution execution) {
             super.onCompleted(execution);
@@ -79,8 +80,7 @@ public class WorkflowRunWithFlowExecutionListenerTest {
                 PrintStream logger = execution.getOwner().getListener().getLogger();
                 logger.println("blah blah blah");
                 executable = execution.getOwner().getExecutable();
-                if( executable instanceof WorkflowRun){
-                    WorkflowRun run = (WorkflowRun) executable;
+                if(executable instanceof WorkflowRun run){
                     WorkflowJob workflowJob = run.getParent();
                     int number = workflowJob.getLastBuild().number;
                     logger.println("Build Number :" + number);

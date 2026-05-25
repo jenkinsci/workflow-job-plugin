@@ -29,18 +29,29 @@ import org.jenkinsci.plugins.workflow.cps.CpsFlowDefinition;
 import org.jenkinsci.plugins.workflow.job.WorkflowJob;
 import org.jenkinsci.plugins.workflow.job.WorkflowRun;
 import static org.hamcrest.MatcherAssert.assertThat;
-import org.junit.Test;
-import org.junit.ClassRule;
-import org.junit.Rule;
-import org.jvnet.hudson.test.BuildWatcher;
+
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.RegisterExtension;
 import org.jvnet.hudson.test.JenkinsRule;
+import org.jvnet.hudson.test.junit.jupiter.BuildWatcherExtension;
+import org.jvnet.hudson.test.junit.jupiter.WithJenkins;
 
-public class NewNodeConsoleNoteTest {
+@WithJenkins
+class NewNodeConsoleNoteTest {
 
-    @Rule public JenkinsRule r = new JenkinsRule();
-    @ClassRule public static BuildWatcher buildWatcher = new BuildWatcher();
+    @SuppressWarnings("unused")
+    @RegisterExtension
+    private static final BuildWatcherExtension BUILD_WATCHER = new BuildWatcherExtension();
+    private JenkinsRule r;
 
-    @Test public void labels() throws Exception {
+    @BeforeEach
+    void beforeEach(JenkinsRule rule) {
+        r = rule;
+    }
+
+    @Test
+    void labels() throws Exception {
         WorkflowJob p = r.createProject(WorkflowJob.class, "p");
         p.setDefinition(new CpsFlowDefinition("parallel first: {}, second: {stage('\"full\" details') {}}", true));
         WorkflowRun b = r.buildAndAssertSuccess(p);

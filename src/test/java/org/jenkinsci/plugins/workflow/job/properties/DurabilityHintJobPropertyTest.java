@@ -3,24 +3,31 @@ package org.jenkinsci.plugins.workflow.job.properties;
 import org.jenkinsci.plugins.workflow.cps.CpsFlowDefinition;
 import org.jenkinsci.plugins.workflow.flow.FlowDurabilityHint;
 import org.jenkinsci.plugins.workflow.job.WorkflowJob;
-import org.junit.Assert;
-import org.junit.ClassRule;
-import org.junit.Rule;
-import org.junit.Test;
-import org.jvnet.hudson.test.BuildWatcher;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.RegisterExtension;
 import org.jvnet.hudson.test.JenkinsRule;
+import org.jvnet.hudson.test.junit.jupiter.BuildWatcherExtension;
+import org.jvnet.hudson.test.junit.jupiter.WithJenkins;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNull;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 
-public class DurabilityHintJobPropertyTest {
-    @ClassRule
-    public static BuildWatcher buildWatcher = new BuildWatcher();
-    @Rule
-    public JenkinsRule r = new JenkinsRule();
+@WithJenkins
+class DurabilityHintJobPropertyTest {
+
+    @SuppressWarnings("unused")
+    @RegisterExtension
+    private static final BuildWatcherExtension BUILD_WATCHER = new BuildWatcherExtension();
+    private JenkinsRule r;
+
+    @BeforeEach
+    void beforeEach(JenkinsRule rule) {
+        r = rule;
+    }
 
     @Test
-    public void configRoundTripAndRun() throws Exception{
+    void configRoundTripAndRun() throws Exception{
         WorkflowJob defaultCase = r.jenkins.createProject(WorkflowJob.class, "testCase");
         defaultCase.setDefinition(new CpsFlowDefinition("echo 'cheese is delicious'", true));
 
@@ -34,12 +41,12 @@ public class DurabilityHintJobPropertyTest {
                 assertEquals(hint, defaultCase.getProperty(DurabilityHintJobProperty.class).getHint());
 
                 r.buildAndAssertSuccess(defaultCase);
-                Assert.assertEquals(hint, defaultCase.getLastBuild().getExecution().getDurabilityHint());
+                assertEquals(hint, defaultCase.getLastBuild().getExecution().getDurabilityHint());
 
                 defaultCase.removeProperty(DurabilityHintJobProperty.class);
                 assertNull(defaultCase.getProperty(DurabilityHintJobProperty.class));
             } catch (Exception ex) {
-                throw new Exception("Error with FlowDurabilityHint "+hint, ex);
+                throw new Exception("Error with FlowDurabilityHint " + hint, ex);
             }
         }
     }

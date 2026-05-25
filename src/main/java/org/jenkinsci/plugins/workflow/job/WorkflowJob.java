@@ -261,6 +261,7 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements L
         return getParameterizedJobMixIn().extendSearchIndex(super.makeSearchIndex());
     }
 
+    @Exported
     @Override public boolean isDisabled() {
         return disabled;
     }
@@ -673,7 +674,7 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements L
         WorkflowRun.alias();
     }
 
-    @Extension(ordinal=1)
+    @Extension(ordinal=2000)
     @Symbol("pipeline")
     public static final class DescriptorImpl extends TopLevelItemDescriptor {
 

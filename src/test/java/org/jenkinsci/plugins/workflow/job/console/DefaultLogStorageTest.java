@@ -24,14 +24,15 @@
 
 package org.jenkinsci.plugins.workflow.job.console;
 
+import static org.awaitility.Awaitility.await;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.greaterThan;
 import static org.hamcrest.Matchers.lessThan;
 import static org.hamcrest.Matchers.not;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assume.assumeFalse;
+import static org.junit.jupiter.api.Assumptions.assumeFalse;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 import org.htmlunit.html.HtmlPage;
 import com.google.common.collect.ImmutableSet;
@@ -49,11 +50,17 @@ import hudson.slaves.SlaveComputer;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.InputStream;
+import java.io.Serial;
 import java.io.StringWriter;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Set;
 import java.util.logging.Level;
+import java.util.logging.Logger;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.IOUtils;
 import org.jenkinsci.plugins.workflow.actions.LogAction;
@@ -68,24 +75,36 @@ import org.jenkinsci.plugins.workflow.steps.Step;
 import org.jenkinsci.plugins.workflow.steps.StepContext;
 import org.jenkinsci.plugins.workflow.steps.StepDescriptor;
 import org.jenkinsci.plugins.workflow.steps.StepExecution;
+import org.jenkinsci.plugins.workflow.steps.StepExecutions;
 import org.jenkinsci.plugins.workflow.steps.SynchronousStepExecution;
 import org.jenkinsci.plugins.workflow.test.steps.SemaphoreStep;
-import org.junit.Ignore;
-import org.junit.Rule;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
 import org.jvnet.hudson.test.Issue;
 import org.jvnet.hudson.test.JenkinsRule;
-import org.jvnet.hudson.test.LoggerRule;
+import org.jvnet.hudson.test.LogRecorder;
 import org.jvnet.hudson.test.TestExtension;
+import org.jvnet.hudson.test.junit.jupiter.WithJenkins;
 import org.kohsuke.stapler.DataBoundConstructor;
 
 @Issue("JENKINS-38381")
-public class DefaultLogStorageTest {
+@WithJenkins
+class DefaultLogStorageTest {
 
-    @Rule public JenkinsRule r = new JenkinsRule();
-    @Rule public LoggerRule logging = new LoggerRule();
+    private static final Logger LOGGER = Logger.getLogger(DefaultLogStorageTest.class.getName());
 
-    @Test public void consoleNotes() throws Exception {
+    private JenkinsRule r;
+    private final LogRecorder logging = new LogRecorder();
+
+    @BeforeEach
+    void beforeEach(JenkinsRule rule) {
+        r = rule;
+    }
+
+    @Test
+    void consoleNotes() throws Exception {
         r.jenkins.setSecurityRealm(r.createDummySecurityRealm());
         WorkflowJob p = r.createProject(WorkflowJob.class, "p");
         p.setDefinition(new CpsFlowDefinition("hyperlink()", true));
@@ -108,42 +127,57 @@ public class DefaultLogStorageTest {
         assertLogContains(page, "Running inside " + b.getDisplayName(), b.getUrl());
         r.assertLogContains("\nRunning inside " + b.getDisplayName(), b);
     }
+
     private void assertLogContains(HtmlPage page, String plainText, String url) {
         String html = page.getWebResponse().getContentAsString();
         assertThat(page.getUrl() + " looks OK as text:\n" + html, page.getDocumentElement().getTextContent(), containsString(plainText));
         String absUrl = r.contextPath + "/" + url;
-        assertNotNull("found " + absUrl + " in:\n" + html, page.getAnchorByHref(absUrl));
+        assertNotNull(page.getAnchorByHref(absUrl), "found " + absUrl + " in:\n" + html);
     }
+
+    @SuppressWarnings("unused")
     public static class HyperlinkingStep extends Step {
-        @DataBoundConstructor public HyperlinkingStep() {}
-        @Override public StepExecution start(StepContext context) {
+        @DataBoundConstructor
+        public HyperlinkingStep() {}
+
+        @Override
+        public StepExecution start(StepContext context) {
             return new Execution(context);
         }
+
         static class Execution extends SynchronousStepExecution<Void> {
+            @Serial
             private static final long serialVersionUID = 1L;
             
             Execution(StepContext context) {
                 super(context);
             }
-            @Override protected Void run() throws Exception {
+            @Override
+            protected Void run() throws Exception {
                 getContext().get(TaskListener.class).getLogger().println("Running inside " + ModelHyperlinkNote.encodeTo(getContext().get(Run.class)));
                 return null;
             }
         }
-        @TestExtension("consoleNotes") public static class DescriptorImpl extends StepDescriptor {
-            @Override public String getFunctionName() {
+
+        @TestExtension("consoleNotes")
+        public static class DescriptorImpl extends StepDescriptor {
+            @Override
+            public String getFunctionName() {
                 return "hyperlink";
             }
-            @Override public Set<? extends Class<?>> getRequiredContext() {
+
+            @Override
+            public Set<? extends Class<?>> getRequiredContext() {
                 return ImmutableSet.of(TaskListener.class, Run.class);
             }
         }
     }
 
-    @Test public void performance() throws Exception {
+    @Test
+    void performance() throws Exception {
         assumeFalse(Functions.isWindows()); // needs newline fixes; not bothering for now
         WorkflowJob p = r.createProject(WorkflowJob.class, "p");
-        p.setDefinition(new CpsFlowDefinition("@NonCPS def giant() {(0..999999).join('\\n')}; echo giant(); sleep 0", true));
+        p.setDefinition(new CpsFlowDefinition("giant(6); echo 'quick message at the end'", true));
         long start = System.nanoTime();
         WorkflowRun b = r.buildAndAssertSuccess(p);
         System.out.printf("Took %dms to run the build%n", (System.nanoTime() - start) / 1000 / 1000);
@@ -167,7 +201,7 @@ public class DefaultLogStorageTest {
         System.out.printf("Took %dms to write truncated HTML of whole build%n", (System.nanoTime() - start) / 1000 / 1000);
         assertThat(sw.toString(), not(containsString("\n456789\n")));
         assertThat(sw.toString(), containsString("\n999923\n"));
-        /* Whether or not this echo step is annotated in the truncated log is not really important:
+        /* Whether or not this step is annotated in the truncated log is not really important:
         assertThat(sw.toString(), containsString("\n999999\n</span>"));
         */
         // Plain text:
@@ -180,10 +214,9 @@ public class DefaultLogStorageTest {
         String rawLog = FileUtils.readFileToString(new File(b.getRootDir(), "log"), StandardCharsets.UTF_8);
         assertThat(rawLog, containsString("0\n"));
         assertThat(rawLog, containsString("\n999999\n"));
-        assertThat(rawLog, containsString("sleep any longer"));
+        assertThat(rawLog, containsString("quick message at the end"));
         // Per node:
-        FlowNode echo = new DepthFirstScanner().findFirstMatch(b.getExecution(), new NodeStepTypePredicate("echo"));
-        LogAction la = echo.getAction(LogAction.class);
+        LogAction la = new DepthFirstScanner().findFirstMatch(b.getExecution(), new NodeStepTypePredicate("giant")).getAction(LogAction.class);
         assertNotNull(la);
         baos = new ByteArrayOutputStream();
         la.getLogText().writeRawLogTo(0, baos);
@@ -214,14 +247,13 @@ public class DefaultLogStorageTest {
         System.out.printf("Took %dms to write plain text of one long node%n", (System.nanoTime() - start) / 1000 / 1000);
         assertThat(baos.toString(), containsString("\n456789\n"));
         // Node with litte text:
-        FlowNode sleep = new DepthFirstScanner().findFirstMatch(b.getExecution(), new NodeStepTypePredicate("sleep"));
-        la = sleep.getAction(LogAction.class);
+        la = new DepthFirstScanner().findFirstMatch(b.getExecution(), new NodeStepTypePredicate("echo")).getAction(LogAction.class);
         assertNotNull(la);
         sw = new StringWriter();
         start = System.nanoTime();
         la.getLogText().writeHtmlTo(0, sw);
         System.out.printf("Took %dms to write HTML of one short node%n", (System.nanoTime() - start) / 1000 / 1000);
-        assertThat(sw.toString(), containsString("No need to sleep any longer"));
+        assertThat(sw.toString(), containsString("quick message at the end"));
         // Length check
         start = System.nanoTime();
         length = la.getLogText().length();
@@ -229,8 +261,91 @@ public class DefaultLogStorageTest {
         assertThat(length, lessThan(50L));
     }
 
-    @Ignore("Currently not asserting anything, just here for interactive evaluation.")
-    @Test public void parallelLogStreaming() throws Exception {
+    @SuppressWarnings("unused")
+    public static final class GiantStep extends Step {
+        final int digits;
+
+        @DataBoundConstructor
+        public GiantStep(int digits) {
+            this.digits = digits;
+        }
+
+        @Override
+        public StepExecution start(StepContext context) throws Exception {
+            return StepExecutions.synchronousNonBlockingVoid(context, c -> {
+                var ps = c.get(TaskListener.class).getLogger();
+                for (int i = 0; i < Math.pow(10, digits); i++) {
+                    ps.printf("%0" + digits + "d%n", i);
+                }
+            });
+        }
+
+        @TestExtension
+        public static final class DescriptorImpl extends StepDescriptor {
+            @Override
+            public String getFunctionName() {
+                return "giant";
+            }
+
+            @Override
+            public Set<? extends Class<?>> getRequiredContext() {
+                return Set.of(TaskListener.class);
+            }
+        }
+    }
+
+    // Access large logs via HTTP:
+
+    @Disabled("for interactive use")
+    @Timeout(600)
+    @Issue("JENKINS-75081")
+    @Test
+    void giantLogRunning() throws Exception {
+        var p = r.createProject(WorkflowJob.class, "p");
+        p.setDefinition(new CpsFlowDefinition("for (int i = 0; i < 10; i++) {giant(7)}", true));
+        var b = p.scheduleBuild2(0).waitForStart();
+        LOGGER.info("Running");
+        var base = URI.create(p.getAbsoluteUrl() + "/1/");
+        var client = HttpClient.newHttpClient();
+        String start = "0";
+        while (true) {
+            LOGGER.info("progressiveHtml?start=" + start);
+            var headers = client.send(HttpRequest.newBuilder(base.resolve("logText/progressiveHtml?start=" + start)).build(), HttpResponse.BodyHandlers.discarding()).headers();
+            if (Boolean.parseBoolean(headers.firstValue("X-More-Data").orElse("false"))) {
+                start = headers.firstValue("X-Text-Size").get();
+            } else {
+                break;
+            }
+        }
+        LOGGER.info("Complete");
+        r.assertBuildStatusSuccess(r.waitForCompletion(b));
+    }
+
+    @Disabled("for interactive use")
+    @Timeout(600)
+    @Issue("JENKINS-75081")
+    @Test
+    void giantLogCompleted() throws Exception {
+        var p = r.createProject(WorkflowJob.class, "p");
+        p.setDefinition(new CpsFlowDefinition("giant(8)", true)); // 859Mb
+        LOGGER.info("running build");
+        var b = r.buildAndAssertSuccess(p);
+        LOGGER.info("completed");
+        var base = URI.create(p.getAbsoluteUrl() + "/1/");
+        var client = HttpClient.newHttpClient();
+        LOGGER.info("console");
+        client.send(HttpRequest.newBuilder(base.resolve("console")).build(), HttpResponse.BodyHandlers.discarding());
+        LOGGER.info("consoleFull");
+        client.send(HttpRequest.newBuilder(base.resolve("consoleFull")).build(), HttpResponse.BodyHandlers.discarding());
+        LOGGER.info("consoleText");
+        client.send(HttpRequest.newBuilder(base.resolve("consoleText")).build(), HttpResponse.BodyHandlers.discarding());
+        LOGGER.info("progressiveText");
+        client.send(HttpRequest.newBuilder(base.resolve("logText/progressiveText")).build(), HttpResponse.BodyHandlers.discarding());
+    }
+
+    @Disabled("Currently not asserting anything, just here for interactive evaluation.")
+    @Test
+    void parallelLogStreaming() throws Exception {
         assumeFalse(Functions.isWindows());
         logging.record(SlaveComputer.class, Level.FINEST); // for interactive use, try cli-log plugin
         int concurrency = 10;
@@ -260,13 +375,12 @@ public class DefaultLogStorageTest {
             "parallel(branches)", true));
         WorkflowRun b = p.scheduleBuild2(0).waitForStart();
         // TODO cannot apply BuildWatcher to just a single test case:
-        while (!new File(b.getRootDir(), "log").isFile()) {
-            Thread.sleep(100);
-        }
+        await().until(() -> new File(b.getRootDir(), "log").isFile());
         b.writeWholeLogTo(System.out);
     }
 
-    @Test public void doConsoleText() throws Exception {
+    @Test
+    void doConsoleText() throws Exception {
         WorkflowJob p = r.createProject(WorkflowJob.class, "p");
         p.setDefinition(new CpsFlowDefinition("@NonCPS def giant() {(0..19999).join('\\n')}; echo giant(); semaphore 'wait'", true));
         WorkflowRun b = p.scheduleBuild2(0).waitForStart();
@@ -276,7 +390,8 @@ public class DefaultLogStorageTest {
         r.assertBuildStatusSuccess(r.waitForCompletion(b));
     }
 
-    @Test public void getLogInputStream() throws Exception {
+    @Test
+    void getLogInputStream() throws Exception {
         WorkflowJob p = r.createProject(WorkflowJob.class, "p");
         p.setDefinition(new CpsFlowDefinition("@NonCPS def giant() {(0..19999).join('\\n')}; echo giant(); semaphore 'wait'", true));
         WorkflowRun b = p.scheduleBuild2(0).waitForStart();
@@ -288,7 +403,8 @@ public class DefaultLogStorageTest {
         r.assertBuildStatusSuccess(r.waitForCompletion(b));
     }
 
-    @Test public void getLog() throws Exception {
+    @Test
+    void getLog() throws Exception {
         WorkflowJob p = r.createProject(WorkflowJob.class, "p");
         p.setDefinition(new CpsFlowDefinition("@NonCPS def giant() {(0..19999).join('\\n')}; echo giant(); semaphore 'wait'", true));
         WorkflowRun b = p.scheduleBuild2(0).waitForStart();

@@ -28,7 +28,7 @@
     <parent>
         <groupId>org.jenkins-ci.plugins</groupId>
         <artifactId>plugin</artifactId>
-        <version>5.5</version>
+        <version>6.2152.ve00a_731c3ce9</version>
         <relativePath/>
     </parent>
     <groupId>org.jenkins-ci.plugins.workflow</groupId>
@@ -64,11 +64,14 @@
     <properties>
         <changelist>999999-SNAPSHOT</changelist>
         <!-- https://www.jenkins.io/doc/developer/plugin-development/choosing-jenkins-baseline/ -->
-        <jenkins.baseline>2.479</jenkins.baseline>
-        <jenkins.version>${jenkins.baseline}.1</jenkins.version>
+        <jenkins.baseline>2.541</jenkins.baseline>
+        <!-- TOOD change back to jenkins.baseline after next LTS is released -->
+        <jenkins.version>2.556</jenkins.version>
         <no-test-jar>false</no-test-jar>
         <useBeta>true</useBeta>
         <hpi.compatibleSinceVersion>2.26</hpi.compatibleSinceVersion>
+        <hpi.strictBundledArtifacts>true</hpi.strictBundledArtifacts>
+        <ban-junit4-imports.skip>false</ban-junit4-imports.skip>
         <gitHubRepo>jenkinsci/${project.artifactId}-plugin</gitHubRepo>
     </properties>
     <dependencyManagement>
@@ -76,7 +79,7 @@
             <dependency>
                 <groupId>io.jenkins.tools.bom</groupId>
                 <artifactId>bom-${jenkins.baseline}.x</artifactId>
-                <version>4023.va_eeb_b_4e45f07</version>
+                <version>6166.va_a_8b_5eda_8ef5</version>
                 <scope>import</scope>
                 <type>pom</type>
             </dependency>
@@ -99,6 +102,11 @@
             <groupId>org.jenkins-ci.plugins.workflow</groupId>
             <artifactId>workflow-support</artifactId>
         </dependency>
+    <dependency>
+      <groupId>io.jenkins.plugins</groupId>
+      <artifactId>commons-lang3-api</artifactId>
+      <scope>test</scope>
+    </dependency>
         <dependency>
             <groupId>io.jenkins.plugins</groupId>
             <artifactId>pipeline-groovy-lib</artifactId>
@@ -190,7 +198,7 @@
         <dependency>
             <groupId>org.awaitility</groupId>
             <artifactId>awaitility</artifactId>
-            <version>4.2.2</version>
+            <version>4.3.0</version>
             <scope>test</scope>
         </dependency>
     </dependencies>

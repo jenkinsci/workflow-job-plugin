@@ -26,26 +26,36 @@ package org.jenkinsci.plugins.workflow.job;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
-import static org.junit.Assert.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import hudson.cli.CLICommandInvoker;
 import java.io.File;
 import java.nio.charset.StandardCharsets;
 import org.apache.commons.io.FileUtils;
 import org.jenkinsci.plugins.workflow.cps.CpsFlowDefinition;
-import org.junit.ClassRule;
-import org.junit.Rule;
-import org.junit.Test;
-import org.jvnet.hudson.test.BuildWatcher;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.RegisterExtension;
 import org.jvnet.hudson.test.Issue;
 import org.jvnet.hudson.test.JenkinsRule;
+import org.jvnet.hudson.test.junit.jupiter.BuildWatcherExtension;
+import org.jvnet.hudson.test.junit.jupiter.WithJenkins;
 
-public class CLITest {
+@WithJenkins
+class CLITest {
 
-    @ClassRule public static BuildWatcher buildWatcher = new BuildWatcher();
-    @Rule public JenkinsRule r = new JenkinsRule();
+    @SuppressWarnings("unused")
+    @RegisterExtension
+    private static final BuildWatcherExtension BUILD_WATCHER = new BuildWatcherExtension();
+    private JenkinsRule r;
 
-    @Test public void deleteBuilds() throws Exception {
+    @BeforeEach
+    void beforeEach(JenkinsRule rule) {
+        r = rule;
+    }
+
+    @Test
+    void deleteBuilds() throws Exception {
         WorkflowJob p = r.createProject(WorkflowJob.class, "p");
         p.setDefinition(new CpsFlowDefinition("", true));
         for (int i = 0; i < 5; i++) {
@@ -55,7 +65,8 @@ public class CLITest {
         assertEquals("[5, 1]", p.getBuildsAsMap().keySet().toString());
     }
 
-    @Test public void listChanges() throws Exception {
+    @Test
+    void listChanges() throws Exception {
         WorkflowJob p = r.createProject(WorkflowJob.class, "p");
         p.setDefinition(new CpsFlowDefinition("node {def s = new org.jvnet.hudson.test.FakeChangeLogSCM(); s.addChange().withAuthor('alice').withMsg('hello'); checkout s}", false /* for org.jvnet.hudson.test.FakeChangeLogSCM */));
         r.buildAndAssertSuccess(p);
@@ -65,7 +76,8 @@ public class CLITest {
     }
 
     @Issue("JENKINS-41527")
-    @Test public void console() throws Exception {
+    @Test
+    void console() throws Exception {
         WorkflowJob p = r.createProject(WorkflowJob.class, "p");
         p.setDefinition(new CpsFlowDefinition("echo 'this is what I said'", true));
         r.buildAndAssertSuccess(p);
@@ -75,7 +87,8 @@ public class CLITest {
     }
 
     @Issue("JENKINS-30785")
-    @Test public void reload() throws Exception {
+    @Test
+    void reload() throws Exception {
         WorkflowJob p = r.createProject(WorkflowJob.class, "p");
         p.setDefinition(new CpsFlowDefinition("echo 'first version'", true));
         r.assertLogContains("first version", r.buildAndAssertSuccess(p));
@@ -88,7 +101,8 @@ public class CLITest {
         assertThat(res.stderr(), containsString("No such item ‘q’ exists. Perhaps you meant ‘p’?"));
     }
 
-    @Test public void setBuildDescriptionAndDisplayName() throws Exception {
+    @Test
+    void setBuildDescriptionAndDisplayName() throws Exception {
         WorkflowJob p = r.createProject(WorkflowJob.class, "p");
         p.setDefinition(new CpsFlowDefinition("", true));
         WorkflowRun b = r.buildAndAssertSuccess(p);

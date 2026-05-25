@@ -1,0 +1,31 @@
+<?xml version='1.1' encoding='UTF-8'?>
+<Tag plugin="workflow-support@1015.v785e5a_b_b_8b_22">
+  <node class="cps.n.StepAtomNode" plugin="workflow-cps@4259.vf653c2b_8a_b_69">
+    <parentIds>
+      <string>2</string>
+    </parentIds>
+    <id>3</id>
+    <descriptorId>org.jenkinsci.plugins.workflow.support.steps.input.InputStep</descriptorId>
+  </node>
+  <actions>
+    <cps.a.ArgumentsActionImpl plugin="workflow-cps@4259.vf653c2b_8a_b_69">
+      <arguments>
+        <entry>
+          <string>message</string>
+          <string>hangs forever</string>
+        </entry>
+      </arguments>
+      <sensitiveVariables/>
+      <isUnmodifiedBySanitization>true</isUnmodifiedBySanitization>
+    </cps.a.ArgumentsActionImpl>
+    <wf.a.TimingAction plugin="workflow-api@1398.v67030756d3fb_">
+      <startTime>1776981839731</startTime>
+    </wf.a.TimingAction>
+    <s.a.LogStorageAction/>
+    <s.a.PauseAction>
+      <cause>Input</cause>
+      <startTime>1776981839747</startTime>
+      <endTime>0</endTime>
+    </s.a.PauseAction>
+  </actions>
+</Tag>

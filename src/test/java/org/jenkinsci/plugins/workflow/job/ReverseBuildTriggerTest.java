@@ -24,30 +24,33 @@
 
 package org.jenkinsci.plugins.workflow.job;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 import hudson.model.JobProperty;
 import hudson.model.JobPropertyDescriptor;
 import hudson.model.Result;
 import jenkins.triggers.ReverseBuildTrigger;
 import org.jenkinsci.plugins.workflow.cps.CpsFlowDefinition;
-import org.junit.ClassRule;
-import org.junit.Rule;
-import org.junit.Test;
-import org.jvnet.hudson.test.BuildWatcher;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.RegisterExtension;
 import org.jvnet.hudson.test.Issue;
-import org.jvnet.hudson.test.JenkinsSessionRule;
 import org.jvnet.hudson.test.TestExtension;
+import org.jvnet.hudson.test.junit.jupiter.BuildWatcherExtension;
+import org.jvnet.hudson.test.junit.jupiter.JenkinsSessionExtension;
 
 /** Integration test for special behavior of {@link ReverseBuildTrigger} with {@link WorkflowJob}. */
-public class ReverseBuildTriggerTest {
+class ReverseBuildTriggerTest {
 
-    @ClassRule public static BuildWatcher buildWatcher = new BuildWatcher();
-    @Rule public JenkinsSessionRule sessions = new JenkinsSessionRule();
+    @SuppressWarnings("unused")
+    @RegisterExtension
+    private static final BuildWatcherExtension BUILD_WATCHER = new BuildWatcherExtension();
+    @RegisterExtension
+    private final JenkinsSessionExtension sessions = new JenkinsSessionExtension();
 
     @Issue("JENKINS-33971")
-    @Test public void upstreamMapRebuilding() throws Throwable {
+    @Test
+    void upstreamMapRebuilding() throws Throwable {
         sessions.then(r -> {
             r.jenkins.setQuietPeriod(0);
             WorkflowJob us = r.jenkins.createProject(WorkflowJob.class, "us");
@@ -76,8 +79,11 @@ public class ReverseBuildTriggerTest {
             assertEquals(2, ds2.getNumber());
         });
     }
+
     public static class SlowToLoad extends JobProperty<WorkflowJob> {
-        @Override protected void setOwner(WorkflowJob owner) {
+
+        @Override
+        protected void setOwner(WorkflowJob owner) {
             super.setOwner(owner);
             try {
                 Thread.sleep(1000);
@@ -85,7 +91,10 @@ public class ReverseBuildTriggerTest {
                 throw new AssertionError(x);
             }
         }
-        @TestExtension("upstreamMapRebuilding") public static class DescriptorImpl extends JobPropertyDescriptor {}
+
+        @SuppressWarnings("unused")
+        @TestExtension("upstreamMapRebuilding")
+        public static class DescriptorImpl extends JobPropertyDescriptor {}
     }
 
 }

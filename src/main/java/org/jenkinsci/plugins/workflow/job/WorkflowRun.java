@@ -28,7 +28,6 @@ import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import hudson.AbortException;
 import hudson.BulkChange;
 import hudson.EnvVars;
@@ -86,12 +85,17 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 import edu.umd.cs.findbugs.annotations.CheckForNull;
 import edu.umd.cs.findbugs.annotations.NonNull;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import hudson.Main;
+import java.time.Duration;
+import java.time.Instant;
 import jenkins.model.CauseOfInterruption;
 import jenkins.model.Jenkins;
 import jenkins.model.lazy.BuildReference;
 import jenkins.model.lazy.LazyBuildMixIn;
 import jenkins.model.queue.AsynchronousExecution;
 import jenkins.scm.RunWithSCM;
+import jenkins.util.SystemProperties;
 import jenkins.util.Timer;
 import org.jenkinsci.plugins.workflow.FilePathUtils;
 import org.jenkinsci.plugins.workflow.actions.TimingAction;
@@ -134,8 +138,6 @@ import org.kohsuke.stapler.interceptor.RequirePOST;
 import org.springframework.security.core.Authentication;
 
 @SuppressWarnings("SynchronizeOnNonFinalField")
-@SuppressFBWarnings(value={"RC_REF_COMPARISON_BAD_PRACTICE_BOOLEAN"},
-        justification="For Boolean comparison, this is for deserializing handle null completion states from legacy builds")
 public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements FlowExecutionOwner.Executable, LazyBuildMixIn.LazyLoadingRun<WorkflowJob,WorkflowRun>, RunWithSCM<WorkflowJob,WorkflowRun> {
 
     private static final Logger LOGGER = Logger.getLogger(WorkflowRun.class.getName());
@@ -309,7 +311,6 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
                 myListener.getLogger().println(/* hudson.model.Messages.Run_running_as_(name) */ "Running as " + name);
             }
             RunListener.fireStarted(this, myListener);
-            updateSymlinks(myListener);
             FlowDefinition definition = getParent().getDefinition();
             if (definition == null) {
                 throw new AbortException("No flow definition, cannot run");
@@ -559,20 +560,18 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
 
         // super.reload() forces result to be FAILURE, so working around that
         new XmlFile(XSTREAM,new File(getRootDir(),"build.xml")).unmarshal(this);
-        synchronized (getMetadataGuard()) {
-            LOGGER.fine(() -> getExternalizableId() + " completed=" + completed + " executionLoaded=" + executionLoaded + " loaded=" + loaded);
-            if (Boolean.TRUE.equals(completed)) {
-                if (executionLoaded) {
-                    var _execution = execution;
-                    if (_execution != null) {
-                        _execution.onLoad(new Owner(this));
-                    }
-                }
+        synchronized (this) {
+            var _completed = completed;
+            var _executionLoaded = executionLoaded;
+            var _execution = execution;
+            LOGGER.fine(() -> getExternalizableId() + " completed=" + _completed + " executionLoaded=" + _executionLoaded);
+            if (Boolean.TRUE.equals(_completed) && _executionLoaded && _execution != null) {
+                _execution.onLoad(new Owner(this));
             }
-            if (loaded) {
-                super.onLoad();
-            } // else from WorkflowRun(WorkflowJob, File), and RunMap.retrieve will call onLoad
         }
+        if (loaded) {
+            super.onLoad();
+        } // else from WorkflowRun(WorkflowJob, File), and RunMap.retrieve will call onLoad
     }
 
     @Override protected void onLoad() {
@@ -602,11 +601,19 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
                         }
 
                         if (Boolean.FALSE.equals(completed)) {
-                            getListener().getLogger().println("Resuming build at " + new Date() + " after Jenkins restart");
-                            Timer.get().submit(() -> Queue.getInstance().schedule(new AfterRestartTask(WorkflowRun.this), 0)); // JENKINS-31614
-
-                            // we've been restarted while we were running. let's get the execution going again.
-                            FlowExecutionListener.fireResumed(fetchedExecution);
+                            if (MAX_RESUMPTION_AGE != null && Instant.ofEpochMilli(getStartTimeInMillis()).plus(MAX_RESUMPTION_AGE).isBefore(Instant.now())) {
+                                LOGGER.warning(() -> "Refusing to resume running build " + this + " because it is too old and might be corrupt");
+                                getListener().getLogger().println("Build started too long ago; cancelling");
+                                completed = true;
+                                needsToPersist = true;
+                                var suddenDeath = new FlowInterruptedException(Result.ABORTED, true);
+                                Timer.get().submit(() -> finish(Result.ABORTED, suddenDeath));
+                                getSettableExecutionPromise().setException(suddenDeath);
+                            } else {
+                                getListener().getLogger().println("Resuming build at " + new Date() + " after Jenkins restart");
+                                Timer.get().submit(() -> Queue.getInstance().schedule(new AfterRestartTask(WorkflowRun.this), 0)); // JENKINS-31614
+                                FlowExecutionListener.fireResumed(fetchedExecution);
+                            }
                         }
                     } else {   // Execution nulled due to a critical failure, explicitly mark completed
                         completed = Boolean.TRUE;
@@ -632,6 +639,8 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
             }
         }
     }
+
+    static Duration MAX_RESUMPTION_AGE = Main.isUnitTest ? null : SystemProperties.getDuration(WorkflowRun.class.getName() + ".maxResumptionAge", Duration.ofDays(30));
 
     // Overridden since super version has an unwanted assertion about this.state, which we do not use.
     @Override public void setResult(@NonNull Result r) {
@@ -708,6 +717,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
      * Performs all the needed initialization for the execution pre-loading too -- sets the executionPromise, adds Listener, calls onLoad on it etc.
      * @return non-null after the flow has started, even after finished (but may be null temporarily when about to start, or if starting failed)
      */
+    @SuppressFBWarnings(value = "REC_CATCH_EXCEPTION", justification = "deliberate")
     public @CheckForNull FlowExecution getExecution() {
         if (executionLoaded || execution == null) {  // Avoids highly-contended synchronization on run
             return execution;
@@ -761,10 +771,14 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
                     return fetchedExecution;
                 } catch (Exception x) {
                     setResult(Result.FAILURE);
-                    LOGGER.log(Level.WARNING, "Nulling out FlowExecution due to error in build " + this, x);
-                    execution = null; // probably too broken to use
+                    if (SystemProperties.getBoolean("org.jenkinsci.plugins.workflow.cps.CpsFlowExecution.initializeStorageFromOnLoad")) {
+                        LOGGER.log(Level.WARNING, "Nulling out FlowExecution due to error in build " + this, x);
+                        execution = null; // probably too broken to use
+                        saveWithoutFailing(true); // Ensure we do not try to load again
+                    } else {
+                        LOGGER.log(Level.WARNING, "error in build " + this, x);
+                    }
                     executionLoaded = true;
-                    saveWithoutFailing(true); // Ensure we do not try to load again
                     completeAsynchronousExecution();
                     return null;
                 }
@@ -816,10 +830,8 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
         if (Boolean.TRUE.equals(completed)) {  // Has a persisted completion state
             return false;
         } else {
-            // This may seem gratuitous but we MUST to check the execution in case 'completed' has not been set yet
-            // thus avoiding some (rare but possible) race conditions
-            FlowExecution exec = getExecution();
-            return exec != null && !exec.isComplete();
+            var _execution = execution;
+            return _execution != null && !_execution.isComplete();
         }
     }
 
