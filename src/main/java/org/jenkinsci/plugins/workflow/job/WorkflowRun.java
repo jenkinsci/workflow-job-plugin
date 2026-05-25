@@ -1015,6 +1015,10 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
                     // Weird, I know, but this ensures we trigger the onLoad for the execution via the lazy-load mechanism
                     return run.getExecution();
                 }
+                // For a completed build loaded from disk (e.g. after restart) the promise is unfulfilled.
+                if (Boolean.TRUE.equals(run.completed)) {
+                    return run.getExecution();
+                }
             } catch (Exception x) {
                 LOGGER.log(/* not important */Level.FINE, null, x);
             }
