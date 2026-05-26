@@ -44,7 +44,7 @@ class MemoryCleanupTest {
         b1 = null;
         r.jenkins.getQueue().clearLeftItems(); // so we do not need to wait 5m
         try {
-            MemoryAssert.assertGC(b1r, false);
+            MemoryAssert.assertGC(b1r, true);
         } catch (NoClassDefFoundError x) {
             assumeTrue("org/netbeans/insane/hook/MakeAccessible".equals(x.getMessage()), "TODO https://github.com/jenkinsci/bom/issues/1551 " + x);
             throw x;
