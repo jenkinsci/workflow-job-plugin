@@ -73,6 +73,7 @@
         <hpi.strictBundledArtifacts>true</hpi.strictBundledArtifacts>
         <ban-junit4-imports.skip>false</ban-junit4-imports.skip>
         <gitHubRepo>jenkinsci/${project.artifactId}-plugin</gitHubRepo>
+        <spotless.check.skip>false</spotless.check.skip>
     </properties>
     <dependencyManagement>
         <dependencies>
