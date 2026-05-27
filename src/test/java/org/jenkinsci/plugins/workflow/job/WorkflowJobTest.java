@@ -216,8 +216,8 @@ class WorkflowJobTest {
                 """, true));
         var b = p.scheduleBuild2(0).waitForStart();
         r.waitForMessage("about to sleep", b);
-        // The build isn't done and catches the interruption, so ItemDeletion.cancelBuildsInProgress should have to wait
-        // at least 3 seconds for it to complete.
+        // The build isn't done and catches the interruption, so ItemDeletion.cancelBuildsInProgress
+        // should have to wait at least 3 seconds for it to complete.
         LOGGER.info(() -> "Deleting " + p);
         p.delete();
         LOGGER.info(() -> "Deleted " + p);

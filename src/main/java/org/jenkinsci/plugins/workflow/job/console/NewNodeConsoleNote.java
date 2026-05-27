@@ -78,9 +78,8 @@ public class NewNodeConsoleNote extends ConsoleNote<WorkflowRun> {
             } catch (IOException x) {
                 LOGGER.log(Level.WARNING, null, x);
             }
-            logger.println(CONSOLE_NOTE_PREFIX
-                    + node.getDisplayFunctionName()); // note that StepAtomNode will never have a LabelAction at this
-            // point
+            // note that StepAtomNode will never have a LabelAction at this point
+            logger.println(CONSOLE_NOTE_PREFIX + node.getDisplayFunctionName());
         }
     }
 
@@ -133,9 +132,8 @@ public class NewNodeConsoleNote extends ConsoleNote<WorkflowRun> {
                     if (a != null) {
                         String displayName = a.getDisplayName();
                         assert displayName != null;
-                        startTag.append("\" label=\"")
-                                .append(Util.escape(
-                                        displayName)); // TODO is there some better way to escape for attribute values?
+                        // TODO is there some better way to escape for attribute values?
+                        startTag.append("\" label=\"").append(Util.escape(displayName));
                     }
                 }
             } catch (IOException x) {

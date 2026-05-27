@@ -366,8 +366,8 @@ public final class WorkflowJob extends Job<WorkflowJob, WorkflowRun>
     @Override
     public boolean isConcurrentBuild() {
         DisableConcurrentBuildsJobProperty p = getProperty(DisableConcurrentBuildsJobProperty.class);
-        // For purposes of the Jenkins queue, abortPrevious mode means that the new build must start concurrently with
-        // the old at least temporarily.
+        // For purposes of the Jenkins queue, abortPrevious mode means that
+        // the new build must start concurrently with the old at least temporarily.
         return p == null || p.isAbortPrevious();
     }
 
@@ -630,8 +630,8 @@ public final class WorkflowJob extends Job<WorkflowJob, WorkflowRun>
         WorkflowRun lastBuild = getLastBuild();
         if (lastBuild == null) {
             listener.getLogger().println("no previous build to compare to");
-            // Note that we have no equivalent of AbstractProject.NoSCM because without an initial build we do not know
-            // if this project has any SCM at all.
+            // Note that we have no equivalent of AbstractProject.NoSCM because without an initial build
+            // we do not know if this project has any SCM at all.
             return Queue.getInstance().contains(this) ? PollingResult.NO_CHANGES : PollingResult.BUILD_NOW;
         }
         WorkflowRun perhapsCompleteBuild = getLastSuccessfulBuild();
@@ -691,8 +691,9 @@ public final class WorkflowJob extends Job<WorkflowJob, WorkflowRun>
                     }
                 }
                 if (r.change.compareTo(result.change) > 0) {
-                    result = r; // note that if we are using >1 checkout, we can clobber baseline/remote here; anyway
-                    // SCMTrigger only calls hasChanges()
+                    // note that if we are using >1 checkout, we can clobber baseline/remote here;
+                    // anyway SCMTrigger only calls hasChanges()
+                    result = r;
                 }
             } catch (AbortException x) {
                 listener.error("polling failed in " + co.workspace + " on " + co.node + ": " + x.getMessage());

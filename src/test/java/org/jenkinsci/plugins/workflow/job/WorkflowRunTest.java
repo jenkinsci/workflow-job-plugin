@@ -381,8 +381,8 @@ class WorkflowRunTest {
         WorkflowJob p = r.jenkins.createProject(WorkflowJob.class, "p");
         p.setDefinition(new CpsFlowDefinition("sleep 1; semaphore 'hang'", true));
         WorkflowRun b1 = p.scheduleBuild2(0).waitForStart();
-        Thread.sleep(
-                500); // TODO sleeps should not be necessary but seems to randomly fail to receive interrupt otherwise
+        // TODO sleeps should not be necessary but seems to randomly fail to receive interrupt otherwise
+        Thread.sleep(500);
         SemaphoreStep.waitForStart("hang/1", b1);
         Thread.sleep(500);
         Executor ex = b1.getExecutor();
@@ -411,15 +411,11 @@ class WorkflowRunTest {
     void interruptCause() throws Exception {
         r.jenkins.setSecurityRealm(r.createDummySecurityRealm());
         WorkflowJob p = r.jenkins.createProject(WorkflowJob.class, "p");
+        // TODO should probably be @Whitelisted
         ScriptApproval.get()
-                .approveSignature(
-                        "method org.jenkinsci.plugins.workflow.steps.FlowInterruptedException getCauses"); // TODO
-        // should
-        // probably
-        // be
-        // @Whitelisted
-        ScriptApproval.get()
-                .approveSignature("method jenkins.model.CauseOfInterruption$UserInterruption getUser"); // ditto
+                .approveSignature("method org.jenkinsci.plugins.workflow.steps.FlowInterruptedException getCauses");
+        // ditto
+        ScriptApproval.get().approveSignature("method jenkins.model.CauseOfInterruption$UserInterruption getUser");
         p.setDefinition(new CpsFlowDefinition(
                 "@NonCPS def users(e) {e.causes*.user}; try {semaphore 'wait'} catch (e) {echo(/users=${users(e)}/); throw e}",
                 true));
@@ -554,8 +550,8 @@ class WorkflowRunTest {
                 .add(new MockQueueItemAuthenticator(Collections.singletonMap(
                         "p", User.getById("admin", true).impersonate())));
         r.buildAndAssertSuccess(p);
-        // Test case: build is never scheduled, queue item hangs with “Waiting for next available executor on
-        // controller”
+        // Test case: build is never scheduled, queue item hangs with
+        // “Waiting for next available executor on controller”
         QueueItemAuthenticatorConfiguration.get()
                 .getAuthenticators()
                 .replace(new MockQueueItemAuthenticator(
@@ -813,8 +809,8 @@ class WorkflowRunTest {
         int buildsToRun = 10; // Increase this number to reproduce the issue more easily prior to the fix.
         Run[] builds = new Run[buildsToRun];
         File[] buildDirs = new File[buildsToRun];
-        // Run a large number of builds that should finish around the same time to check race conditions with log
-        // rotation and build completion.
+        // Run a large number of builds that should finish around the same time
+        // to check race conditions with log rotation and build completion.
         for (int i = 0; i < buildsToRun; i++) {
             var b = p.scheduleBuild2(0, new ParametersAction(List.of(new StringParameterValue("FOO", "b" + i))))
                     .waitForStart();
