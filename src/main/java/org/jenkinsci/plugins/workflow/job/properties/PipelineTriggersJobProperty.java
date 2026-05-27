@@ -25,6 +25,8 @@
  */
 package org.jenkinsci.plugins.workflow.job.properties;
 
+import edu.umd.cs.findbugs.annotations.CheckForNull;
+import edu.umd.cs.findbugs.annotations.NonNull;
 import hudson.Extension;
 import hudson.model.Action;
 import hudson.model.Descriptor;
@@ -34,15 +36,6 @@ import hudson.model.Saveable;
 import hudson.triggers.Trigger;
 import hudson.triggers.TriggerDescriptor;
 import hudson.util.DescribableList;
-import jenkins.model.TransientActionFactory;
-import net.sf.json.JSONObject;
-import org.jenkinsci.Symbol;
-import org.jenkinsci.plugins.workflow.job.WorkflowJob;
-import org.kohsuke.stapler.DataBoundConstructor;
-import org.kohsuke.stapler.StaplerRequest2;
-
-import edu.umd.cs.findbugs.annotations.CheckForNull;
-import edu.umd.cs.findbugs.annotations.NonNull;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -51,6 +44,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import jenkins.model.TransientActionFactory;
+import net.sf.json.JSONObject;
+import org.jenkinsci.Symbol;
+import org.jenkinsci.plugins.workflow.job.WorkflowJob;
+import org.kohsuke.stapler.DataBoundConstructor;
+import org.kohsuke.stapler.StaplerRequest2;
 
 @SuppressWarnings("rawtypes")
 public class PipelineTriggersJobProperty extends JobProperty<WorkflowJob> {
@@ -65,7 +64,7 @@ public class PipelineTriggersJobProperty extends JobProperty<WorkflowJob> {
             this.triggers = new ArrayList<>();
         } else {
             for (Trigger t : triggers) {
-                this.triggers.add((Trigger<?>)t);
+                this.triggers.add((Trigger<?>) t);
             }
         }
     }
@@ -126,8 +125,8 @@ public class PipelineTriggersJobProperty extends JobProperty<WorkflowJob> {
         }
     }
 
-    public Map<TriggerDescriptor,Trigger<?>> getTriggersMap() {
-        Map<TriggerDescriptor,Trigger<?>> triggerMap = new HashMap<>();
+    public Map<TriggerDescriptor, Trigger<?>> getTriggersMap() {
+        Map<TriggerDescriptor, Trigger<?>> triggerMap = new HashMap<>();
 
         for (Trigger t : getTriggers()) {
             TriggerDescriptor td = t.getDescriptor();
@@ -149,7 +148,8 @@ public class PipelineTriggersJobProperty extends JobProperty<WorkflowJob> {
 
     @CheckForNull
     @Override
-    public PipelineTriggersJobProperty reconfigure(@NonNull StaplerRequest2 req, @CheckForNull JSONObject form) throws Descriptor.FormException {
+    public PipelineTriggersJobProperty reconfigure(@NonNull StaplerRequest2 req, @CheckForNull JSONObject form)
+            throws Descriptor.FormException {
         DescribableList<Trigger<?>, TriggerDescriptor> trigList = new DescribableList<>(Saveable.NOOP);
         try {
             JSONObject triggerSection = new JSONObject();
@@ -202,7 +202,6 @@ public class PipelineTriggersJobProperty extends JobProperty<WorkflowJob> {
             PipelineTriggersJobProperty prop = (PipelineTriggersJobProperty) super.newInstance(req, formData);
             return prop.triggers.isEmpty() ? null : prop;
         }
-
     }
 
     @Extension
@@ -217,7 +216,5 @@ public class PipelineTriggersJobProperty extends JobProperty<WorkflowJob> {
         public @NonNull Collection<? extends Action> createFor(@NonNull WorkflowJob job) {
             return job.getTriggersJobProperty().getAllTriggerActions();
         }
-
     }
-
 }

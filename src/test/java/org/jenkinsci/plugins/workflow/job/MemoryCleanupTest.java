@@ -1,5 +1,9 @@
 package org.jenkinsci.plugins.workflow.job;
 
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
+
+import java.lang.ref.WeakReference;
+import java.util.logging.Level;
 import org.jenkinsci.plugins.workflow.cps.CpsFlowDefinition;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -7,14 +11,8 @@ import org.junit.jupiter.api.extension.RegisterExtension;
 import org.jvnet.hudson.test.JenkinsRule;
 import org.jvnet.hudson.test.LogRecorder;
 import org.jvnet.hudson.test.MemoryAssert;
-
-import java.lang.ref.WeakReference;
-import java.util.logging.Level;
-
 import org.jvnet.hudson.test.junit.jupiter.BuildWatcherExtension;
 import org.jvnet.hudson.test.junit.jupiter.WithJenkins;
-
-import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 /**
  *  Verifies we do proper garbage collection of memory
@@ -25,6 +23,7 @@ class MemoryCleanupTest {
     @SuppressWarnings("unused")
     @RegisterExtension
     private static final BuildWatcherExtension BUILD_WATCHER = new BuildWatcherExtension();
+
     private final LogRecorder logging = new LogRecorder();
     private JenkinsRule r;
 
@@ -35,7 +34,8 @@ class MemoryCleanupTest {
 
     @Test
     void cleanup() throws Exception {
-        logging.record("", Level.INFO).capture(256); // like WebAppMain would do, if in a real instance rather than JenkinsRule
+        logging.record("", Level.INFO)
+                .capture(256); // like WebAppMain would do, if in a real instance rather than JenkinsRule
         WorkflowJob p = r.jenkins.createProject(WorkflowJob.class, "p");
         p.setDefinition(new CpsFlowDefinition("", true));
         WorkflowRun b1 = r.buildAndAssertSuccess(p);
@@ -46,7 +46,9 @@ class MemoryCleanupTest {
         try {
             MemoryAssert.assertGC(b1r, true);
         } catch (NoClassDefFoundError x) {
-            assumeTrue("org/netbeans/insane/hook/MakeAccessible".equals(x.getMessage()), "TODO https://github.com/jenkinsci/bom/issues/1551 " + x);
+            assumeTrue(
+                    "org/netbeans/insane/hook/MakeAccessible".equals(x.getMessage()),
+                    "TODO https://github.com/jenkinsci/bom/issues/1551 " + x);
             throw x;
         }
     }

@@ -10,11 +10,6 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import jenkins.plugins.git.junit.jupiter.WithGitSampleRepo;
-import org.htmlunit.HttpMethod;
-import org.htmlunit.WebRequest;
-import org.htmlunit.html.HtmlCheckBoxInput;
-import org.htmlunit.html.HtmlForm;
 import hudson.cli.CLICommandInvoker;
 import hudson.model.Executor;
 import hudson.model.Result;
@@ -23,10 +18,14 @@ import hudson.security.WhoAmI;
 import hudson.triggers.SCMTrigger;
 import java.util.Objects;
 import java.util.logging.Logger;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import jenkins.plugins.git.GitSampleRepoRule;
+import jenkins.plugins.git.junit.jupiter.WithGitSampleRepo;
 import net.sf.json.JSONObject;
+import org.htmlunit.HttpMethod;
+import org.htmlunit.WebRequest;
+import org.htmlunit.html.HtmlCheckBoxInput;
+import org.htmlunit.html.HtmlForm;
 import org.jenkinsci.plugins.workflow.cps.CpsFlowDefinition;
 import org.jenkinsci.plugins.workflow.cps.CpsScmFlowDefinition;
 import org.junit.jupiter.api.BeforeEach;
@@ -46,6 +45,7 @@ class WorkflowJobTest {
     @SuppressWarnings("unused")
     @RegisterExtension
     private static final BuildWatcherExtension BUILD_WATCHER = new BuildWatcherExtension();
+
     private JenkinsRule r;
     private GitSampleRepoRule sampleRepo;
 
@@ -59,8 +59,7 @@ class WorkflowJobTest {
     @Test
     void getSCM() throws Exception {
         WorkflowJob p = r.jenkins.createProject(WorkflowJob.class, "p");
-        p.setDefinition(new CpsFlowDefinition(
-                """
+        p.setDefinition(new CpsFlowDefinition("""
                 node {
                   checkout(new hudson.scm.NullSCM())
                 }
@@ -98,7 +97,8 @@ class WorkflowJobTest {
         sampleRepo.write("Jenkinsfile", "echo 'second version'");
         sampleRepo.git("commit", "-a", "-m", "init");
         r.jenkins.setQuietPeriod(0);
-        r.createWebClient().getPage(new WebRequest(r.createWebClient().createCrumbedUrl(p.getUrl() + "polling"), HttpMethod.POST));
+        r.createWebClient()
+                .getPage(new WebRequest(r.createWebClient().createCrumbedUrl(p.getUrl() + "polling"), HttpMethod.POST));
         r.waitUntilNoActivity();
         WorkflowRun b2 = p.getLastBuild();
         assertEquals(2, b2.getNumber());
@@ -126,7 +126,8 @@ class WorkflowJobTest {
         p.addTrigger(new SCMTrigger(""));
         p.setDefinition(new CpsScmFlowDefinition(new GitSCM(sampleRepo.toString()), "Jenkinsfile"));
         r.jenkins.setQuietPeriod(0);
-        r.createWebClient().getPage(new WebRequest(r.createWebClient().createCrumbedUrl(p.getUrl() + "polling"), HttpMethod.POST));
+        r.createWebClient()
+                .getPage(new WebRequest(r.createWebClient().createCrumbedUrl(p.getUrl() + "polling"), HttpMethod.POST));
         r.waitUntilNoActivity();
         WorkflowRun b1 = p.getLastBuild();
         assertEquals(1, b1.getNumber());
@@ -167,15 +168,21 @@ class WorkflowJobTest {
         wc.getPage(new WebRequest(wc.createCrumbedUrl(p.getUrl() + "disable"), HttpMethod.POST));
         assertDisabled(p, true, wc);
         assertNull(p.scheduleBuild2(0));
-        assertThat(new CLICommandInvoker(r, "enable-job").invokeWithArgs("p"), CLICommandInvoker.Matcher.succeededSilently());
+        assertThat(
+                new CLICommandInvoker(r, "enable-job").invokeWithArgs("p"),
+                CLICommandInvoker.Matcher.succeededSilently());
         assertDisabled(p, false, wc);
     }
 
     private void assertDisabled(WorkflowJob p, boolean disabled, JenkinsRule.WebClient wc) throws Exception {
         assertThat(p.isDisabled(), is(disabled));
         assertThat(p.isBuildable(), is(!disabled));
-        assertThat(wc.getJSON(p.getUrl() + "api/json?tree=disabled,buildable").getJSONObject(),
-            is(new JSONObject().accumulate("_class", WorkflowJob.class.getName()).accumulate("disabled", disabled).accumulate("buildable", !disabled)));
+        assertThat(
+                wc.getJSON(p.getUrl() + "api/json?tree=disabled,buildable").getJSONObject(),
+                is(new JSONObject()
+                        .accumulate("_class", WorkflowJob.class.getName())
+                        .accumulate("disabled", disabled)
+                        .accumulate("buildable", !disabled)));
     }
 
     @Test
@@ -185,20 +192,20 @@ class WorkflowJobTest {
         for (int i = 0; i < 10; i++) {
             r.buildAndAssertSuccess(p);
         }
-        RunLoadCounter.assertMaxLoads(p, /* just lastBuild */ 1, () -> {
-            for (int i = 0; i < 5; i++) {
-                r.buildAndAssertSuccess(p);
-            }
-            return null;
-        });
+        RunLoadCounter.assertMaxLoads(
+                p, /* just lastBuild */ 1, () -> {
+                    for (int i = 0; i < 5; i++) {
+                        r.buildAndAssertSuccess(p);
+                    }
+                    return null;
+                });
     }
 
     @Issue("JENKINS-73824")
     @Test
     void deletionShouldWaitForBuildsToComplete() throws Throwable {
         var p = r.createProject(WorkflowJob.class);
-        p.setDefinition(new CpsFlowDefinition(
-                """
+        p.setDefinition(new CpsFlowDefinition("""
                 try {
                   echo 'about to sleep'
                   sleep 999
@@ -209,7 +216,8 @@ class WorkflowJobTest {
                 """, true));
         var b = p.scheduleBuild2(0).waitForStart();
         r.waitForMessage("about to sleep", b);
-        // The build isn't done and catches the interruption, so ItemDeletion.cancelBuildsInProgress should have to wait at least 3 seconds for it to complete.
+        // The build isn't done and catches the interruption, so ItemDeletion.cancelBuildsInProgress should have to wait
+        // at least 3 seconds for it to complete.
         LOGGER.info(() -> "Deleting " + p);
         p.delete();
         LOGGER.info(() -> "Deleted " + p);
@@ -223,5 +231,4 @@ class WorkflowJobTest {
                 .toList();
         assertThat(executables, empty());
     }
-
 }

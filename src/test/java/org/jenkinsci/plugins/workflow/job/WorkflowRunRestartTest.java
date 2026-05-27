@@ -24,6 +24,8 @@
 
 package org.jenkinsci.plugins.workflow.job;
 
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
@@ -31,6 +33,7 @@ import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import edu.umd.cs.findbugs.annotations.NonNull;
 import hudson.ExtensionList;
@@ -39,18 +42,12 @@ import hudson.model.InvisibleAction;
 import hudson.model.Result;
 import hudson.model.Run;
 import hudson.model.TaskListener;
-
 import java.io.Serial;
 import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 import java.util.logging.Level;
 import jenkins.model.RunAction2;
-
-import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.is;
-import static org.junit.jupiter.api.Assumptions.assumeTrue;
-
 import org.jenkinsci.plugins.workflow.cps.CpsFlowDefinition;
 import org.jenkinsci.plugins.workflow.flow.FlowDurabilityHint;
 import org.jenkinsci.plugins.workflow.flow.FlowExecution;
@@ -82,8 +79,10 @@ class WorkflowRunRestartTest {
     @SuppressWarnings("unused")
     @RegisterExtension
     private static final BuildWatcherExtension BUILD_WATCHER = new BuildWatcherExtension();
+
     @RegisterExtension
     private final JenkinsSessionExtension sessions = new JenkinsSessionExtension();
+
     private final LogRecorder logging = new LogRecorder();
 
     @Issue("JENKINS-27299")
@@ -111,7 +110,7 @@ class WorkflowRunRestartTest {
 
     @Issue("JENKINS-33761")
     @Test
-    void resumeDisabled() throws Throwable  {
+    void resumeDisabled() throws Throwable {
         sessions.then(r -> {
             WorkflowJob p = r.jenkins.createProject(WorkflowJob.class, "p");
             p.setDefinition(new CpsFlowDefinition("node {semaphore 'wait'}", true));
@@ -133,9 +132,9 @@ class WorkflowRunRestartTest {
         });
     }
 
-    @Issue({"JENKINS-45585", "JENKINS-50784"})  // Verifies execution lazy-load
+    @Issue({"JENKINS-45585", "JENKINS-50784"}) // Verifies execution lazy-load
     @Test
-    void lazyLoadExecution() throws Throwable  {
+    void lazyLoadExecution() throws Throwable {
         sessions.then(r -> {
             WorkflowJob p = r.jenkins.createProject(WorkflowJob.class, "p");
             p.addProperty(new DurabilityHintJobProperty(FlowDurabilityHint.MAX_SURVIVABILITY));
@@ -168,13 +167,14 @@ class WorkflowRunRestartTest {
             assertNotNull(b.asFlowExecutionOwner().getOrNull());
             assertNotNull(b.asFlowExecutionOwner().get());
         });
-        sessions.then(r-> {  // Verify that the FlowExecutionOwner can trigger lazy-load correctly
-            WorkflowJob p = r.jenkins.getItemByFullName("p", WorkflowJob.class);
-            WorkflowRun b = p.getBuildByNumber(1);
-            assertNotNull(b.asFlowExecutionOwner().get());
-            assertTrue(b.executionLoaded);
-            assertNotNull(b.asFlowExecutionOwner().getOrNull());
-        });
+        sessions.then(
+                r -> { // Verify that the FlowExecutionOwner can trigger lazy-load correctly
+                    WorkflowJob p = r.jenkins.getItemByFullName("p", WorkflowJob.class);
+                    WorkflowRun b = p.getBuildByNumber(1);
+                    assertNotNull(b.asFlowExecutionOwner().get());
+                    assertTrue(b.executionLoaded);
+                    assertNotNull(b.asFlowExecutionOwner().getOrNull());
+                });
     }
 
     @Issue("JENKINS-25550")
@@ -182,8 +182,9 @@ class WorkflowRunRestartTest {
     void hardKill() throws Throwable {
         sessions.then(r -> {
             WorkflowJob p = r.jenkins.createProject(WorkflowJob.class, "p");
-            p.addProperty( new DurabilityHintJobProperty(FlowDurabilityHint.MAX_SURVIVABILITY));
-            p.setDefinition(new CpsFlowDefinition("def seq = 0; while (true) {try {zombie id: ++seq} catch (x) {echo(/ignoring $x/)}}", true));
+            p.addProperty(new DurabilityHintJobProperty(FlowDurabilityHint.MAX_SURVIVABILITY));
+            p.setDefinition(new CpsFlowDefinition(
+                    "def seq = 0; while (true) {try {zombie id: ++seq} catch (x) {echo(/ignoring $x/)}}", true));
             WorkflowRun b = p.scheduleBuild2(0).waitForStart();
             r.waitForMessage("[1] undead", b);
             Executor ex = b.getExecutor();
@@ -211,10 +212,11 @@ class WorkflowRunRestartTest {
 
     @Issue("JENKINS-33721")
     @Test
-    void termAndKillInSidePanel() throws Throwable  {
+    void termAndKillInSidePanel() throws Throwable {
         sessions.then(r -> {
             WorkflowJob p = r.jenkins.createProject(WorkflowJob.class, "p");
-            p.setDefinition(new CpsFlowDefinition("def seq = 0; while (true) {try {zombie id: ++seq} catch (x) {echo(/ignoring $x/)}}", true));
+            p.setDefinition(new CpsFlowDefinition(
+                    "def seq = 0; while (true) {try {zombie id: ++seq} catch (x) {echo(/ignoring $x/)}}", true));
             WorkflowRun b = p.scheduleBuild2(0).waitForStart();
             r.waitForMessage("[1] undead", b);
             Executor ex = b.getExecutor();
@@ -243,20 +245,23 @@ class WorkflowRunRestartTest {
 
     @Issue("JENKINS-46961")
     @Test
-    void interruptedWhileStartingMaxSurvivability() throws Throwable  {
+    void interruptedWhileStartingMaxSurvivability() throws Throwable {
         sessions.then(r -> {
-            assumeTrue(r.jenkins.pluginManager.getPlugin("workflow-cps-global-lib") == null, "import from LibraryDecorator will not resolve in PCT");
+            assumeTrue(
+                    r.jenkins.pluginManager.getPlugin("workflow-cps-global-lib") == null,
+                    "import from LibraryDecorator will not resolve in PCT");
             WorkflowJob p = r.createProject(WorkflowJob.class, "p");
             p.setDefinition(new CpsFlowDefinition(
-                "import groovy.transform.*\n" +
-                "import hudson.model.Executor\n" +
-                "import hudson.model.Result\n" +
-                "import jenkins.model.CauseOfInterruption\n" +
-                // This runs during CpsFlowExecution.parseScript which runs during CpsFlowExecution.start.
-                "@ASTTest(value={\n" +
-                "  def cause = new CauseOfInterruption.UserInterruption('unknown')\n" +
-                "  Executor.currentExecutor().interrupt(Result.ABORTED, cause)\n" +
-                "}) _\n", false));
+                    "import groovy.transform.*\n" + "import hudson.model.Executor\n"
+                            + "import hudson.model.Result\n"
+                            + "import jenkins.model.CauseOfInterruption\n"
+                            +
+                            // This runs during CpsFlowExecution.parseScript which runs during CpsFlowExecution.start.
+                            "@ASTTest(value={\n"
+                            + "  def cause = new CauseOfInterruption.UserInterruption('unknown')\n"
+                            + "  Executor.currentExecutor().interrupt(Result.ABORTED, cause)\n"
+                            + "}) _\n",
+                    false));
             WorkflowRun b = r.buildAndAssertStatus(Result.ABORTED, p);
             r.assertLogContains("Aborted by unknown", b);
         });
@@ -269,21 +274,24 @@ class WorkflowRunRestartTest {
 
     @Issue("JENKINS-46961")
     @Test
-    void interruptedWhileStartingPerformanceOptimized() throws Throwable  {
+    void interruptedWhileStartingPerformanceOptimized() throws Throwable {
         sessions.then(r -> {
-            assumeTrue(r.jenkins.pluginManager.getPlugin("workflow-cps-global-lib") == null, "import from LibraryDecorator will not resolve in PCT");
+            assumeTrue(
+                    r.jenkins.pluginManager.getPlugin("workflow-cps-global-lib") == null,
+                    "import from LibraryDecorator will not resolve in PCT");
             WorkflowJob p = r.createProject(WorkflowJob.class, "p");
             p.addProperty(new DurabilityHintJobProperty(FlowDurabilityHint.PERFORMANCE_OPTIMIZED));
             p.setDefinition(new CpsFlowDefinition(
-                "import groovy.transform.*\n" +
-                "import hudson.model.Executor\n" +
-                "import hudson.model.Result\n" +
-                "import jenkins.model.CauseOfInterruption\n" +
-                // This runs during CpsFlowExecution.parseScript which runs during CpsFlowExecution.start.
-                "@ASTTest(value={\n" +
-                "  def cause = new CauseOfInterruption.UserInterruption('unknown')\n" +
-                "  Executor.currentExecutor().interrupt(Result.ABORTED, cause)\n" +
-                "}) _\n", false));
+                    "import groovy.transform.*\n" + "import hudson.model.Executor\n"
+                            + "import hudson.model.Result\n"
+                            + "import jenkins.model.CauseOfInterruption\n"
+                            +
+                            // This runs during CpsFlowExecution.parseScript which runs during CpsFlowExecution.start.
+                            "@ASTTest(value={\n"
+                            + "  def cause = new CauseOfInterruption.UserInterruption('unknown')\n"
+                            + "  Executor.currentExecutor().interrupt(Result.ABORTED, cause)\n"
+                            + "}) _\n",
+                    false));
             WorkflowRun b = r.buildAndAssertStatus(Result.ABORTED, p);
             r.assertLogContains("Aborted by unknown", b);
         });
@@ -295,8 +303,10 @@ class WorkflowRunRestartTest {
     }
 
     private boolean hasTermOrKillLink(JenkinsRule r, WorkflowRun b, String termOrKill) throws Exception {
-        return !r.createWebClient().getPage(b)
-                .getByXPath("//a[@href = '#' and contains(@data-url, '/" + b.getUrl() + termOrKill + "')]").isEmpty();
+        return !r.createWebClient()
+                .getPage(b)
+                .getByXPath("//a[@href = '#' and contains(@data-url, '/" + b.getUrl() + termOrKill + "')]")
+                .isEmpty();
     }
 
     @SuppressWarnings("unused")
@@ -315,7 +325,7 @@ class WorkflowRunRestartTest {
         private static class Execution extends StepExecution {
             @Serial
             private static final long serialVersionUID = 1L;
-            
+
             int id;
             int count;
 
@@ -332,7 +342,10 @@ class WorkflowRunRestartTest {
 
             @Override
             public void stop(Throwable cause) throws Exception {
-                getContext().get(TaskListener.class).getLogger().printf("[%d] bwahaha %s #%d%n", id, cause.getClass().getSimpleName(), ++count);
+                getContext()
+                        .get(TaskListener.class)
+                        .getLogger()
+                        .printf("[%d] bwahaha %s #%d%n", id, cause.getClass().getSimpleName(), ++count);
             }
         }
 
@@ -359,7 +372,7 @@ class WorkflowRunRestartTest {
 
     @Issue("JENKINS-43055")
     @Test
-    void flowExecutionListener() throws Throwable  {
+    void flowExecutionListener() throws Throwable {
         sessions.then(r -> {
             WorkflowJob p = r.jenkins.createProject(WorkflowJob.class, "p");
             p.setDefinition(new CpsFlowDefinition("""
@@ -373,7 +386,8 @@ class WorkflowRunRestartTest {
                 """, true));
             WorkflowRun b = p.scheduleBuild2(0).waitForStart();
             SemaphoreStep.waitForStart("wait/1", b);
-            ExecListener listener = ExtensionList.lookup(FlowExecutionListener.class).get(ExecListener.class);
+            ExecListener listener =
+                    ExtensionList.lookup(FlowExecutionListener.class).get(ExecListener.class);
             assertNotNull(listener);
             assertTrue(listener.graphListener.wasCalledWithFlowStartNode);
             assertEquals(1, listener.created);
@@ -388,7 +402,8 @@ class WorkflowRunRestartTest {
             SemaphoreStep.success("wait/1", null);
 
             SemaphoreStep.waitForStart("post-resume/1", b);
-            ExecListener listener = ExtensionList.lookup(FlowExecutionListener.class).get(ExecListener.class);
+            ExecListener listener =
+                    ExtensionList.lookup(FlowExecutionListener.class).get(ExecListener.class);
             assertNotNull(listener);
             assertEquals(0, listener.created);
             assertEquals(0, listener.started);
@@ -406,7 +421,6 @@ class WorkflowRunRestartTest {
             assertEquals(1, listener.finished);
             assertTrue(listener.graphListener.wasCalledBeforeExecListener);
         });
-
     }
 
     @TestExtension("flowExecutionListener")
@@ -460,7 +474,7 @@ class WorkflowRunRestartTest {
             List<FlowNode> heads = execution.getCurrentHeads();
             assertEquals(1, heads.size());
             assertInstanceOf(FlowEndNode.class, heads.get(0));
-            FlowEndNode node = (FlowEndNode)heads.get(0);
+            FlowEndNode node = (FlowEndNode) heads.get(0);
             assertEquals(Result.FAILURE, node.getResult());
         }
     }
@@ -472,7 +486,8 @@ class WorkflowRunRestartTest {
         @Override
         public void onNewHead(FlowNode node) {
             if (node instanceof FlowEndNode) {
-                ExecListener listener = ExtensionList.lookup(FlowExecutionListener.class).get(ExecListener.class);
+                ExecListener listener =
+                        ExtensionList.lookup(FlowExecutionListener.class).get(ExecListener.class);
                 if (listener.finished == 0) {
                     wasCalledBeforeExecListener = true;
                 }
@@ -529,5 +544,4 @@ class WorkflowRunRestartTest {
             loaded++;
         }
     }
-
 }
