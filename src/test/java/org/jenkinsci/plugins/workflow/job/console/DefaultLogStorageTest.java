@@ -265,7 +265,7 @@ class DefaultLogStorageTest {
         System.out.printf(
                 "Took %dms to write plain text of one long node%n", (System.nanoTime() - start) / 1000 / 1000);
         assertThat(baos.toString(), containsString("\n456789\n"));
-        // Node with litte text:
+        // Node with little text:
         la = new DepthFirstScanner()
                 .findFirstMatch(b.getExecution(), new NodeStepTypePredicate("echo"))
                 .getAction(LogAction.class);

@@ -394,7 +394,7 @@ public final class WorkflowJob extends Job<WorkflowJob, WorkflowRun>
                 }
             }
         } catch (IOException ioe) {
-            LOGGER.log(Level.WARNING, "Error persisting resume property statue", ioe);
+            LOGGER.log(Level.WARNING, "Error persisting resume property status", ioe);
         }
     }
 
