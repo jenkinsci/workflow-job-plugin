@@ -30,11 +30,10 @@ import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.greaterThan;
 import static org.hamcrest.Matchers.lessThan;
 import static org.hamcrest.Matchers.not;
-import static org.junit.jupiter.api.Assumptions.assumeFalse;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assumptions.assumeFalse;
 
-import org.htmlunit.html.HtmlPage;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 import hudson.Functions;
@@ -63,6 +62,7 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.IOUtils;
+import org.htmlunit.html.HtmlPage;
 import org.jenkinsci.plugins.workflow.actions.LogAction;
 import org.jenkinsci.plugins.workflow.cps.CpsFlowDefinition;
 import org.jenkinsci.plugins.workflow.graph.FlowNode;
@@ -115,22 +115,31 @@ class DefaultLogStorageTest {
         }
         WorkflowRun b = r.assertBuildStatusSuccess(p.scheduleBuild2(0, new CauseAction(cause)));
         HtmlPage page = r.createWebClient().goTo(b.getUrl() + "console");
-        assertLogContains(page, hudson.model.Messages.Cause_UserIdCause_ShortDescription(alice.getDisplayName()), alice.getUrl());
+        assertLogContains(
+                page, hudson.model.Messages.Cause_UserIdCause_ShortDescription(alice.getDisplayName()), alice.getUrl());
         assertLogContains(page, "Running inside " + b.getDisplayName(), b.getUrl());
-        assertThat(page.getWebResponse().getContentAsString().replace("\r\n", "\n"),
-            containsString("<span class=\"pipeline-new-node\" nodeId=\"3\" enclosingId=\"2\">[Pipeline] hyperlink\n</span><span class=\"pipeline-node-3\">Running inside <a href="));
+        assertThat(
+                page.getWebResponse().getContentAsString().replace("\r\n", "\n"),
+                containsString(
+                        "<span class=\"pipeline-new-node\" nodeId=\"3\" enclosingId=\"2\">[Pipeline] hyperlink\n</span><span class=\"pipeline-node-3\">Running inside <a href="));
         DepthFirstScanner scanner = new DepthFirstScanner();
         scanner.setup(b.getExecution().getCurrentHeads());
-        List<FlowNode> nodes = Lists.newArrayList(scanner.filter(FlowScanningUtils.hasActionPredicate(LogAction.class)));
+        List<FlowNode> nodes =
+                Lists.newArrayList(scanner.filter(FlowScanningUtils.hasActionPredicate(LogAction.class)));
         assertEquals(1, nodes.size());
-        page = r.createWebClient().goTo(nodes.get(0).getUrl() + nodes.get(0).getAction(LogAction.class).getUrlName());
+        page = r.createWebClient()
+                .goTo(nodes.get(0).getUrl()
+                        + nodes.get(0).getAction(LogAction.class).getUrlName());
         assertLogContains(page, "Running inside " + b.getDisplayName(), b.getUrl());
         r.assertLogContains("\nRunning inside " + b.getDisplayName(), b);
     }
 
     private void assertLogContains(HtmlPage page, String plainText, String url) {
         String html = page.getWebResponse().getContentAsString();
-        assertThat(page.getUrl() + " looks OK as text:\n" + html, page.getDocumentElement().getTextContent(), containsString(plainText));
+        assertThat(
+                page.getUrl() + " looks OK as text:\n" + html,
+                page.getDocumentElement().getTextContent(),
+                containsString(plainText));
         String absUrl = r.contextPath + "/" + url;
         assertNotNull(page.getAnchorByHref(absUrl), "found " + absUrl + " in:\n" + html);
     }
@@ -148,13 +157,18 @@ class DefaultLogStorageTest {
         static class Execution extends SynchronousStepExecution<Void> {
             @Serial
             private static final long serialVersionUID = 1L;
-            
+
             Execution(StepContext context) {
                 super(context);
             }
+
             @Override
             protected Void run() throws Exception {
-                getContext().get(TaskListener.class).getLogger().println("Running inside " + ModelHyperlinkNote.encodeTo(getContext().get(Run.class)));
+                getContext()
+                        .get(TaskListener.class)
+                        .getLogger()
+                        .println("Running inside "
+                                + ModelHyperlinkNote.encodeTo(getContext().get(Run.class)));
                 return null;
             }
         }
@@ -198,7 +212,8 @@ class DefaultLogStorageTest {
         sw = new StringWriter();
         start = System.nanoTime();
         b.getLogText().writeHtmlTo(offset, sw);
-        System.out.printf("Took %dms to write truncated HTML of whole build%n", (System.nanoTime() - start) / 1000 / 1000);
+        System.out.printf(
+                "Took %dms to write truncated HTML of whole build%n", (System.nanoTime() - start) / 1000 / 1000);
         assertThat(sw.toString(), not(containsString("\n456789\n")));
         assertThat(sw.toString(), containsString("\n999923\n"));
         /* Whether or not this step is annotated in the truncated log is not really important:
@@ -216,7 +231,9 @@ class DefaultLogStorageTest {
         assertThat(rawLog, containsString("\n999999\n"));
         assertThat(rawLog, containsString("quick message at the end"));
         // Per node:
-        LogAction la = new DepthFirstScanner().findFirstMatch(b.getExecution(), new NodeStepTypePredicate("giant")).getAction(LogAction.class);
+        LogAction la = new DepthFirstScanner()
+                .findFirstMatch(b.getExecution(), new NodeStepTypePredicate("giant"))
+                .getAction(LogAction.class);
         assertNotNull(la);
         baos = new ByteArrayOutputStream();
         la.getLogText().writeRawLogTo(0, baos);
@@ -237,17 +254,21 @@ class DefaultLogStorageTest {
         offset = length - 150 * 1024;
         start = System.nanoTime();
         la.getLogText().writeHtmlTo(offset, sw);
-        System.out.printf("Took %dms to write truncated HTML of one long node%n", (System.nanoTime() - start) / 1000 / 1000);
+        System.out.printf(
+                "Took %dms to write truncated HTML of one long node%n", (System.nanoTime() - start) / 1000 / 1000);
         assertThat(sw.toString(), not(containsString("\n456789\n")));
         assertThat(sw.toString(), containsString("\n999923\n"));
         // Raw (currently not exposed in UI but could be):
         baos = new ByteArrayOutputStream();
         start = System.nanoTime();
         la.getLogText().writeRawLogTo(0, baos);
-        System.out.printf("Took %dms to write plain text of one long node%n", (System.nanoTime() - start) / 1000 / 1000);
+        System.out.printf(
+                "Took %dms to write plain text of one long node%n", (System.nanoTime() - start) / 1000 / 1000);
         assertThat(baos.toString(), containsString("\n456789\n"));
-        // Node with litte text:
-        la = new DepthFirstScanner().findFirstMatch(b.getExecution(), new NodeStepTypePredicate("echo")).getAction(LogAction.class);
+        // Node with little text:
+        la = new DepthFirstScanner()
+                .findFirstMatch(b.getExecution(), new NodeStepTypePredicate("echo"))
+                .getAction(LogAction.class);
         assertNotNull(la);
         sw = new StringWriter();
         start = System.nanoTime();
@@ -310,7 +331,11 @@ class DefaultLogStorageTest {
         String start = "0";
         while (true) {
             LOGGER.info("progressiveHtml?start=" + start);
-            var headers = client.send(HttpRequest.newBuilder(base.resolve("logText/progressiveHtml?start=" + start)).build(), HttpResponse.BodyHandlers.discarding()).headers();
+            var headers = client.send(
+                            HttpRequest.newBuilder(base.resolve("logText/progressiveHtml?start=" + start))
+                                    .build(),
+                            HttpResponse.BodyHandlers.discarding())
+                    .headers();
             if (Boolean.parseBoolean(headers.firstValue("X-More-Data").orElse("false"))) {
                 start = headers.firstValue("X-Text-Size").get();
             } else {
@@ -336,11 +361,15 @@ class DefaultLogStorageTest {
         LOGGER.info("console");
         client.send(HttpRequest.newBuilder(base.resolve("console")).build(), HttpResponse.BodyHandlers.discarding());
         LOGGER.info("consoleFull");
-        client.send(HttpRequest.newBuilder(base.resolve("consoleFull")).build(), HttpResponse.BodyHandlers.discarding());
+        client.send(
+                HttpRequest.newBuilder(base.resolve("consoleFull")).build(), HttpResponse.BodyHandlers.discarding());
         LOGGER.info("consoleText");
-        client.send(HttpRequest.newBuilder(base.resolve("consoleText")).build(), HttpResponse.BodyHandlers.discarding());
+        client.send(
+                HttpRequest.newBuilder(base.resolve("consoleText")).build(), HttpResponse.BodyHandlers.discarding());
         LOGGER.info("progressiveText");
-        client.send(HttpRequest.newBuilder(base.resolve("logText/progressiveText")).build(), HttpResponse.BodyHandlers.discarding());
+        client.send(
+                HttpRequest.newBuilder(base.resolve("logText/progressiveText")).build(),
+                HttpResponse.BodyHandlers.discarding());
     }
 
     @Disabled("Currently not asserting anything, just here for interactive evaluation.")
@@ -354,25 +383,25 @@ class DefaultLogStorageTest {
         }
         WorkflowJob p = r.createProject(WorkflowJob.class, "p");
         p.setDefinition(new CpsFlowDefinition(
-            "def branches = [:]\n" +
-            "for (def i = 0; i < " + concurrency + "; i++) {\n" +
-            "    def branch = /branch$i/\n" +
-            "    branches[branch] = { \n" +
-            "        node('!master') {\n" +
-            "            withEnv([/BRANCH=$branch/]) {\n" +
-            "                timeout(activity: true, time: 2, unit: 'HOURS') {\n" +
-            "                    timestamps {\n" +
-            "                        sh '''\n" +
-            "                            set +x\n" +
-            "                            cat /dev/urandom | env LC_CTYPE=c tr -dc '[:alpha:]\\n' | awk '{print ENVIRON[\"BRANCH\"], $0; system(\"sleep .1\");}'\n" +
-            "                        '''\n" +
-            "                    }\n" +
-            "                }\n" +
-            "            }\n" +
-            "        }\n" +
-            "    }\n" +
-            "}\n" +
-            "parallel(branches)", true));
+                "def branches = [:]\n" + "for (def i = 0; i < "
+                        + concurrency + "; i++) {\n" + "    def branch = /branch$i/\n"
+                        + "    branches[branch] = { \n"
+                        + "        node('!master') {\n"
+                        + "            withEnv([/BRANCH=$branch/]) {\n"
+                        + "                timeout(activity: true, time: 2, unit: 'HOURS') {\n"
+                        + "                    timestamps {\n"
+                        + "                        sh '''\n"
+                        + "                            set +x\n"
+                        + "                            cat /dev/urandom | env LC_CTYPE=c tr -dc '[:alpha:]\\n' | awk '{print ENVIRON[\"BRANCH\"], $0; system(\"sleep .1\");}'\n"
+                        + "                        '''\n"
+                        + "                    }\n"
+                        + "                }\n"
+                        + "            }\n"
+                        + "        }\n"
+                        + "    }\n"
+                        + "}\n"
+                        + "parallel(branches)",
+                true));
         WorkflowRun b = p.scheduleBuild2(0).waitForStart();
         // TODO cannot apply BuildWatcher to just a single test case:
         await().until(() -> new File(b.getRootDir(), "log").isFile());
@@ -382,10 +411,16 @@ class DefaultLogStorageTest {
     @Test
     void doConsoleText() throws Exception {
         WorkflowJob p = r.createProject(WorkflowJob.class, "p");
-        p.setDefinition(new CpsFlowDefinition("@NonCPS def giant() {(0..19999).join('\\n')}; echo giant(); semaphore 'wait'", true));
+        p.setDefinition(new CpsFlowDefinition(
+                "@NonCPS def giant() {(0..19999).join('\\n')}; echo giant(); semaphore 'wait'", true));
         WorkflowRun b = p.scheduleBuild2(0).waitForStart();
         SemaphoreStep.waitForStart("wait/1", b);
-        assertThat(r.createWebClient().goTo(b.getUrl() + "consoleText", "text/plain").getWebResponse().getContentAsString(), containsString("\n12345\n"));
+        assertThat(
+                r.createWebClient()
+                        .goTo(b.getUrl() + "consoleText", "text/plain")
+                        .getWebResponse()
+                        .getContentAsString(),
+                containsString("\n12345\n"));
         SemaphoreStep.success("wait/1", null);
         r.assertBuildStatusSuccess(r.waitForCompletion(b));
     }
@@ -393,7 +428,8 @@ class DefaultLogStorageTest {
     @Test
     void getLogInputStream() throws Exception {
         WorkflowJob p = r.createProject(WorkflowJob.class, "p");
-        p.setDefinition(new CpsFlowDefinition("@NonCPS def giant() {(0..19999).join('\\n')}; echo giant(); semaphore 'wait'", true));
+        p.setDefinition(new CpsFlowDefinition(
+                "@NonCPS def giant() {(0..19999).join('\\n')}; echo giant(); semaphore 'wait'", true));
         WorkflowRun b = p.scheduleBuild2(0).waitForStart();
         SemaphoreStep.waitForStart("wait/1", b);
         try (InputStream logStream = b.getLogInputStream()) {
@@ -406,12 +442,12 @@ class DefaultLogStorageTest {
     @Test
     void getLog() throws Exception {
         WorkflowJob p = r.createProject(WorkflowJob.class, "p");
-        p.setDefinition(new CpsFlowDefinition("@NonCPS def giant() {(0..19999).join('\\n')}; echo giant(); semaphore 'wait'", true));
+        p.setDefinition(new CpsFlowDefinition(
+                "@NonCPS def giant() {(0..19999).join('\\n')}; echo giant(); semaphore 'wait'", true));
         WorkflowRun b = p.scheduleBuild2(0).waitForStart();
         SemaphoreStep.waitForStart("wait/1", b);
         assertThat(b.getLog(), containsString("\n12345\n"));
         SemaphoreStep.success("wait/1", null);
         r.assertBuildStatusSuccess(r.waitForCompletion(b));
     }
-
 }

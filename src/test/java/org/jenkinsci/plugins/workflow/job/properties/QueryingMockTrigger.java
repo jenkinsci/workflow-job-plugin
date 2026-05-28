@@ -31,11 +31,10 @@ import hudson.model.BuildableItem;
 import hudson.model.Item;
 import hudson.triggers.Trigger;
 import hudson.triggers.TriggerDescriptor;
-import jenkins.model.ParameterizedJobMixIn;
-import org.kohsuke.stapler.DataBoundConstructor;
-
 import java.util.ArrayList;
 import java.util.List;
+import jenkins.model.ParameterizedJobMixIn;
+import org.kohsuke.stapler.DataBoundConstructor;
 
 public class QueryingMockTrigger extends Trigger<BuildableItem> {
 
@@ -52,7 +51,9 @@ public class QueryingMockTrigger extends Trigger<BuildableItem> {
     @Override
     public void start(BuildableItem project, boolean newInstance) {
         super.start(project, newInstance);
-        for (Trigger<?> t : ((ParameterizedJobMixIn.ParameterizedJob<?, ?>) project).getTriggers().values()) {
+        for (Trigger<?> t : ((ParameterizedJobMixIn.ParameterizedJob<?, ?>) project)
+                .getTriggers()
+                .values()) {
             if (t instanceof QueryingMockTrigger) {
                 foundSelf = true;
                 break;
@@ -86,6 +87,5 @@ public class QueryingMockTrigger extends Trigger<BuildableItem> {
         public boolean isApplicable(Item item) {
             return true;
         }
-
     }
 }

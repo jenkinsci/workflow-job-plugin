@@ -53,15 +53,18 @@ public final class FlowGraphAction implements Action {
         this.run = run;
     }
 
-    @Override public String getIconFileName() {
+    @Override
+    public String getIconFileName() {
         return null;
     }
 
-    @Override public String getDisplayName() {
+    @Override
+    public String getDisplayName() {
         return null;
     }
 
-    @Override public String getUrlName() {
+    @Override
+    public String getUrlName() {
         return "flowGraph";
     }
 
@@ -85,17 +88,18 @@ public final class FlowGraphAction implements Action {
         return FlowNodeViewColumnDescriptor.getDefaultInstances();
     }
 
-    @Extension public static final class Factory extends TransientActionFactory<WorkflowRun> {
+    @Extension
+    public static final class Factory extends TransientActionFactory<WorkflowRun> {
 
-        @Override public Class<WorkflowRun> type() {
+        @Override
+        public Class<WorkflowRun> type() {
             return WorkflowRun.class;
         }
 
         @NonNull
-        @Override public Collection<? extends Action> createFor(@NonNull WorkflowRun run) {
+        @Override
+        public Collection<? extends Action> createFor(@NonNull WorkflowRun run) {
             return Collections.singleton(new FlowGraphAction(run));
         }
-
     }
-
 }

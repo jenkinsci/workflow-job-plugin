@@ -30,10 +30,9 @@ import hudson.model.BuildableItem;
 import hudson.model.Item;
 import hudson.triggers.Trigger;
 import hudson.triggers.TriggerDescriptor;
-import org.kohsuke.stapler.DataBoundConstructor;
-
 import java.util.ArrayList;
 import java.util.List;
+import org.kohsuke.stapler.DataBoundConstructor;
 
 public class MockTrigger extends Trigger<BuildableItem> {
 
@@ -75,6 +74,5 @@ public class MockTrigger extends Trigger<BuildableItem> {
         public boolean isApplicable(Item item) {
             return true;
         }
-
     }
 }

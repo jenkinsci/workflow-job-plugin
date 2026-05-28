@@ -25,6 +25,12 @@
  */
 package org.jenkinsci.plugins.workflow.job.properties;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import hudson.model.Queue;
 import hudson.model.Result;
 import hudson.model.queue.QueueTaskFuture;
@@ -37,10 +43,6 @@ import org.jenkinsci.plugins.workflow.cps.CpsFlowDefinition;
 import org.jenkinsci.plugins.workflow.job.WorkflowJob;
 import org.jenkinsci.plugins.workflow.job.WorkflowRun;
 import org.jenkinsci.plugins.workflow.test.steps.SemaphoreStep;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
@@ -50,23 +52,19 @@ import org.jvnet.hudson.test.junit.jupiter.BuildWatcherExtension;
 import org.jvnet.hudson.test.junit.jupiter.WithJenkins;
 import org.jvnet.hudson.test.recipes.LocalData;
 
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-
 @WithJenkins
 class DisableConcurrentBuildsJobPropertyTest {
-    
+
     @SuppressWarnings("unused")
     @RegisterExtension
     private static final BuildWatcherExtension BUILD_WATCHER = new BuildWatcherExtension();
+
     private JenkinsRule r;
 
     @BeforeEach
     void beforeEach(JenkinsRule rule) {
         r = rule;
     }
-
 
     @Issue("JENKINS-34547")
     @LocalData
@@ -104,7 +102,8 @@ class DisableConcurrentBuildsJobPropertyTest {
         WorkflowJob roundTripDisabled = r.configRoundtrip(disabledCase);
         assertFalse(roundTripDisabled.isConcurrentBuild());
 
-        DisableConcurrentBuildsJobProperty prop = roundTripDisabled.getProperty(DisableConcurrentBuildsJobProperty.class);
+        DisableConcurrentBuildsJobProperty prop =
+                roundTripDisabled.getProperty(DisableConcurrentBuildsJobProperty.class);
         assertNotNull(prop);
         assertFalse(prop.isAbortPrevious());
         prop.setAbortPrevious(true);
@@ -140,8 +139,13 @@ class DisableConcurrentBuildsJobPropertyTest {
         SemaphoreStep.success("run/4", null);
         QueueTaskFuture<WorkflowRun> b4f = p.scheduleBuild2(0);
         r.jenkins.getQueue().maintain();
-        assertEquals(Collections.singletonList(BlockedBecauseOfBuildInProgress.class),
-            r.jenkins.getQueue().getItems(p).stream().map(Queue.Item::getCauseOfBlockage).filter(Objects::nonNull).map(Object::getClass).collect(Collectors.toList()));
+        assertEquals(
+                Collections.singletonList(BlockedBecauseOfBuildInProgress.class),
+                r.jenkins.getQueue().getItems(p).stream()
+                        .map(Queue.Item::getCauseOfBlockage)
+                        .filter(Objects::nonNull)
+                        .map(Object::getClass)
+                        .collect(Collectors.toList()));
         SemaphoreStep.success("run/3", null);
         r.waitForCompletion(b4f.waitForStart());
         r.waitForCompletion(b3);
@@ -157,10 +161,15 @@ class DisableConcurrentBuildsJobPropertyTest {
         InterruptedBuildAction iba = b5.getAction(InterruptedBuildAction.class);
         assertNotNull(iba);
         assertEquals(1, iba.getCauses().size());
-        assertEquals(DisableConcurrentBuildsJobProperty.CancelledCause.class, iba.getCauses().get(0).getClass());
-        assertEquals(b6, ((DisableConcurrentBuildsJobProperty.CancelledCause) iba.getCauses().get(0)).getNewerBuild());
+        assertEquals(
+                DisableConcurrentBuildsJobProperty.CancelledCause.class,
+                iba.getCauses().get(0).getClass());
+        assertEquals(
+                b6,
+                ((DisableConcurrentBuildsJobProperty.CancelledCause)
+                                iba.getCauses().get(0))
+                        .getNewerBuild());
         SemaphoreStep.success("run/6", null);
         r.assertBuildStatusSuccess(r.waitForCompletion(b6));
     }
-
 }

@@ -12,6 +12,12 @@ import com.google.common.util.concurrent.ListenableFuture;
 import hudson.model.Queue;
 import hudson.model.Result;
 import hudson.model.Run;
+import java.io.File;
+import java.lang.reflect.Field;
+import java.lang.reflect.Method;
+import java.nio.file.Files;
+import java.util.List;
+import java.util.Stack;
 import org.jenkinsci.plugins.workflow.cps.CpsFlowDefinition;
 import org.jenkinsci.plugins.workflow.cps.CpsFlowExecution;
 import org.jenkinsci.plugins.workflow.flow.FlowDurabilityHint;
@@ -30,19 +36,13 @@ import org.jvnet.hudson.test.JenkinsRule;
 import org.jvnet.hudson.test.junit.jupiter.BuildWatcherExtension;
 import org.jvnet.hudson.test.junit.jupiter.JenkinsSessionExtension;
 
-import java.io.File;
-import java.lang.reflect.Field;
-import java.lang.reflect.Method;
-import java.nio.file.Files;
-import java.util.List;
-import java.util.Stack;
-
 // utilities adapted from org.jenkinsci.plugins.workflow.cps.PersistenceProblemsTest
 class CpsPersistenceTest {
 
     @SuppressWarnings("unused")
     @RegisterExtension
     private static final BuildWatcherExtension BUILD_WATCHER = new BuildWatcherExtension();
+
     @RegisterExtension
     private final JenkinsSessionExtension sessions = new JenkinsSessionExtension();
 
@@ -58,7 +58,7 @@ class CpsPersistenceTest {
         Object ob = startField.get(exec);
         if (ob instanceof Stack) {
             @SuppressWarnings("unchecked")
-            Stack<BlockStartNode> result = (Stack<BlockStartNode>)ob;
+            Stack<BlockStartNode> result = (Stack<BlockStartNode>) ob;
             return result;
         }
         return null;
@@ -67,7 +67,7 @@ class CpsPersistenceTest {
     /** Verifies all the assumptions about a cleanly finished build. */
     private static void assertCompletedCleanly(WorkflowRun run) throws Exception {
         if (run.isBuilding()) {
-            System.out.println("Run initially building, going to wait a second to see if it finishes, run="+run);
+            System.out.println("Run initially building, going to wait a second to see if it finishes, run=" + run);
             Thread.sleep(1000);
         }
         assertFalse(run.isBuilding());
@@ -96,7 +96,8 @@ class CpsPersistenceTest {
     }
 
     /** Sets up a running build that is waiting on input. */
-    private static WorkflowRun runBasicPauseOnInput(JenkinsRule j, String jobName, int[] jobIdNumber, FlowDurabilityHint durabilityHint) throws Exception {
+    private static WorkflowRun runBasicPauseOnInput(
+            JenkinsRule j, String jobName, int[] jobIdNumber, FlowDurabilityHint durabilityHint) throws Exception {
         WorkflowJob job = j.jenkins.createProject(WorkflowJob.class, jobName);
         job.setDefinition(new CpsFlowDefinition("input 'pause'", true));
         job.addProperty(new DurabilityHintJobProperty(durabilityHint));
@@ -105,7 +106,8 @@ class CpsPersistenceTest {
         ListenableFuture<FlowExecution> listener = run.getExecutionPromise();
         FlowExecution exec = listener.get();
         // Wait until input step starts
-        await().until(() -> !exec.getCurrentHeads().isEmpty() && !(exec.getCurrentHeads().get(0) instanceof FlowStartNode));
+        await().until(() ->
+                !exec.getCurrentHeads().isEmpty() && !(exec.getCurrentHeads().get(0) instanceof FlowStartNode));
         // Wait until input step starts
         await().until(() -> run.getAction(InputAction.class) != null);
         // A little extra buffer for persistence etc
@@ -128,7 +130,10 @@ class CpsPersistenceTest {
     private static InputStepExecution getInputStepExecution(WorkflowRun run, String inputMessage) throws Exception {
         InputAction ia = run.getAction(InputAction.class);
         List<InputStepExecution> execList = ia.getExecutions();
-        return execList.stream().filter(e -> inputMessage.equals(e.getInput().getMessage())).findFirst().orElse(null);
+        return execList.stream()
+                .filter(e -> inputMessage.equals(e.getInput().getMessage()))
+                .findFirst()
+                .orElse(null);
     }
 
     private static final String DEFAULT_JOBNAME = "testJob";
@@ -144,7 +149,6 @@ class CpsPersistenceTest {
             exec.doProceedEmpty();
             j.waitForCompletion(run);
 
-
             // Set run back to being incomplete as if persistence failed
             Field completedField = run.getClass().getDeclaredField("completed");
             completedField.setAccessible(true);
@@ -159,18 +163,18 @@ class CpsPersistenceTest {
             // simulates abrupt shutdown
             j.restart();
         });
-        sessions.then(j-> {
+        sessions.then(j -> {
             WorkflowJob r = j.jenkins.getItemByFullName(DEFAULT_JOBNAME, WorkflowJob.class);
             WorkflowRun run = r.getBuildByNumber(build[0]);
             assertCompletedCleanly(run);
             assertEquals(Result.SUCCESS, run.getResult());
         });
-        sessions.then(j-> { // Once more, just to be sure it sticks
-            WorkflowJob r = j.jenkins.getItemByFullName(DEFAULT_JOBNAME, WorkflowJob.class);
-            WorkflowRun run = r.getBuildByNumber(build[0]);
-            assertCompletedCleanly(run);
-            assertEquals(Result.SUCCESS, run.getResult());
-        });
+        sessions.then(
+                j -> { // Once more, just to be sure it sticks
+                    WorkflowJob r = j.jenkins.getItemByFullName(DEFAULT_JOBNAME, WorkflowJob.class);
+                    WorkflowRun run = r.getBuildByNumber(build[0]);
+                    assertCompletedCleanly(run);
+                    assertEquals(Result.SUCCESS, run.getResult());
+                });
     }
-
 }

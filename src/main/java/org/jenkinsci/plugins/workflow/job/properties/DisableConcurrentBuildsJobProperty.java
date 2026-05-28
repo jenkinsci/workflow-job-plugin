@@ -23,12 +23,12 @@
  */
 package org.jenkinsci.plugins.workflow.job.properties;
 
+import edu.umd.cs.findbugs.annotations.NonNull;
+import edu.umd.cs.findbugs.annotations.Nullable;
 import hudson.Extension;
 import hudson.console.ModelHyperlinkNote;
 import hudson.model.Run;
 import hudson.model.TaskListener;
-import edu.umd.cs.findbugs.annotations.NonNull;
-import edu.umd.cs.findbugs.annotations.Nullable;
 import jenkins.model.CauseOfInterruption;
 import jenkins.model.OptionalJobProperty;
 import org.jenkinsci.Symbol;
@@ -47,8 +47,7 @@ public class DisableConcurrentBuildsJobProperty extends OptionalJobProperty<Work
     private boolean abortPrevious;
 
     @DataBoundConstructor
-    public DisableConcurrentBuildsJobProperty() {
-    }
+    public DisableConcurrentBuildsJobProperty() {}
 
     public boolean isAbortPrevious() {
         return abortPrevious;
@@ -64,10 +63,10 @@ public class DisableConcurrentBuildsJobProperty extends OptionalJobProperty<Work
     public static class DescriptorImpl extends OptionalJobPropertyDescriptor {
 
         @NonNull
-        @Override public String getDisplayName() {
+        @Override
+        public String getDisplayName() {
             return Messages.do_not_allow_concurrent_builds();
         }
-
     }
 
     /**
@@ -91,11 +90,13 @@ public class DisableConcurrentBuildsJobProperty extends OptionalJobProperty<Work
             return newerBuild != null ? Run.fromExternalizableId(newerBuild) : null;
         }
 
-        @Override public String getShortDescription() {
+        @Override
+        public String getShortDescription() {
             return "Superseded by " + displayName;
         }
 
-        @Override public void print(TaskListener listener) {
+        @Override
+        public void print(TaskListener listener) {
             Run<?, ?> b = getNewerBuild();
             if (b != null) {
                 listener.getLogger().println("Superseded by " + ModelHyperlinkNote.encodeTo(b));
@@ -103,7 +104,5 @@ public class DisableConcurrentBuildsJobProperty extends OptionalJobProperty<Work
                 super.print(listener);
             }
         }
-
     }
-
 }

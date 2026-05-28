@@ -73,6 +73,7 @@ class TaskListenerDecoratorTest {
     @SuppressWarnings("unused")
     @RegisterExtension
     private static final BuildWatcherExtension BUILD_WATCHER = new BuildWatcherExtension();
+
     private JenkinsRule r;
 
     @BeforeEach
@@ -88,7 +89,9 @@ class TaskListenerDecoratorTest {
         WorkflowRun b = r.buildAndAssertSuccess(p);
         r.assertLogContains("[job/p/1/] Started", b);
         r.assertLogContains("[decorated] [filtered] [job/p/1/] Running on remote in ", b);
-        r.assertLogContains("[decorated via remote] [filtered via remote] [job/p/1/ via remote] printed a message on controller=false", b);
+        r.assertLogContains(
+                "[decorated via remote] [filtered via remote] [job/p/1/ via remote] printed a message on controller=false",
+                b);
         String log = JenkinsRule.getLog(b);
         assertThat(log, log.indexOf("master=false"), lessThan(log.indexOf("// node")));
     }
@@ -96,7 +99,7 @@ class TaskListenerDecoratorTest {
     private static final class DecoratorImpl extends TaskListenerDecorator {
         @Serial
         private static final long serialVersionUID = 1L;
-        
+
         private final String message;
 
         DecoratorImpl(String message) {
@@ -118,11 +121,13 @@ class TaskListenerDecoratorTest {
                     logger.write(("[" + message + "] ").getBytes());
                     logger.write(b, 0, len);
                 }
+
                 @Override
                 public void close() throws IOException {
                     super.close();
                     logger.close();
                 }
+
                 @Override
                 public void flush() throws IOException {
                     logger.flush();
@@ -164,14 +169,18 @@ class TaskListenerDecoratorTest {
         private static final class Execution extends StepExecution {
             @Serial
             private static final long serialVersionUID = 1L;
-            
+
             Execution(StepContext context) {
                 super(context);
             }
 
             @Override
             public boolean start() {
-                getContext().newBodyInvoker().withContext(new DecoratorImpl("decorated")).withCallback(BodyExecutionCallback.wrap(getContext())).start();
+                getContext()
+                        .newBodyInvoker()
+                        .withContext(new DecoratorImpl("decorated"))
+                        .withCallback(BodyExecutionCallback.wrap(getContext()))
+                        .start();
                 return false;
             }
         }
@@ -183,10 +192,12 @@ class TaskListenerDecoratorTest {
             public Set<? extends Class<?>> getRequiredContext() {
                 return Collections.emptySet();
             }
+
             @Override
             public String getFunctionName() {
                 return "decorate";
             }
+
             @Override
             public boolean takesImplicitBlockArgument() {
                 return true;
@@ -208,14 +219,18 @@ class TaskListenerDecoratorTest {
         private static final class Execution extends StepExecution {
             @Serial
             private static final long serialVersionUID = 1L;
-            
+
             Execution(StepContext context) {
                 super(context);
             }
 
             @Override
             public boolean start() {
-                getContext().newBodyInvoker().withContext(new Filter("filtered")).withCallback(BodyExecutionCallback.wrap(getContext())).start();
+                getContext()
+                        .newBodyInvoker()
+                        .withContext(new Filter("filtered"))
+                        .withCallback(BodyExecutionCallback.wrap(getContext()))
+                        .start();
                 return false;
             }
         }
@@ -223,7 +238,7 @@ class TaskListenerDecoratorTest {
         private static final class Filter extends ConsoleLogFilter implements Serializable {
             @Serial
             private static final long serialVersionUID = 1L;
-            
+
             private final String message;
 
             Filter(String message) {
@@ -240,6 +255,7 @@ class TaskListenerDecoratorTest {
             public OutputStream decorateLogger(AbstractBuild _ignore, OutputStream logger) {
                 return new DecoratorImpl(message).decorate(logger);
             }
+
             @Override
             public String toString() {
                 return "Filter[" + message + "]";
@@ -280,21 +296,24 @@ class TaskListenerDecoratorTest {
         private static final class Execution extends SynchronousNonBlockingStepExecution<Void> {
             @Serial
             private static final long serialVersionUID = 1L;
-            
+
             Execution(StepContext context) {
                 super(context);
             }
 
             @Override
             protected Void run() throws Exception {
-                return getContext().get(Node.class).getChannel().call(new PrintCallable(getContext().get(TaskListener.class)));
+                return getContext()
+                        .get(Node.class)
+                        .getChannel()
+                        .call(new PrintCallable(getContext().get(TaskListener.class)));
             }
         }
 
-        private static final class PrintCallable extends MasterToSlaveCallable<Void, RuntimeException> {            
+        private static final class PrintCallable extends MasterToSlaveCallable<Void, RuntimeException> {
             @Serial
             private static final long serialVersionUID = 1L;
-            
+
             private final TaskListener listener;
 
             PrintCallable(TaskListener listener) {
@@ -323,5 +342,4 @@ class TaskListenerDecoratorTest {
             }
         }
     }
-
 }

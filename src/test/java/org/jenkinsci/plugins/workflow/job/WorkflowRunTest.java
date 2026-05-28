@@ -28,14 +28,21 @@ import static org.awaitility.Awaitility.await;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.empty;
+import static org.hamcrest.Matchers.emptyIterable;
 import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.notNullValue;
 import static org.hamcrest.Matchers.nullValue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assumptions.assumeFalse;
 
-import jenkins.plugins.git.junit.jupiter.WithGitSampleRepo;
-import org.htmlunit.AlertHandler;
-import org.htmlunit.Page;
-import org.htmlunit.WebResponse;
 import edu.umd.cs.findbugs.annotations.NonNull;
 import hudson.AbortException;
 import hudson.Extension;
@@ -76,6 +83,7 @@ import jenkins.model.CauseOfInterruption;
 import jenkins.model.InterruptedBuildAction;
 import jenkins.model.Jenkins;
 import jenkins.plugins.git.GitSampleRepoRule;
+import jenkins.plugins.git.junit.jupiter.WithGitSampleRepo;
 import jenkins.security.QueueItemAuthenticatorConfiguration;
 import net.sf.json.JSONArray;
 import net.sf.json.JSONObject;
@@ -83,8 +91,9 @@ import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.hamcrest.Matcher;
-import static org.hamcrest.Matchers.emptyIterable;
-import static org.hamcrest.Matchers.is;
+import org.htmlunit.AlertHandler;
+import org.htmlunit.Page;
+import org.htmlunit.WebResponse;
 import org.jenkinsci.plugins.scriptsecurity.scripts.ScriptApproval;
 import org.jenkinsci.plugins.workflow.cps.CpsFlowDefinition;
 import org.jenkinsci.plugins.workflow.cps.CpsFlowExecution;
@@ -97,16 +106,6 @@ import org.jenkinsci.plugins.workflow.graph.StepNode;
 import org.jenkinsci.plugins.workflow.job.properties.DisableConcurrentBuildsJobProperty;
 import org.jenkinsci.plugins.workflow.support.actions.EnvironmentAction;
 import org.jenkinsci.plugins.workflow.test.steps.SemaphoreStep;
-import static org.junit.jupiter.api.Assumptions.assumeFalse;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertInstanceOf;
-import static org.junit.jupiter.api.Assertions.assertNotEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertSame;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
@@ -132,8 +131,10 @@ class WorkflowRunTest {
     @SuppressWarnings("unused")
     @RegisterExtension
     private static final BuildWatcherExtension BUILD_WATCHER = new BuildWatcherExtension();
+
     @RegisterExtension
-    private static final FlagExtension<Duration> MAX_RESUMPTION_AGE = new FlagExtension<>(() -> WorkflowRun.MAX_RESUMPTION_AGE, x -> WorkflowRun.MAX_RESUMPTION_AGE = x, Duration.ofDays(30));
+    private static final FlagExtension<Duration> MAX_RESUMPTION_AGE = new FlagExtension<>(
+            () -> WorkflowRun.MAX_RESUMPTION_AGE, x -> WorkflowRun.MAX_RESUMPTION_AGE = x, Duration.ofDays(30));
 
     private final LogRecorder logging = new LogRecorder().record(FlowExecutionList.class, Level.FINE);
     private JenkinsRule r;
@@ -166,14 +167,21 @@ class WorkflowRunTest {
     @Test
     void parameters() throws Exception {
         WorkflowJob p = r.jenkins.createProject(WorkflowJob.class, "p");
-        p.setDefinition(new CpsFlowDefinition("echo \"param=${PARAM}\"",true));
+        p.setDefinition(new CpsFlowDefinition("echo \"param=${PARAM}\"", true));
         p.addProperty(new ParametersDefinitionProperty(new StringParameterDefinition("PARAM", null)));
-        r.assertLogContains("param=value", r.assertBuildStatusSuccess(p.scheduleBuild2(0, new ParametersAction(new StringParameterValue("PARAM", "value")))));
-        p.setDefinition(new CpsFlowDefinition("echo \"param=${env.PARAM}\"",true));
-        r.assertLogContains("param=value", r.assertBuildStatusSuccess(p.scheduleBuild2(0, new ParametersAction(new StringParameterValue("PARAM", "value")))));
+        r.assertLogContains(
+                "param=value",
+                r.assertBuildStatusSuccess(
+                        p.scheduleBuild2(0, new ParametersAction(new StringParameterValue("PARAM", "value")))));
+        p.setDefinition(new CpsFlowDefinition("echo \"param=${env.PARAM}\"", true));
+        r.assertLogContains(
+                "param=value",
+                r.assertBuildStatusSuccess(
+                        p.scheduleBuild2(0, new ParametersAction(new StringParameterValue("PARAM", "value")))));
     }
 
-    @Disabled("TODO broken by call to EnvVars.resolve in WorkflowRun.getEnvironment") @Issue("JENKINS-60724")
+    @Disabled("TODO broken by call to EnvVars.resolve in WorkflowRun.getEnvironment")
+    @Issue("JENKINS-60724")
     @Test
     void recursiveEnv() throws Exception {
         WorkflowJob p = r.jenkins.createProject(WorkflowJob.class, "p");
@@ -186,7 +194,7 @@ class WorkflowRunTest {
     @Test
     void durationIsCalculated() throws Exception {
         WorkflowJob duration = r.jenkins.createProject(WorkflowJob.class, "duration");
-        duration.setDefinition(new CpsFlowDefinition("echo \"duration should not be 0 in DurationRunListener\"",true));
+        duration.setDefinition(new CpsFlowDefinition("echo \"duration should not be 0 in DurationRunListener\"", true));
         r.assertBuildStatusSuccess(duration.scheduleBuild2(0));
         assertNotEquals(0L, DurationRunListener.duration);
     }
@@ -194,6 +202,7 @@ class WorkflowRunTest {
     @Extension
     public static final class DurationRunListener extends RunListener<Run<?, ?>> {
         static long duration = 0L;
+
         @Override
         public void onCompleted(Run<?, ?> run, @NonNull TaskListener listener) {
             duration = run.getDuration();
@@ -205,7 +214,8 @@ class WorkflowRunTest {
         WorkflowJob p = r.jenkins.createProject(WorkflowJob.class, "p");
         p.setDefinition(new CpsFlowDefinition("echo \"a.b=${params['a.b']}\"", true));
         p.addProperty(new ParametersDefinitionProperty(new StringParameterDefinition("a.b", null)));
-        WorkflowRun b = r.assertBuildStatusSuccess(p.scheduleBuild2(0, new ParametersAction(new StringParameterValue("a.b", "v"))));
+        WorkflowRun b = r.assertBuildStatusSuccess(
+                p.scheduleBuild2(0, new ParametersAction(new StringParameterValue("a.b", "v"))));
         r.assertLogContains("a.b=v", b);
     }
 
@@ -215,13 +225,11 @@ class WorkflowRunTest {
     @Test
     void iconColor() throws Exception {
         WorkflowJob p = r.jenkins.createProject(WorkflowJob.class, "p");
-        p.setDefinition(new CpsFlowDefinition(
-                """
+        p.setDefinition(new CpsFlowDefinition("""
                 println('hello')
                 semaphore 'wait'
                 println('hello')
-                """,
-            true));
+                """, true));
 
         // no build exists yet
         assertSame(BallColor.NOTBUILT, p.getIconColor());
@@ -282,25 +290,30 @@ class WorkflowRunTest {
         assertFalse(b2.hasntStartedYet());
         assertColor(b2, BallColor.BLUE);
     }
-    
+
     private void assertColor(WorkflowRun b, BallColor color) {
         assertSame(color, b.getIconColor());
         assertSame(color, b.getParent().getIconColor());
     }
 
-
     @Test
     void scriptApproval() throws Exception {
         r.jenkins.setSecurityRealm(r.createDummySecurityRealm());
-        r.jenkins.setAuthorizationStrategy(new MockAuthorizationStrategy().
-            grant(Jenkins.READ).everywhere().to("dev").
-            grant(Item.PERMISSIONS.getPermissions().toArray(new Permission[0])).everywhere().to("dev"));
+        r.jenkins.setAuthorizationStrategy(new MockAuthorizationStrategy()
+                .grant(Jenkins.READ)
+                .everywhere()
+                .to("dev")
+                .grant(Item.PERMISSIONS.getPermissions().toArray(new Permission[0]))
+                .everywhere()
+                .to("dev"));
         final WorkflowJob p = r.jenkins.createProject(WorkflowJob.class, "p");
         final String groovy = "println 'hello'";
         try (ACLContext context = ACL.as(User.getById("dev", true))) {
             p.setDefinition(new CpsFlowDefinition(groovy, false /* for mock authorization strategy */));
         }
-        r.assertLogContains("UnapprovedUsageException", r.assertBuildStatus(Result.FAILURE, p.scheduleBuild2(0).get()));
+        r.assertLogContains(
+                "UnapprovedUsageException",
+                r.assertBuildStatus(Result.FAILURE, p.scheduleBuild2(0).get()));
         Set<ScriptApproval.PendingScript> pendingScripts = ScriptApproval.get().getPendingScripts();
         assertEquals(1, pendingScripts.size());
         ScriptApproval.PendingScript pendingScript = pendingScripts.iterator().next();
@@ -315,15 +328,13 @@ class WorkflowRunTest {
     @Issue("JENKINS-29221")
     void failedToStartRun() throws Exception {
         WorkflowJob p = r.jenkins.createProject(WorkflowJob.class, "p");
-        p.setDefinition(new CpsFlowDefinition(
-                """
+        p.setDefinition(new CpsFlowDefinition("""
                 {{stage 'dev'
                 def hello = new HelloWorld()
                 public class HelloWorld()
                 { // <- invalid class definition }
                 }}
-                """,
-                true));
+                """, true));
         QueueTaskFuture<WorkflowRun> workflowRunQueueTaskFuture = p.scheduleBuild2(0);
         WorkflowRun run = r.assertBuildStatus(Result.FAILURE, workflowRunQueueTaskFuture.get());
 
@@ -349,7 +360,8 @@ class WorkflowRunTest {
             assertNotNull(p);
             WorkflowRun b = p.getLastBuild();
             assertNotNull(b);
-            System.out.println(FileUtils.readFileToString(new File(b.getRootDir(), "build.xml"), StandardCharsets.UTF_8));
+            System.out.println(
+                    FileUtils.readFileToString(new File(b.getRootDir(), "build.xml"), StandardCharsets.UTF_8));
             r.assertLogContains("hello world", b);
             FlowExecution exec = b.getExecution();
             assertNotNull(exec);
@@ -369,7 +381,8 @@ class WorkflowRunTest {
         WorkflowJob p = r.jenkins.createProject(WorkflowJob.class, "p");
         p.setDefinition(new CpsFlowDefinition("sleep 1; semaphore 'hang'", true));
         WorkflowRun b1 = p.scheduleBuild2(0).waitForStart();
-        Thread.sleep(500); // TODO sleeps should not be necessary but seems to randomly fail to receive interrupt otherwise
+        // TODO sleeps should not be necessary but seems to randomly fail to receive interrupt otherwise
+        Thread.sleep(500);
         SemaphoreStep.waitForStart("hang/1", b1);
         Thread.sleep(500);
         Executor ex = b1.getExecutor();
@@ -398,9 +411,14 @@ class WorkflowRunTest {
     void interruptCause() throws Exception {
         r.jenkins.setSecurityRealm(r.createDummySecurityRealm());
         WorkflowJob p = r.jenkins.createProject(WorkflowJob.class, "p");
-        ScriptApproval.get().approveSignature("method org.jenkinsci.plugins.workflow.steps.FlowInterruptedException getCauses"); // TODO should probably be @Whitelisted
-        ScriptApproval.get().approveSignature("method jenkins.model.CauseOfInterruption$UserInterruption getUser"); // ditto
-        p.setDefinition(new CpsFlowDefinition("@NonCPS def users(e) {e.causes*.user}; try {semaphore 'wait'} catch (e) {echo(/users=${users(e)}/); throw e}", true));
+        // TODO should probably be @Whitelisted
+        ScriptApproval.get()
+                .approveSignature("method org.jenkinsci.plugins.workflow.steps.FlowInterruptedException getCauses");
+        // ditto
+        ScriptApproval.get().approveSignature("method jenkins.model.CauseOfInterruption$UserInterruption getUser");
+        p.setDefinition(new CpsFlowDefinition(
+                "@NonCPS def users(e) {e.causes*.user}; try {semaphore 'wait'} catch (e) {echo(/users=${users(e)}/); throw e}",
+                true));
         final WorkflowRun b1 = p.scheduleBuild2(0).waitForStart();
         SemaphoreStep.waitForStart("wait/1", b1);
         try (ACLContext context = ACL.as(User.getById("dev", true))) {
@@ -412,15 +430,18 @@ class WorkflowRunTest {
         assertNotNull(iba);
         assertEquals(Collections.singletonList(new CauseOfInterruption.UserInterruption("dev")), iba.getCauses());
         String log = JenkinsRule.getLog(b1);
-        assertEquals(1, StringUtils.countMatches(log, jenkins.model.Messages.CauseOfInterruption_ShortDescription("dev")), log);
+        assertEquals(
+                1,
+                StringUtils.countMatches(log, jenkins.model.Messages.CauseOfInterruption_ShortDescription("dev")),
+                log);
     }
 
     @Test
     @Issue("JENKINS-43396")
     void globalNodePropertiesInEnv() throws Exception {
         DescribableList<NodeProperty<?>, NodePropertyDescriptor> original = r.jenkins.getGlobalNodeProperties();
-        EnvironmentVariablesNodeProperty envProp = new EnvironmentVariablesNodeProperty(
-                new EnvironmentVariablesNodeProperty.Entry("KEY", "VALUE"));
+        EnvironmentVariablesNodeProperty envProp =
+                new EnvironmentVariablesNodeProperty(new EnvironmentVariablesNodeProperty.Entry("KEY", "VALUE"));
 
         original.add(envProp);
 
@@ -493,18 +514,19 @@ class WorkflowRunTest {
 
         if (expectedIds.length > 0) {
             JenkinsRule.WebClient wc = r.createWebClient();
-            WebResponse response = wc.goTo(b.getUrl() + "api/json?tree=culprits[id]", "application/json").getWebResponse();
+            WebResponse response = wc.goTo(b.getUrl() + "api/json?tree=culprits[id]", "application/json")
+                    .getWebResponse();
             JSONObject json = JSONObject.fromObject(response.getContentAsString());
 
             Object culpritsArray = json.get("culprits");
             assertNotNull(culpritsArray);
             assertInstanceOf(JSONArray.class, culpritsArray);
             Set<String> fromApi = new TreeSet<>();
-            for (Object o : ((JSONArray)culpritsArray).toArray()) {
+            for (Object o : ((JSONArray) culpritsArray).toArray()) {
                 assertInstanceOf(JSONObject.class, o);
-                Object id = ((JSONObject)o).get("id");
+                Object id = ((JSONObject) o).get("id");
                 if (id instanceof String) {
-                    fromApi.add((String)id);
+                    fromApi.add((String) id);
                 }
             }
             assertEquals(fromApi, new TreeSet<>(Arrays.asList(expectedIds)));
@@ -516,15 +538,24 @@ class WorkflowRunTest {
     void noComputerBuildPermissionOnMaster() throws Exception {
         r.waitOnline(r.createSlave("remote", null, null));
         r.jenkins.setSecurityRealm(r.createDummySecurityRealm());
-        r.jenkins.setAuthorizationStrategy(new MockAuthorizationStrategy().
-            grant(Jenkins.ADMINISTER).everywhere().to("admin"));
+        r.jenkins.setAuthorizationStrategy(new MockAuthorizationStrategy()
+                .grant(Jenkins.ADMINISTER)
+                .everywhere()
+                .to("admin"));
         WorkflowJob p = r.jenkins.createProject(WorkflowJob.class, "p");
         p.setDefinition(new CpsFlowDefinition("", true));
         // Control case:
-        QueueItemAuthenticatorConfiguration.get().getAuthenticators().add(new MockQueueItemAuthenticator(Collections.singletonMap("p", User.getById("admin", true).impersonate())));
+        QueueItemAuthenticatorConfiguration.get()
+                .getAuthenticators()
+                .add(new MockQueueItemAuthenticator(Collections.singletonMap(
+                        "p", User.getById("admin", true).impersonate())));
         r.buildAndAssertSuccess(p);
-        // Test case: build is never scheduled, queue item hangs with “Waiting for next available executor on controller”
-        QueueItemAuthenticatorConfiguration.get().getAuthenticators().replace(new MockQueueItemAuthenticator(Collections.singletonMap("p", User.getById("dev", true).impersonate())));
+        // Test case: build is never scheduled, queue item hangs with
+        // “Waiting for next available executor on controller”
+        QueueItemAuthenticatorConfiguration.get()
+                .getAuthenticators()
+                .replace(new MockQueueItemAuthenticator(
+                        Collections.singletonMap("p", User.getById("dev", true).impersonate())));
         r.buildAndAssertSuccess(p);
     }
 
@@ -537,7 +568,8 @@ class WorkflowRunTest {
         r.assertLogContains(message, r.buildAndAssertSuccess(p));
     }
 
-    @Issue("JENKINS-54128") @SuppressWarnings("deprecation")
+    @Issue("JENKINS-54128")
+    @SuppressWarnings("deprecation")
     @Test
     void getLogFile() throws Exception {
         WorkflowJob p = r.jenkins.createProject(WorkflowJob.class, "p");
@@ -553,8 +585,14 @@ class WorkflowRunTest {
         WorkflowJob p = r.createProject(WorkflowJob.class);
         p.setDefinition(new CpsFlowDefinition("env.KEY = 'value'", true));
         WorkflowRun b = r.buildAndAssertSuccess(p);
-        assertEquals("value", b.getAction(EnvironmentAction.class).getEnvironment().get("KEY"));
-        assertThat(logging.getRecords().stream().filter(lr -> lr.getLevel().intValue() >= Level.WARNING.intValue()).map(LogRecord::getMessage).toList(), empty());
+        assertEquals(
+                "value", b.getAction(EnvironmentAction.class).getEnvironment().get("KEY"));
+        assertThat(
+                logging.getRecords().stream()
+                        .filter(lr -> lr.getLevel().intValue() >= Level.WARNING.intValue())
+                        .map(LogRecord::getMessage)
+                        .toList(),
+                empty());
         assertFalse(b.isLogUpdated());
     }
 
@@ -565,12 +603,21 @@ class WorkflowRunTest {
         WorkflowRun b = r.buildAndAssertSuccess(p);
         // FutureImpl.get returns as soon as WorkflowRun.save calls AsynchronousExecution.completed;
         // onFinalized is fired from onEndBuilding shortly thereafter, so wait for it.
-        assertThat(await().until(() -> ExtensionList.lookupSingleton(CheckCompletedFlag.class).buildXml.get(b.getExternalizableId()), notNullValue()),
-            containsString("<completed>true</completed>"));
+        assertThat(
+                await().until(
+                                () -> ExtensionList.lookupSingleton(CheckCompletedFlag.class)
+                                        .buildXml
+                                        .get(b.getExternalizableId()),
+                                notNullValue()),
+                containsString("<completed>true</completed>"));
     }
-    @TestExtension("completedFlag") public static final class CheckCompletedFlag extends RunListener<WorkflowRun> {
+
+    @TestExtension("completedFlag")
+    public static final class CheckCompletedFlag extends RunListener<WorkflowRun> {
         final Map<String, String> buildXml = new HashMap<>();
-        @Override public void onFinalized(WorkflowRun r) {
+
+        @Override
+        public void onFinalized(WorkflowRun r) {
             try {
                 buildXml.put(r.getExternalizableId(), new XmlFile(new File(r.getRootDir(), "build.xml")).asString());
             } catch (IOException x) {
@@ -612,15 +659,14 @@ class WorkflowRunTest {
         sampleRepo.init();
         TaskListener listener = StreamTaskListener.fromStdout();
         WorkflowJob p = r.createProject(WorkflowJob.class);
-        for (boolean changelog : new boolean[] { true, false }) {
-            for (boolean polling : new boolean[] { true, false }) {
+        for (boolean changelog : new boolean[] {true, false}) {
+            for (boolean polling : new boolean[] {true, false}) {
                 p.setDefinition(new CpsFlowDefinition(
-                        "node {\n" +
-                        checkoutString(sampleRepo, changelog, polling) +
-                        "}\n", true));
+                        "node {\n" + checkoutString(sampleRepo, changelog, polling) + "}\n", true));
                 WorkflowRun b = r.buildAndAssertSuccess(p);
                 assertThat(b.checkouts(listener).size(), equalTo(1));
-                assertThat("Unexpected baseline with changelog: " + changelog + "and polling: " + polling,
+                assertThat(
+                        "Unexpected baseline with changelog: " + changelog + "and polling: " + polling,
                         b.checkouts(listener).get(0).pollingBaseline,
                         // Setting either changelog or polling to true causes polling to be enabled.
                         changelog || polling ? notNullValue() : nullValue());
@@ -636,44 +682,48 @@ class WorkflowRunTest {
         TaskListener listener = StreamTaskListener.fromStdout();
         WorkflowJob p = r.createProject(WorkflowJob.class);
         p.setDefinition(new CpsFlowDefinition(
-                "node {\n" +
-                checkoutString(sampleRepo, true, true) +
-                checkoutString(sampleRepo, true, true) +
-                "}\n", true));
+                "node {\n" + checkoutString(sampleRepo, true, true) + checkoutString(sampleRepo, true, true) + "}\n",
+                true));
         WorkflowRun b1 = r.buildAndAssertSuccess(p);
         assertPollingBaselines(b1.checkouts(listener), notNullValue(), notNullValue());
 
         p.setDefinition(new CpsFlowDefinition(
-                "node {\n" +
-                checkoutString(sampleRepo, false, false) +
-                checkoutString(sampleRepo, true, true) +
-                "}\n", true));
+                "node {\n" + checkoutString(sampleRepo, false, false) + checkoutString(sampleRepo, true, true) + "}\n",
+                true));
         WorkflowRun b2 = r.buildAndAssertSuccess(p);
-        //One comes back with a baseline and the other not
+        // One comes back with a baseline and the other not
         assertPollingBaselines(b2.checkouts(listener), nullValue(), notNullValue());
 
         p.setDefinition(new CpsFlowDefinition(
-                "node {\n" +
-                checkoutString(sampleRepo, false, false) +
-                checkoutString(sampleRepo, false, false) +
-                "}\n", true));
+                "node {\n" + checkoutString(sampleRepo, false, false)
+                        + checkoutString(sampleRepo, false, false)
+                        + "}\n",
+                true));
         WorkflowRun b3 = r.buildAndAssertSuccess(p);
-        //Both have their baselines wiped
+        // Both have their baselines wiped
         assertPollingBaselines(b3.checkouts(listener), nullValue(), nullValue());
     }
 
     @SafeVarargs
-    private static void assertPollingBaselines(List<WorkflowRun.SCMCheckout> checkouts, Matcher<Object>... indexedMatchers) {
-        assertThat("Number of checkouts should match number of matchers", checkouts.size(), equalTo(indexedMatchers.length));
+    private static void assertPollingBaselines(
+            List<WorkflowRun.SCMCheckout> checkouts, Matcher<Object>... indexedMatchers) {
+        assertThat(
+                "Number of checkouts should match number of matchers",
+                checkouts.size(),
+                equalTo(indexedMatchers.length));
         for (int i = 0; i < checkouts.size(); i++) {
-            assertThat("Unexpected baseline for checkout at index " + i, checkouts.get(i).pollingBaseline, indexedMatchers[i]);
+            assertThat(
+                    "Unexpected baseline for checkout at index " + i,
+                    checkouts.get(i).pollingBaseline,
+                    indexedMatchers[i]);
         }
     }
 
     private static String checkoutString(GitSampleRepoRule repo, boolean changelog, boolean polling) {
-        return "    checkout(changelog:" + changelog +", poll:" + polling +
-                ", scm: [$class: 'GitSCM', branches: [[name: '*/master']], " +
-                ", userRemoteConfigs: [[url: $/" + repo.fileUrl() + "/$]]])\n";
+        return "    checkout(changelog:" + changelog + ", poll:" + polling
+                + ", scm: [$class: 'GitSCM', branches: [[name: '*/master']], "
+                + ", userRemoteConfigs: [[url: $/"
+                + repo.fileUrl() + "/$]]])\n";
     }
 
     // This test is to ensure that the shortDescription on the CancelCause is escaped properly on summary.jelly
@@ -723,6 +773,7 @@ class WorkflowRunTest {
     // This class is used to check for any alerts that are triggered on a page
     static class Alerter implements AlertHandler {
         List<String> messages = Collections.synchronizedList(new ArrayList<>());
+
         @Override
         public void handleAlert(final Page page, final String message) {
             messages.add(message);
@@ -749,8 +800,7 @@ class WorkflowRunTest {
         assumeFalse(Functions.isWindows() && "true".equals(System.getenv("CI")), "TODO #502: failing in VMs");
         logging.record(LogRotator.class, Level.FINER);
         var p = r.createProject(WorkflowJob.class);
-        p.setDefinition(new CpsFlowDefinition(
-                "echo params.FOO; semaphore 'wait'", true));
+        p.setDefinition(new CpsFlowDefinition("echo params.FOO; semaphore 'wait'", true));
         p.addProperty(new ParametersDefinitionProperty(List.of(new StringParameterDefinition("FOO"))));
         // Keep 0 builds, i.e. delete all builds immediately.
         LogRotator logRotator = new LogRotator(-1, 0, -1, -1);
@@ -759,15 +809,17 @@ class WorkflowRunTest {
         int buildsToRun = 10; // Increase this number to reproduce the issue more easily prior to the fix.
         Run[] builds = new Run[buildsToRun];
         File[] buildDirs = new File[buildsToRun];
-        // Run a large number of builds that should finish around the same time to check race conditions with log rotation and build completion.
+        // Run a large number of builds that should finish around the same time
+        // to check race conditions with log rotation and build completion.
         for (int i = 0; i < buildsToRun; i++) {
-            var b = p.scheduleBuild2(0, new ParametersAction(List.of(new StringParameterValue("FOO", "b" + i)))).waitForStart();
+            var b = p.scheduleBuild2(0, new ParametersAction(List.of(new StringParameterValue("FOO", "b" + i))))
+                    .waitForStart();
             builds[i] = b;
             buildDirs[i] = b.getRootDir();
-            SemaphoreStep.waitForStart("wait/" + (i+1), b);
+            SemaphoreStep.waitForStart("wait/" + (i + 1), b);
         }
         for (int i = 0; i < buildsToRun; i++) {
-            SemaphoreStep.success("wait/" + (i+1), null);
+            SemaphoreStep.success("wait/" + (i + 1), null);
         }
         LOGGER.info("Waiting for all builds to complete");
         for (int i = 0; i < buildsToRun; i++) {
@@ -776,14 +828,16 @@ class WorkflowRunTest {
         LOGGER.info("Checking that all build directories are empty");
         for (int i = 0; i < buildsToRun; i++) {
             var dir = buildDirs[i];
-            await(dir + " should be empty").until(() -> {
-                var filesInBuildDir = dir.list();
-                if (filesInBuildDir == null) {
-                    filesInBuildDir = new String[0];
-                }
-                return Arrays.asList(filesInBuildDir);
-            }, empty());
+            await(dir + " should be empty")
+                    .until(
+                            () -> {
+                                var filesInBuildDir = dir.list();
+                                if (filesInBuildDir == null) {
+                                    filesInBuildDir = new String[0];
+                                }
+                                return Arrays.asList(filesInBuildDir);
+                            },
+                            empty());
         }
     }
-
 }

@@ -24,6 +24,8 @@
 
 package org.jenkinsci.plugins.workflow.job.console;
 
+import edu.umd.cs.findbugs.annotations.CheckForNull;
+import edu.umd.cs.findbugs.annotations.NonNull;
 import hudson.Extension;
 import hudson.MarkupText;
 import hudson.Util;
@@ -36,8 +38,6 @@ import java.io.PrintStream;
 import java.util.Iterator;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-import edu.umd.cs.findbugs.annotations.CheckForNull;
-import edu.umd.cs.findbugs.annotations.NonNull;
 import org.jenkinsci.plugins.workflow.actions.LabelAction;
 import org.jenkinsci.plugins.workflow.flow.FlowExecution;
 import org.jenkinsci.plugins.workflow.graph.BlockEndNode;
@@ -78,7 +78,8 @@ public class NewNodeConsoleNote extends ConsoleNote<WorkflowRun> {
             } catch (IOException x) {
                 LOGGER.log(Level.WARNING, null, x);
             }
-            logger.println(CONSOLE_NOTE_PREFIX + node.getDisplayFunctionName()); // note that StepAtomNode will never have a LabelAction at this point
+            // note that StepAtomNode will never have a LabelAction at this point
+            logger.println(CONSOLE_NOTE_PREFIX + node.getDisplayFunctionName());
         }
     }
 
@@ -110,7 +111,11 @@ public class NewNodeConsoleNote extends ConsoleNote<WorkflowRun> {
     }
 
     @Restricted(NoExternalUse.class)
-    public static StringBuilder startTagFor(@NonNull WorkflowRun context, @NonNull String id, @CheckForNull String start, @CheckForNull String enclosing) {
+    public static StringBuilder startTagFor(
+            @NonNull WorkflowRun context,
+            @NonNull String id,
+            @CheckForNull String start,
+            @CheckForNull String enclosing) {
         StringBuilder startTag = new StringBuilder("<span class=\"pipeline-new-node\" nodeId=\"").append(id);
         if (start != null) {
             startTag.append("\" startId=\"").append(start);
@@ -127,7 +132,8 @@ public class NewNodeConsoleNote extends ConsoleNote<WorkflowRun> {
                     if (a != null) {
                         String displayName = a.getDisplayName();
                         assert displayName != null;
-                        startTag.append("\" label=\"").append(Util.escape(displayName)); // TODO is there some better way to escape for attribute values?
+                        // TODO is there some better way to escape for attribute values?
+                        startTag.append("\" label=\"").append(Util.escape(displayName));
                     }
                 }
             } catch (IOException x) {
@@ -140,6 +146,6 @@ public class NewNodeConsoleNote extends ConsoleNote<WorkflowRun> {
 
     private static final long serialVersionUID = 1L;
 
-    @Extension public static final class DescriptorImpl extends ConsoleAnnotationDescriptor {}
-
+    @Extension
+    public static final class DescriptorImpl extends ConsoleAnnotationDescriptor {}
 }
