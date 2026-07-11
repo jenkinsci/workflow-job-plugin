@@ -25,5 +25,5 @@ THE SOFTWARE.
 
 <?jelly escape-by-default='true'?>
 <j:jelly xmlns:j="jelly:core" xmlns:st="jelly:stapler">
-    <st:include page="changes.jelly" class="hudson.model.AbstractBuild" />
+    <st:include page="changes.jelly" class="hudson.model.Run" />
 </j:jelly>
