@@ -45,6 +45,7 @@ class ReverseBuildTriggerTest {
     @SuppressWarnings("unused")
     @RegisterExtension
     private static final BuildWatcherExtension BUILD_WATCHER = new BuildWatcherExtension();
+
     @RegisterExtension
     private final JenkinsSessionExtension sessions = new JenkinsSessionExtension();
 
@@ -96,5 +97,4 @@ class ReverseBuildTriggerTest {
         @TestExtension("upstreamMapRebuilding")
         public static class DescriptorImpl extends JobPropertyDescriptor {}
     }
-
 }

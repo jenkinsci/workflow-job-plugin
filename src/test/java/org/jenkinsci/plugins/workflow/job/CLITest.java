@@ -47,6 +47,7 @@ class CLITest {
     @SuppressWarnings("unused")
     @RegisterExtension
     private static final BuildWatcherExtension BUILD_WATCHER = new BuildWatcherExtension();
+
     private JenkinsRule r;
 
     @BeforeEach
@@ -61,14 +62,18 @@ class CLITest {
         for (int i = 0; i < 5; i++) {
             r.buildAndAssertSuccess(p);
         }
-        assertThat(new CLICommandInvoker(r, "delete-builds").invokeWithArgs("p", "2-4"), CLICommandInvoker.Matcher.succeeded());
+        assertThat(
+                new CLICommandInvoker(r, "delete-builds").invokeWithArgs("p", "2-4"),
+                CLICommandInvoker.Matcher.succeeded());
         assertEquals("[5, 1]", p.getBuildsAsMap().keySet().toString());
     }
 
     @Test
     void listChanges() throws Exception {
         WorkflowJob p = r.createProject(WorkflowJob.class, "p");
-        p.setDefinition(new CpsFlowDefinition("node {def s = new org.jvnet.hudson.test.FakeChangeLogSCM(); s.addChange().withAuthor('alice').withMsg('hello'); checkout s}", false /* for org.jvnet.hudson.test.FakeChangeLogSCM */));
+        p.setDefinition(new CpsFlowDefinition(
+                "node {def s = new org.jvnet.hudson.test.FakeChangeLogSCM(); s.addChange().withAuthor('alice').withMsg('hello'); checkout s}",
+                false /* for org.jvnet.hudson.test.FakeChangeLogSCM */));
         r.buildAndAssertSuccess(p);
         CLICommandInvoker.Result res = new CLICommandInvoker(r, "list-changes").invokeWithArgs("p", "1");
         assertThat(res, CLICommandInvoker.Matcher.succeeded());
@@ -93,8 +98,14 @@ class CLITest {
         p.setDefinition(new CpsFlowDefinition("echo 'first version'", true));
         r.assertLogContains("first version", r.buildAndAssertSuccess(p));
         File configXml = new File(p.getRootDir(), "config.xml");
-        FileUtils.write(configXml, FileUtils.readFileToString(configXml, StandardCharsets.UTF_8).replace("first version", "second version"), StandardCharsets.UTF_8);
-        assertThat(new CLICommandInvoker(r, "reload-job").invokeWithArgs("p"), CLICommandInvoker.Matcher.succeededSilently());
+        FileUtils.write(
+                configXml,
+                FileUtils.readFileToString(configXml, StandardCharsets.UTF_8)
+                        .replace("first version", "second version"),
+                StandardCharsets.UTF_8);
+        assertThat(
+                new CLICommandInvoker(r, "reload-job").invokeWithArgs("p"),
+                CLICommandInvoker.Matcher.succeededSilently());
         r.assertLogContains("second version", r.buildAndAssertSuccess(p));
         CLICommandInvoker.Result res = new CLICommandInvoker(r, "reload-job").invokeWithArgs("q");
         assertThat(res, CLICommandInvoker.Matcher.failedWith(3));
@@ -106,10 +117,13 @@ class CLITest {
         WorkflowJob p = r.createProject(WorkflowJob.class, "p");
         p.setDefinition(new CpsFlowDefinition("", true));
         WorkflowRun b = r.buildAndAssertSuccess(p);
-        assertThat(new CLICommandInvoker(r, "set-build-description").invokeWithArgs("p", "1", "the desc"), CLICommandInvoker.Matcher.succeededSilently());
+        assertThat(
+                new CLICommandInvoker(r, "set-build-description").invokeWithArgs("p", "1", "the desc"),
+                CLICommandInvoker.Matcher.succeededSilently());
         assertEquals("the desc", b.getDescription());
-        assertThat(new CLICommandInvoker(r, "set-build-display-name").invokeWithArgs("p", "1", "the name"), CLICommandInvoker.Matcher.succeededSilently());
+        assertThat(
+                new CLICommandInvoker(r, "set-build-display-name").invokeWithArgs("p", "1", "the name"),
+                CLICommandInvoker.Matcher.succeededSilently());
         assertEquals("the name", b.getDisplayName());
     }
-
 }

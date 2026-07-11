@@ -24,29 +24,29 @@
 
 package org.jenkinsci.plugins.workflow.job;
 
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+
+import edu.umd.cs.findbugs.annotations.NonNull;
 import hudson.ExtensionList;
 import hudson.model.Queue;
 import hudson.model.Result;
+import java.io.IOException;
+import java.io.PrintStream;
 import org.jenkinsci.plugins.workflow.cps.CpsFlowDefinition;
 import org.jenkinsci.plugins.workflow.flow.FlowExecution;
 import org.jenkinsci.plugins.workflow.flow.FlowExecutionListener;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.jvnet.hudson.test.TestExtension;
-
-import edu.umd.cs.findbugs.annotations.NonNull;
 import org.jvnet.hudson.test.junit.jupiter.BuildWatcherExtension;
 import org.jvnet.hudson.test.junit.jupiter.JenkinsSessionExtension;
-
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import java.io.IOException;
-import java.io.PrintStream;
 
 class WorkflowRunWithFlowExecutionListenerTest {
 
     @SuppressWarnings("unused")
     @RegisterExtension
     private static final BuildWatcherExtension BUILD_WATCHER = new BuildWatcherExtension();
+
     @RegisterExtension
     private final JenkinsSessionExtension sessions = new JenkinsSessionExtension();
 
@@ -57,17 +57,20 @@ class WorkflowRunWithFlowExecutionListenerTest {
             p.setDefinition(new CpsFlowDefinition("echo 'Running for listener'", true));
             WorkflowRun b = r.assertBuildStatus(Result.SUCCESS, p.scheduleBuild2(0));
 
-            WorkflowRunWithFlowExecutionListenerTest.Listener listener = ExtensionList.lookup(FlowExecutionListener.class).get(WorkflowRunWithFlowExecutionListenerTest.Listener.class);
+            WorkflowRunWithFlowExecutionListenerTest.Listener listener = ExtensionList.lookup(
+                            FlowExecutionListener.class)
+                    .get(WorkflowRunWithFlowExecutionListenerTest.Listener.class);
             assertNotNull(listener);
 
-            r.waitForMessage("Finished: SUCCESS", b); // This message is printed directly after the completion listeners are called.
+            r.waitForMessage(
+                    "Finished: SUCCESS",
+                    b); // This message is printed directly after the completion listeners are called.
 
             r.assertLogContains("Running", b);
             r.assertLogContains("blah blah blah", b);
             r.assertLogContains("Build Number :1", b);
         });
     }
-
 
     @TestExtension("testOnCompleteIsExecutedBeforeListenerIsClosed")
     public static class Listener extends FlowExecutionListener {
@@ -80,7 +83,7 @@ class WorkflowRunWithFlowExecutionListenerTest {
                 PrintStream logger = execution.getOwner().getListener().getLogger();
                 logger.println("blah blah blah");
                 executable = execution.getOwner().getExecutable();
-                if(executable instanceof WorkflowRun run){
+                if (executable instanceof WorkflowRun run) {
                     WorkflowJob workflowJob = run.getParent();
                     int number = workflowJob.getLastBuild().number;
                     logger.println("Build Number :" + number);

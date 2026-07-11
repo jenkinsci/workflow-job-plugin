@@ -24,6 +24,8 @@
 
 package org.jenkinsci.plugins.workflow.job.properties;
 
+import edu.umd.cs.findbugs.annotations.CheckForNull;
+import edu.umd.cs.findbugs.annotations.NonNull;
 import hudson.Extension;
 import hudson.model.Item;
 import jenkins.model.OptionalJobProperty;
@@ -34,15 +36,11 @@ import org.jenkinsci.plugins.workflow.flow.GlobalDefaultFlowDurabilityLevel;
 import org.jenkinsci.plugins.workflow.job.WorkflowJob;
 import org.kohsuke.stapler.DataBoundConstructor;
 
-import edu.umd.cs.findbugs.annotations.CheckForNull;
-import edu.umd.cs.findbugs.annotations.NonNull;
-
 /**
  * Hint about the desired {@link FlowDurabilityHint}.
  * Note that setting {@link DisableResumeJobProperty} overrides this to the minimum durability level.
  * @author Sam Van Oort
  */
-
 public class DurabilityHintJobProperty extends OptionalJobProperty<WorkflowJob> {
     private final FlowDurabilityHint hint;
 
@@ -57,7 +55,8 @@ public class DurabilityHintJobProperty extends OptionalJobProperty<WorkflowJob> 
 
     @Extension
     @Symbol("durabilityHint")
-    public static class DescriptorImpl extends OptionalJobProperty.OptionalJobPropertyDescriptor implements DurabilityHintProvider {
+    public static class DescriptorImpl extends OptionalJobProperty.OptionalJobPropertyDescriptor
+            implements DurabilityHintProvider {
 
         public FlowDurabilityHint[] getDurabilityHintValues() {
             return FlowDurabilityHint.values();
@@ -68,7 +67,8 @@ public class DurabilityHintJobProperty extends OptionalJobProperty<WorkflowJob> 
         }
 
         @NonNull
-        @Override public String getDisplayName() {
+        @Override
+        public String getDisplayName() {
             return Messages.speed_durability_override();
         }
 

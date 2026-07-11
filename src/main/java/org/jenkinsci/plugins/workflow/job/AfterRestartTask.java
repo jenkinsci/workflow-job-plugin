@@ -44,52 +44,63 @@ class AfterRestartTask implements Queue.FlyweightTask, Queue.TransientTask {
         this.run = run;
     }
 
-    @Override public boolean equals(Object o) {
+    @Override
+    public boolean equals(Object o) {
         return o != null && o.getClass() == getClass() && ((AfterRestartTask) o).run == run;
     }
 
-    @Override public int hashCode() {
+    @Override
+    public int hashCode() {
         return getClass().hashCode() ^ run.hashCode();
     }
 
-    @Override public String getName() {
+    @Override
+    public String getName() {
         return getDisplayName();
     }
 
-    @Override public String getFullDisplayName() {
+    @Override
+    public String getFullDisplayName() {
         return run.getFullDisplayName();
     }
 
-    @Override public void checkAbortPermission() {
+    @Override
+    public void checkAbortPermission() {
         run.getParent().checkAbortPermission();
     }
 
-    @Override public boolean hasAbortPermission() {
+    @Override
+    public boolean hasAbortPermission() {
         return run.getParent().hasAbortPermission();
     }
 
-    @Override public String getUrl() {
+    @Override
+    public String getUrl() {
         return run.getUrl();
     }
 
-    @Override public String getDisplayName() {
+    @Override
+    public String getDisplayName() {
         return run.getDisplayName();
     }
 
-    @Override public Label getAssignedLabel() {
+    @Override
+    public Label getAssignedLabel() {
         return run.getParent().getAssignedLabel();
     }
 
-    @Override public Node getLastBuiltOn() {
+    @Override
+    public Node getLastBuiltOn() {
         return run.getParent().getLastBuiltOn();
     }
 
-    @Override public long getEstimatedDuration() {
+    @Override
+    public long getEstimatedDuration() {
         return run.getParent().getEstimatedDuration();
     }
 
-    @Override public Queue.Executable createExecutable() throws IOException {
+    @Override
+    public Queue.Executable createExecutable() throws IOException {
         return run;
     }
-
 }

@@ -24,12 +24,12 @@
 
 package org.jenkinsci.plugins.workflow.job.console;
 
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
+
 import org.jenkinsci.plugins.workflow.cps.CpsFlowDefinition;
 import org.jenkinsci.plugins.workflow.job.WorkflowJob;
 import org.jenkinsci.plugins.workflow.job.WorkflowRun;
-import static org.hamcrest.MatcherAssert.assertThat;
-
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
@@ -43,6 +43,7 @@ class NewNodeConsoleNoteTest {
     @SuppressWarnings("unused")
     @RegisterExtension
     private static final BuildWatcherExtension BUILD_WATCHER = new BuildWatcherExtension();
+
     private JenkinsRule r;
 
     @BeforeEach
@@ -55,12 +56,28 @@ class NewNodeConsoleNoteTest {
         WorkflowJob p = r.createProject(WorkflowJob.class, "p");
         p.setDefinition(new CpsFlowDefinition("parallel first: {}, second: {stage('\"full\" details') {}}", true));
         WorkflowRun b = r.buildAndAssertSuccess(p);
-        String html = r.createWebClient().goTo(b.getUrl() + "console").getWebResponse().getContentAsString();
-        assertThat(html, containsString("<span class=\"pipeline-new-node\" nodeId=\"3\" startId=\"3\" enclosingId=\"2\">[Pipeline] parallel"));
-        assertThat(html, containsString("<span class=\"pipeline-new-node\" nodeId=\"5\" startId=\"5\" enclosingId=\"3\" label=\"Branch: first\">[Pipeline] {"));
-        assertThat(html, containsString("<span class=\"pipeline-new-node\" nodeId=\"6\" startId=\"6\" enclosingId=\"3\" label=\"Branch: second\">[Pipeline] {"));
-        assertThat(html, containsString("<span class=\"pipeline-new-node\" nodeId=\"9\" startId=\"9\" enclosingId=\"8\" label=\"&quot;full&quot; details\">[Pipeline] {"));
-        assertThat(html, containsString("<span class=\"pipeline-new-node\" nodeId=\"13\" startId=\"3\">[Pipeline] // parallel"));
+        String html = r.createWebClient()
+                .goTo(b.getUrl() + "console")
+                .getWebResponse()
+                .getContentAsString();
+        assertThat(
+                html,
+                containsString(
+                        "<span class=\"pipeline-new-node\" nodeId=\"3\" startId=\"3\" enclosingId=\"2\">[Pipeline] parallel"));
+        assertThat(
+                html,
+                containsString(
+                        "<span class=\"pipeline-new-node\" nodeId=\"5\" startId=\"5\" enclosingId=\"3\" label=\"Branch: first\">[Pipeline] {"));
+        assertThat(
+                html,
+                containsString(
+                        "<span class=\"pipeline-new-node\" nodeId=\"6\" startId=\"6\" enclosingId=\"3\" label=\"Branch: second\">[Pipeline] {"));
+        assertThat(
+                html,
+                containsString(
+                        "<span class=\"pipeline-new-node\" nodeId=\"9\" startId=\"9\" enclosingId=\"8\" label=\"&quot;full&quot; details\">[Pipeline] {"));
+        assertThat(
+                html,
+                containsString("<span class=\"pipeline-new-node\" nodeId=\"13\" startId=\"3\">[Pipeline] // parallel"));
     }
-
 }

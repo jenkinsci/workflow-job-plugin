@@ -24,12 +24,11 @@
 
 package org.jenkinsci.plugins.workflow.job.console;
 
-import org.jenkinsci.plugins.workflow.job.WorkflowRun;
-
 import hudson.MarkupText;
 import hudson.console.ConsoleAnnotator;
 import hudson.console.ConsoleNote;
 import hudson.model.Run;
+import org.jenkinsci.plugins.workflow.job.WorkflowRun;
 
 /**
  * @deprecated No longer used, but retained for serial-form compatibility of old build logs.
@@ -47,13 +46,14 @@ public class WorkflowRunConsoleNote extends ConsoleNote<Run<?, ?>> {
      * CSS color selector.
      */
     private static final String TEXT_COLOR = "9A9999";
+
     private static final String CLASS_NAME = "pipeline-annotated";
 
-    private static final String START_NOTE = "<span class=\""+ CLASS_NAME +"\" style=\"color:#"+ TEXT_COLOR +"\">";
+    private static final String START_NOTE = "<span class=\"" + CLASS_NAME + "\" style=\"color:#" + TEXT_COLOR + "\">";
     private static final String END_NOTE = "</span>";
 
     @Override
-    public ConsoleAnnotator<Run<?,?>> annotate(Run<?, ?> context, MarkupText text, int charPos) {
+    public ConsoleAnnotator<Run<?, ?>> annotate(Run<?, ?> context, MarkupText text, int charPos) {
         if (context instanceof WorkflowRun) {
             if (text.getText().startsWith(CONSOLE_NOTE_PREFIX)) {
                 text.addMarkup(0, text.length(), START_NOTE, END_NOTE);
@@ -63,5 +63,4 @@ public class WorkflowRunConsoleNote extends ConsoleNote<Run<?, ?>> {
     }
 
     private static final long serialVersionUID = 1L;
-
 }

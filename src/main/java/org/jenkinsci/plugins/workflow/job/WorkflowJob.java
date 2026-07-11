@@ -69,6 +69,7 @@ import hudson.triggers.Trigger;
 import hudson.triggers.TriggerDescriptor;
 import hudson.util.AlternativeUiTextProvider;
 import hudson.util.DescribableList;
+import jakarta.servlet.ServletException;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -80,7 +81,6 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-import jakarta.servlet.ServletException;
 import jenkins.model.BlockedBecauseOfBuildInProgress;
 import jenkins.model.Jenkins;
 import jenkins.model.ParameterizedJobMixIn;
@@ -102,17 +102,26 @@ import org.kohsuke.stapler.StaplerResponse2;
 import org.kohsuke.stapler.export.Exported;
 
 @SuppressWarnings({"unchecked", "rawtypes"})
-public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements LazyBuildMixIn.LazyLoadingJob<WorkflowJob,WorkflowRun>, ParameterizedJobMixIn.ParameterizedJob<WorkflowJob, WorkflowRun>, TopLevelItem, Queue.FlyweightTask, SCMTriggerItem, BlockableResume {
+public final class WorkflowJob extends Job<WorkflowJob, WorkflowRun>
+        implements LazyBuildMixIn.LazyLoadingJob<WorkflowJob, WorkflowRun>,
+                ParameterizedJobMixIn.ParameterizedJob<WorkflowJob, WorkflowRun>,
+                TopLevelItem,
+                Queue.FlyweightTask,
+                SCMTriggerItem,
+                BlockableResume {
 
     private static final Logger LOGGER = Logger.getLogger(WorkflowJob.class.getName());
 
     private FlowDefinition definition;
     /** @deprecated - use {@link PipelineTriggersJobProperty} */
-    private DescribableList<Trigger<?>,TriggerDescriptor> triggers = new DescribableList<>(this);
+    private DescribableList<Trigger<?>, TriggerDescriptor> triggers = new DescribableList<>(this);
+
     private volatile Integer quietPeriod;
+
     @SuppressWarnings("deprecation")
     private hudson.model.BuildAuthorizationToken authToken;
-    private transient LazyBuildMixIn<WorkflowJob,WorkflowRun> buildMixIn;
+
+    private transient LazyBuildMixIn<WorkflowJob, WorkflowRun> buildMixIn;
     /** @deprecated replaced by {@link DisableConcurrentBuildsJobProperty} */
     private @CheckForNull Boolean concurrentBuild;
 
@@ -120,7 +129,8 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements L
      * Map from {@link SCM#getKey} to last version we encountered during polling.
      * TODO is it important to persist this? {@link hudson.model.AbstractProject#pollingBaseline} is not persisted.
      */
-    private transient volatile Map<String,SCMRevisionState> pollingBaselines;
+    private transient volatile Map<String, SCMRevisionState> pollingBaselines;
+
     private volatile boolean disabled;
 
     public WorkflowJob(ItemGroup parent, String name) {
@@ -128,12 +138,14 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements L
         buildMixIn = createBuildMixIn();
     }
 
-    @Override public void onCreatedFromScratch() {
+    @Override
+    public void onCreatedFromScratch() {
         super.onCreatedFromScratch();
         buildMixIn.onCreatedFromScratch();
     }
 
-    @Override public void onLoad(ItemGroup<? extends Item> parent, String name) throws IOException {
+    @Override
+    public void onLoad(ItemGroup<? extends Item> parent, String name) throws IOException {
         super.onLoad(parent, name);
 
         if (buildMixIn == null) {
@@ -151,12 +163,15 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements L
         getTriggersJobProperty().startTriggers(Items.currentlyUpdatingByXml());
     }
 
-    private LazyBuildMixIn<WorkflowJob,WorkflowRun> createBuildMixIn() {
-        return new LazyBuildMixIn<WorkflowJob,WorkflowRun>() {
-            @Override protected WorkflowJob asJob() {
+    private LazyBuildMixIn<WorkflowJob, WorkflowRun> createBuildMixIn() {
+        return new LazyBuildMixIn<WorkflowJob, WorkflowRun>() {
+            @Override
+            protected WorkflowJob asJob() {
                 return WorkflowJob.this;
             }
-            @Override protected Class<WorkflowRun> getBuildClass() {
+
+            @Override
+            protected Class<WorkflowRun> getBuildClass() {
                 return WorkflowRun.class;
             }
         };
@@ -176,7 +191,9 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements L
     }
 
     @SuppressWarnings("deprecation")
-    @Override protected void submit(StaplerRequest2 req, StaplerResponse2 rsp) throws IOException, ServletException, Descriptor.FormException {
+    @Override
+    protected void submit(StaplerRequest2 req, StaplerResponse2 rsp)
+            throws IOException, ServletException, Descriptor.FormException {
         super.submit(req, rsp);
         JSONObject json = req.getSubmittedForm();
         definition = Descriptor.bindJSON(req, FlowDefinition.class, json.getJSONObject("definition"));
@@ -192,8 +209,8 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements L
         getTriggersJobProperty().startTriggers(Items.currentlyUpdatingByXml());
     }
 
-
-    @Override public void addProperty(JobProperty jobProp) throws IOException {
+    @Override
+    public void addProperty(JobProperty jobProp) throws IOException {
         super.addProperty(jobProp);
         if (jobProp instanceof PipelineTriggersJobProperty) {
             getTriggersJobProperty().stopTriggers();
@@ -201,7 +218,8 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements L
         }
     }
 
-    @Override public boolean isBuildable() {
+    @Override
+    public boolean isBuildable() {
         for (JobProperty<?> property : properties) {
             if (property instanceof WorkflowJobProperty) {
                 Boolean buildable = ((WorkflowJobProperty) property).isBuildable();
@@ -213,69 +231,86 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements L
         return ParameterizedJobMixIn.ParameterizedJob.super.isBuildable();
     }
 
-    @Override protected RunMap<WorkflowRun> _getRuns() {
+    @Override
+    protected RunMap<WorkflowRun> _getRuns() {
         return buildMixIn._getRuns();
     }
 
-    @Override public LazyBuildMixIn<WorkflowJob,WorkflowRun> getLazyBuildMixIn() {
+    @Override
+    public LazyBuildMixIn<WorkflowJob, WorkflowRun> getLazyBuildMixIn() {
         return buildMixIn;
     }
 
-    @Override protected void removeRun(WorkflowRun run) {
+    @Override
+    protected void removeRun(WorkflowRun run) {
         buildMixIn.removeRun(run);
     }
 
-    @Override @Deprecated public WorkflowRun getBuild(String id) {
+    @Override
+    @Deprecated
+    public WorkflowRun getBuild(String id) {
         return buildMixIn.getBuild(id);
     }
 
-    @Override public WorkflowRun getBuildByNumber(int n) {
+    @Override
+    public WorkflowRun getBuildByNumber(int n) {
         return buildMixIn.getBuildByNumber(n);
     }
 
-    @Override public WorkflowRun getFirstBuild() {
+    @Override
+    public WorkflowRun getFirstBuild() {
         return buildMixIn.getFirstBuild();
     }
 
-    @Override public WorkflowRun getLastBuild() {
+    @Override
+    public WorkflowRun getLastBuild() {
         return buildMixIn.getLastBuild();
     }
 
-    @Override public WorkflowRun getNearestBuild(int n) {
+    @Override
+    public WorkflowRun getNearestBuild(int n) {
         return buildMixIn.getNearestBuild(n);
     }
 
-    @Override public WorkflowRun getNearestOldBuild(int n) {
+    @Override
+    public WorkflowRun getNearestOldBuild(int n) {
         return buildMixIn.getNearestOldBuild(n);
     }
 
-    @Override protected List<WorkflowRun> getEstimatedDurationCandidates() {
+    @Override
+    protected List<WorkflowRun> getEstimatedDurationCandidates() {
         return buildMixIn.getEstimatedDurationCandidates();
     }
 
-    @Override public @CheckForNull QueueTaskFuture<WorkflowRun> scheduleBuild2(int quietPeriod, Action... actions) {
+    @Override
+    public @CheckForNull QueueTaskFuture<WorkflowRun> scheduleBuild2(int quietPeriod, Action... actions) {
         return ParameterizedJobMixIn.ParameterizedJob.super.scheduleBuild2(quietPeriod, actions);
     }
 
-    @Override protected SearchIndexBuilder makeSearchIndex() {
+    @Override
+    protected SearchIndexBuilder makeSearchIndex() {
         return getParameterizedJobMixIn().extendSearchIndex(super.makeSearchIndex());
     }
 
     @Exported
-    @Override public boolean isDisabled() {
+    @Override
+    public boolean isDisabled() {
         return disabled;
     }
 
     @Restricted(DoNotUse.class)
-    @Override public void setDisabled(boolean disabled) {
+    @Override
+    public void setDisabled(boolean disabled) {
         this.disabled = disabled;
     }
 
-    @Override public boolean supportsMakeDisabled() {
+    @Override
+    public boolean supportsMakeDisabled() {
         return true;
     }
 
-    @Override public BallColor getIconColor() {
+    @Override
+    public BallColor getIconColor() {
         if (isDisabled()) {
             return isBuilding() ? BallColor.DISABLED_ANIME : BallColor.DISABLED;
         } else {
@@ -284,17 +319,19 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements L
     }
 
     @SuppressWarnings("deprecation")
-    @Override public hudson.model.BuildAuthorizationToken getAuthToken() {
+    @Override
+    public hudson.model.BuildAuthorizationToken getAuthToken() {
         return authToken;
     }
 
-    @Override public int getQuietPeriod() {
+    @Override
+    public int getQuietPeriod() {
         return quietPeriod != null ? quietPeriod : Jenkins.get().getQuietPeriod();
     }
 
     @Restricted(DoNotUse.class) // for config-quietPeriod.jelly
     public boolean getHasCustomQuietPeriod() {
-        return quietPeriod!=null;
+        return quietPeriod != null;
     }
 
     public void setQuietPeriod(Integer seconds) throws IOException {
@@ -314,7 +351,8 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements L
         return Jenkins.get().getQueue().getItem(this);
     }
 
-    @Override public CauseOfBlockage getCauseOfBlockage() {
+    @Override
+    public CauseOfBlockage getCauseOfBlockage() {
         if (!isConcurrentBuild() && isLogUpdated()) {
             WorkflowRun lastBuild = getLastBuild();
             if (lastBuild != null) {
@@ -325,18 +363,22 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements L
     }
 
     @Exported
-    @Override public boolean isConcurrentBuild() {
+    @Override
+    public boolean isConcurrentBuild() {
         DisableConcurrentBuildsJobProperty p = getProperty(DisableConcurrentBuildsJobProperty.class);
-        // For purposes of the Jenkins queue, abortPrevious mode means that the new build must start concurrently with the old at least temporarily.
+        // For purposes of the Jenkins queue, abortPrevious mode means that
+        // the new build must start concurrently with the old at least temporarily.
         return p == null || p.isAbortPrevious();
     }
 
     @Exported
-    @Override public boolean isResumeBlocked() {
+    @Override
+    public boolean isResumeBlocked() {
         return getProperty(DisableResumeJobProperty.class) != null;
     }
 
-    @Override public void setResumeBlocked(boolean resumeBlocked)  {
+    @Override
+    public void setResumeBlocked(boolean resumeBlocked) {
         try {
             boolean previousState = isResumeBlocked();
             if (resumeBlocked != previousState) {
@@ -352,9 +394,8 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements L
                 }
             }
         } catch (IOException ioe) {
-            LOGGER.log(Level.WARNING, "Error persisting resume property statue", ioe);
+            LOGGER.log(Level.WARNING, "Error persisting resume property status", ioe);
         }
-
     }
 
     public void setConcurrentBuild(boolean b) throws IOException {
@@ -380,7 +421,8 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements L
     }
 
     @NonNull
-    @Override public ACL getACL() {
+    @Override
+    public ACL getACL() {
         ACL acl = super.getACL();
         for (JobProperty<?> property : properties) {
             if (property instanceof WorkflowJobProperty) {
@@ -395,8 +437,9 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements L
      */
     @Deprecated
     public static final Permission ABORT = CANCEL;
-    
-    @Override public Collection<? extends SubTask> getSubTasks() {
+
+    @Override
+    public Collection<? extends SubTask> getSubTasks() {
         // TODO mostly copied from AbstractProject, except SubTaskContributor is not available:
         List<SubTask> subTasks = new ArrayList<>();
         subTasks.add(this);
@@ -406,7 +449,8 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements L
         return subTasks;
     }
 
-    @Override public Label getAssignedLabel() {
+    @Override
+    public Label getAssignedLabel() {
         Jenkins j = Jenkins.getInstanceOrNull();
         if (j == null) {
             return null;
@@ -414,23 +458,28 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements L
         return j.getSelfLabel();
     }
 
-    @Override public Node getLastBuiltOn() {
+    @Override
+    public Node getLastBuiltOn() {
         return Jenkins.getInstanceOrNull();
     }
 
-    @Override public Object getSameNodeConstraint() {
+    @Override
+    public Object getSameNodeConstraint() {
         return this;
     }
 
-    @Override public String getPronoun() {
+    @Override
+    public String getPronoun() {
         return AlternativeUiTextProvider.get(PRONOUN, this, "Pipeline");
     }
 
-    @Override public TopLevelItemDescriptor getDescriptor() {
+    @Override
+    public TopLevelItemDescriptor getDescriptor() {
         return (DescriptorImpl) Jenkins.get().getDescriptorOrDie(WorkflowJob.class);
     }
 
-    @Override public Map<TriggerDescriptor, Trigger<?>> getTriggers() {
+    @Override
+    public Map<TriggerDescriptor, Trigger<?>> getTriggers() {
         return getTriggersJobProperty().getTriggersMap();
     }
 
@@ -495,7 +544,7 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements L
     public void removeProperty(JobProperty jobProperty) throws IOException {
         // Need to make sure we stop any triggers.
         if (jobProperty instanceof PipelineTriggersJobProperty) {
-            ((PipelineTriggersJobProperty)jobProperty).stopTriggers();
+            ((PipelineTriggersJobProperty) jobProperty).stopTriggers();
         }
 
         super.removeProperty(jobProperty);
@@ -520,11 +569,13 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements L
         addAction(a);
     }
 
-    @Override public Item asItem() {
+    @Override
+    public Item asItem() {
         return this;
     }
 
-    @Override public SCMTrigger getSCMTrigger() {
+    @Override
+    public SCMTrigger getSCMTrigger() {
         for (Trigger t : getTriggersJobProperty().getTriggers()) {
             if (t instanceof SCMTrigger) {
                 return (SCMTrigger) t;
@@ -535,10 +586,9 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements L
     }
 
     @NonNull
-    @Override public Collection<? extends SCM> getSCMs() {
-        Collection<? extends SCM> definedSCMs = definition != null
-            ? definition.getSCMs()
-            : Collections.emptySet();
+    @Override
+    public Collection<? extends SCM> getSCMs() {
+        Collection<? extends SCM> definedSCMs = definition != null ? definition.getSCMs() : Collections.emptySet();
         WorkflowRun b = getLastSuccessfulBuild();
         if (b == null) {
             b = getLastCompletedBuild();
@@ -546,7 +596,7 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements L
         if (b == null) {
             return definedSCMs;
         }
-        Map<String,SCM> scms = new LinkedHashMap<>();
+        Map<String, SCM> scms = new LinkedHashMap<>();
         for (WorkflowRun.SCMCheckout co : b.checkouts(null)) {
             scms.put(co.scm.getKey(), co.scm);
         }
@@ -569,7 +619,8 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements L
     }
 
     @NonNull
-    @Override public PollingResult poll(@NonNull TaskListener listener) {
+    @Override
+    public PollingResult poll(@NonNull TaskListener listener) {
         if (!isBuildable()) {
             listener.getLogger().println("Build disabled");
             return PollingResult.NO_CHANGES;
@@ -579,7 +630,8 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements L
         WorkflowRun lastBuild = getLastBuild();
         if (lastBuild == null) {
             listener.getLogger().println("no previous build to compare to");
-            // Note that we have no equivalent of AbstractProject.NoSCM because without an initial build we do not know if this project has any SCM at all.
+            // Note that we have no equivalent of AbstractProject.NoSCM because without an initial build
+            // we do not know if this project has any SCM at all.
             return Queue.getInstance().contains(this) ? PollingResult.NO_CHANGES : PollingResult.BUILD_NOW;
         }
         WorkflowRun perhapsCompleteBuild = getLastSuccessfulBuild();
@@ -639,7 +691,9 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements L
                     }
                 }
                 if (r.change.compareTo(result.change) > 0) {
-                    result = r; // note that if we are using >1 checkout, we can clobber baseline/remote here; anyway SCMTrigger only calls hasChanges()
+                    // note that if we are using >1 checkout, we can clobber baseline/remote here;
+                    // anyway SCMTrigger only calls hasChanges()
+                    result = r;
                 }
             } catch (AbortException x) {
                 listener.error("polling failed in " + co.workspace + " on " + co.node + ": " + x.getMessage());
@@ -649,8 +703,18 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements L
         }
         return result;
     }
-    @Extension public static final class SCMListenerImpl extends SCMListener {
-        @Override public void onCheckout(Run<?,?> build, SCM scm, FilePath workspace, TaskListener listener, File changelogFile, SCMRevisionState pollingBaseline) throws Exception {
+
+    @Extension
+    public static final class SCMListenerImpl extends SCMListener {
+        @Override
+        public void onCheckout(
+                Run<?, ?> build,
+                SCM scm,
+                FilePath workspace,
+                TaskListener listener,
+                File changelogFile,
+                SCMRevisionState pollingBaseline)
+                throws Exception {
             if (build instanceof WorkflowRun) {
                 WorkflowJob job = ((WorkflowRun) build).getParent();
                 if (job.pollingBaselines == null) {
@@ -661,29 +725,32 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements L
         }
     }
 
-    @Override protected void performDelete() throws IOException, InterruptedException {
+    @Override
+    protected void performDelete() throws IOException, InterruptedException {
         setDisabled(true);
         Jenkins.get().getQueue().cancel(this);
         // TODO call SCM.processWorkspaceBeforeDeletion
         super.performDelete();
     }
 
-    @Initializer(before=InitMilestone.EXTENSIONS_AUGMENTED)
+    @Initializer(before = InitMilestone.EXTENSIONS_AUGMENTED)
     public static void alias() {
         Items.XSTREAM2.alias("flow-definition", WorkflowJob.class);
         WorkflowRun.alias();
     }
 
-    @Extension(ordinal=2000)
+    @Extension(ordinal = 2000)
     @Symbol("pipeline")
     public static final class DescriptorImpl extends TopLevelItemDescriptor {
 
         @NonNull
-        @Override public String getDisplayName() {
+        @Override
+        public String getDisplayName() {
             return Messages.WorkflowJob_DisplayName();
         }
 
-        @Override public TopLevelItem newInstance(ItemGroup parent, String name) {
+        @Override
+        public TopLevelItem newInstance(ItemGroup parent, String name) {
             return new WorkflowJob(parent, name);
         }
 
@@ -695,7 +762,8 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements L
          * @return A string it represents a ItemCategory identifier.
          */
         @NonNull
-        @Override public String getCategoryId() {
+        @Override
+        public String getCategoryId() {
             return "standalone-projects";
         }
 
@@ -705,7 +773,8 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements L
          * @return A string with the Item description.
          */
         @NonNull
-        @Override public String getDescription() {
+        @Override
+        public String getDescription() {
             return Messages.WorkflowJob_Description();
         }
 
@@ -714,7 +783,8 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements L
          *
          * @return A string it represents a URL pattern to get the Item icon in different sizes.
          */
-        @Override public String getIconFilePathPattern() {
+        @Override
+        public String getIconFilePathPattern() {
             return "plugin/workflow-job/images/pipelinejob.svg";
         }
 
@@ -728,9 +798,5 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements L
         public Collection<FlowDefinitionDescriptor> getDefinitionDescriptors(WorkflowJob context) {
             return DescriptorVisibilityFilter.apply(context, ExtensionList.lookup(FlowDefinitionDescriptor.class));
         }
-
-
-
     }
-
 }

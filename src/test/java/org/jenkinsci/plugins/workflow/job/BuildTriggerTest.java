@@ -45,10 +45,11 @@ import org.jvnet.hudson.test.junit.jupiter.WithJenkins;
 
 @WithJenkins
 class BuildTriggerTest {
-    
+
     @SuppressWarnings("unused")
     @RegisterExtension
     private static final BuildWatcherExtension BUILD_WATCHER = new BuildWatcherExtension();
+
     private JenkinsRule r;
 
     @BeforeEach
@@ -63,7 +64,9 @@ class BuildTriggerTest {
         FreeStyleProject us = r.createProject(FreeStyleProject.class, "us");
         WorkflowJob ds = r.createProject(WorkflowJob.class, "ds");
         ds.setDefinition(new CpsFlowDefinition("", true));
-        assertEquals(Collections.singletonList("ds"), d.doAutoCompleteChildProjects("d", us, r.jenkins).getValues());
+        assertEquals(
+                Collections.singletonList("ds"),
+                d.doAutoCompleteChildProjects("d", us, r.jenkins).getValues());
         FormValidation validation = d.doCheck(us, "ds");
         assertEquals(FormValidation.Kind.OK, validation.kind, validation.renderHtml());
         us.getPublishersList().add(new BuildTrigger("ds", Result.SUCCESS));
@@ -76,5 +79,4 @@ class BuildTriggerTest {
         assertNotNull(cause);
         assertEquals(us1, cause.getUpstreamRun());
     }
-
 }

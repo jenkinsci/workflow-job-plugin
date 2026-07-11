@@ -41,15 +41,18 @@ public final class FlowGraphTableAction implements Action {
         this.run = run;
     }
 
-    @Override public String getIconFileName() {
+    @Override
+    public String getIconFileName() {
         return "symbol-build-steps";
     }
 
-    @Override public String getDisplayName() {
+    @Override
+    public String getDisplayName() {
         return Messages.Pipeline_Steps();
     }
 
-    @Override public String getUrlName() {
+    @Override
+    public String getUrlName() {
         return "flowGraphTable";
     }
 
@@ -59,17 +62,18 @@ public final class FlowGraphTableAction implements Action {
         return t;
     }
 
-    @Extension public static final class Factory extends TransientActionFactory<WorkflowRun> {
+    @Extension
+    public static final class Factory extends TransientActionFactory<WorkflowRun> {
 
-        @Override public Class<WorkflowRun> type() {
+        @Override
+        public Class<WorkflowRun> type() {
             return WorkflowRun.class;
         }
 
         @NonNull
-        @Override public Collection<? extends Action> createFor(@NonNull WorkflowRun run) {
+        @Override
+        public Collection<? extends Action> createFor(@NonNull WorkflowRun run) {
             return Collections.singleton(new FlowGraphTableAction(run));
         }
-
     }
-
 }

@@ -24,10 +24,10 @@
 
 package org.jenkinsci.plugins.workflow.job;
 
-import hudson.model.JobProperty;
-import hudson.security.ACL;
 import edu.umd.cs.findbugs.annotations.CheckForNull;
 import edu.umd.cs.findbugs.annotations.NonNull;
+import hudson.model.JobProperty;
+import hudson.security.ACL;
 
 /**
  * Job property which can specially affect behavior of the project.
@@ -48,5 +48,4 @@ public abstract class WorkflowJobProperty extends JobProperty<WorkflowJob> {
     public @CheckForNull Boolean isBuildable() {
         return null;
     }
-
 }
