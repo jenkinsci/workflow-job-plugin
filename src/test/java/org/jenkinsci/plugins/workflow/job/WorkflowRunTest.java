@@ -139,11 +139,13 @@ class WorkflowRunTest {
     private final LogRecorder logging = new LogRecorder().record(FlowExecutionList.class, Level.FINE);
     private JenkinsRule r;
     private GitSampleRepoRule sampleRepo;
+    private GitSampleRepoRule sampleRepo2;
 
     @BeforeEach
-    void beforeEach(JenkinsRule rule, GitSampleRepoRule repo) {
+    void beforeEach(JenkinsRule rule, GitSampleRepoRule repo, GitSampleRepoRule repo2) {
         r = rule;
         sampleRepo = repo;
+        sampleRepo2 = repo2;
     }
 
     @Test
@@ -651,6 +653,41 @@ class WorkflowRunTest {
         List<SCM> checkouts = b.getSCMs();
         assertEquals(1, checkouts.size());
         assertEquals(GitSCM.class, checkouts.get(0).getClass());
+    }
+
+    @Test
+    void scmEnvVars() throws Exception {
+        sampleRepo.init();
+        sampleRepo.write("f", "content 1");
+        sampleRepo.git("add", "f");
+        sampleRepo.git("commit", "--message=1");
+        var commit1 = sampleRepo.head();
+        sampleRepo2.init();
+        sampleRepo2.write("f", "content 2");
+        sampleRepo2.git("add", "f");
+        sampleRepo2.git("commit", "--message=2");
+        var p = r.jenkins.createProject(WorkflowJob.class, "p");
+        p.setDefinition(new CpsFlowDefinition("""
+            node {
+              dir('repo') {
+                git REPO
+              }
+              dir('repo2') {
+                git REPO2
+              }
+              echo "recorded commit is $GIT_COMMIT"
+            }
+            """, true));
+        p.addProperty(new ParametersDefinitionProperty(
+                new StringParameterDefinition("REPO"), new StringParameterDefinition("REPO2")));
+        var b = p.scheduleBuild2(
+                        0,
+                        new ParametersAction(
+                                new StringParameterValue("REPO", sampleRepo.toString()),
+                                new StringParameterValue("REPO2", sampleRepo2.toString())))
+                .get();
+        r.assertBuildStatusSuccess(b);
+        r.assertLogContains("recorded commit is " + commit1, b);
     }
 
     @Issue("JENKINS-61415")
