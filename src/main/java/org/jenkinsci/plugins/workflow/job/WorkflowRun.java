@@ -672,7 +672,7 @@ public final class WorkflowRun extends Run<WorkflowJob, WorkflowRun>
                     } else { // Execution nulled due to a critical failure, explicitly mark completed
                         completed = Boolean.TRUE;
                     }
-                } else if (execution == null) {
+                } else if (execution == null && !Boolean.TRUE.equals(completed)) {
                     getListener().getLogger().println("Build never fully started; cancelling");
                     completed = true;
                     needsToPersist = true;
