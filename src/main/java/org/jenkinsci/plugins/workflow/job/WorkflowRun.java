@@ -1200,9 +1200,10 @@ public final class WorkflowRun extends Run<WorkflowJob, WorkflowRun>
                         .schedule(
                                 () -> {
                                     synchronized (getMetadataGuard()) {
+                                        FlowExecution currentExecution = execution;
                                         finish(
                                                 ((FlowEndNode) node).getResult(),
-                                                execution != null ? execution.getCauseOfFailure() : null);
+                                                currentExecution != null ? currentExecution.getCauseOfFailure() : null);
                                     }
                                 },
                                 1,
