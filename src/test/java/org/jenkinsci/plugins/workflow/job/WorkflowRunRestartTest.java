@@ -42,10 +42,13 @@ import hudson.model.InvisibleAction;
 import hudson.model.Result;
 import hudson.model.Run;
 import hudson.model.TaskListener;
+import hudson.model.listeners.RunListener;
+import java.io.IOException;
 import java.io.Serial;
 import java.util.Collections;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.Semaphore;
 import java.util.logging.Level;
 import jenkins.model.RunAction2;
 import org.jenkinsci.plugins.workflow.cps.CpsFlowDefinition;
@@ -300,6 +303,40 @@ class WorkflowRunRestartTest {
             WorkflowRun b = p.getLastBuild();
             assertFalse(b.isBuilding(), "Build should be completed");
         });
+    }
+
+    @Test
+    void exitedWhileStarting() throws Throwable {
+        sessions.then(r -> {
+            WorkflowJob p = r.createProject(WorkflowJob.class, "p");
+            p.setDefinition(new CpsFlowDefinition("// never gets here", true));
+            p.scheduleBuild2(0).waitForStart();
+            ExtensionList.lookupSingleton(BlockOnStarted.class).starting.acquire();
+        });
+        sessions.then(r -> {
+            WorkflowJob p = r.jenkins.getItemByFullName("p", WorkflowJob.class);
+            WorkflowRun b = p.getLastBuild();
+            assertFalse(b.isBuilding(), "Build should be completed");
+            r.assertBuildStatus(Result.ABORTED, b);
+            r.assertLogContains("never fully started", b);
+        });
+    }
+
+    @TestExtension("exitedWhileStarting")
+    public static final class BlockOnStarted extends RunListener<WorkflowRun> {
+        final Semaphore starting = new Semaphore(0);
+
+        @Override
+        public void onStarted(WorkflowRun r, TaskListener listener) {
+            try {
+                listener.getLogger().println("Declining to start");
+                r.save();
+                starting.release(1);
+                Thread.sleep(Long.MAX_VALUE);
+            } catch (IOException | InterruptedException x) {
+                assert false : x;
+            }
+        }
     }
 
     private boolean hasTermOrKillLink(JenkinsRule r, WorkflowRun b, String termOrKill) throws Exception {
