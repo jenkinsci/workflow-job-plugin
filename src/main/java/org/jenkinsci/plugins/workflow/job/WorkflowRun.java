@@ -733,20 +733,27 @@ public final class WorkflowRun extends Run<WorkflowJob, WorkflowRun>
                     // -- otherwise getListener would have run
                     LOGGER.log(Level.WARNING, this + " failed to start", t);
                 } else {
-                    if (t instanceof AbortException) {
-                        myListener.error(t.getMessage());
-                    } else if (t instanceof FlowInterruptedException) {
-                        ((FlowInterruptedException) t).handle(this, myListener);
-                    } else if (t != null) {
-                        Functions.printStackTrace(t, myListener.getLogger());
-                    }
-                    RunListener.fireCompleted(WorkflowRun.this, myListener);
-                    fireCompleted();
-                    myListener.finished(getResult());
                     try {
+                        if (t instanceof AbortException) {
+                            myListener.error(t.getMessage());
+                        } else if (t instanceof FlowInterruptedException) {
+                            ((FlowInterruptedException) t).handle(this, myListener);
+                        } else if (t != null) {
+                            Functions.printStackTrace(t, myListener.getLogger());
+                        }
+                        RunListener.fireCompleted(WorkflowRun.this, myListener);
+                        fireCompleted();
+                    } catch (RuntimeException x) {
+                        // FlowExecutionListener.fireCompleted does not isolate listeners.
+                        LOGGER.log(Level.WARNING, "could not finish " + this, x);
+                    }
+                    try {
+                        myListener.finished(getResult());
                         StashManager.maybeClearAll(this, myListener);
                     } catch (IOException | InterruptedException x) {
                         Functions.printStackTrace(x, myListener.error("Failed to clean up stashes"));
+                    } catch (RuntimeException x) {
+                        LOGGER.log(Level.WARNING, "could not write finish footer for " + this, x);
                     }
                     if (myListener instanceof AutoCloseable) {
                         try {
@@ -756,11 +763,9 @@ public final class WorkflowRun extends Run<WorkflowJob, WorkflowRun>
                         }
                     }
                 }
-            } catch (RuntimeException x) {
-                // FlowExecutionListener.fireCompleted does not isolate listeners; a throw here used to skip
-                // listener=null and onEndBuilding, leaving isLogUpdated() true forever.
-                LOGGER.log(Level.WARNING, "could not finish " + this, x);
             } finally {
+                // Must run even if a completion listener throws; otherwise isLogUpdated() stays true
+                // and disableConcurrentBuilds() queues later builds forever.
                 listener = null;
                 saveWithoutFailing(true);
                 onEndBuilding();

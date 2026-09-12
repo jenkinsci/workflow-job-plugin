@@ -911,6 +911,7 @@ class WorkflowRunTest {
         assertNotNull(ex);
         ex.doStop();
         r.assertBuildStatus(Result.ABORTED, r.waitForCompletion(b));
+        r.assertLogContains("Finished: ABORTED", b);
         await().until(b::isLogUpdated, is(false));
         assertNull(listenerOf(b));
         assertFalse(b.isBuilding());
@@ -919,6 +920,7 @@ class WorkflowRunTest {
         p.setDefinition(new CpsFlowDefinition("echo 'unblocked'", true));
         WorkflowRun next = r.buildAndAssertSuccess(p);
         assertEquals(2, next.getNumber());
+        r.assertLogContains("Finished: SUCCESS", next);
         await().until(next::isLogUpdated, is(false));
         assertNull(listenerOf(next));
     }
