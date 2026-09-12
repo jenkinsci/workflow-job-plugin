@@ -65,6 +65,7 @@ import hudson.util.DescribableList;
 import hudson.util.StreamTaskListener;
 import java.io.File;
 import java.io.IOException;
+import java.lang.reflect.Field;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.ArrayList;
@@ -100,6 +101,7 @@ import org.jenkinsci.plugins.workflow.cps.CpsFlowExecution;
 import org.jenkinsci.plugins.workflow.cps.CpsScmFlowDefinition;
 import org.jenkinsci.plugins.workflow.flow.FlowExecution;
 import org.jenkinsci.plugins.workflow.flow.FlowExecutionList;
+import org.jenkinsci.plugins.workflow.flow.FlowExecutionListener;
 import org.jenkinsci.plugins.workflow.graph.FlowGraphWalker;
 import org.jenkinsci.plugins.workflow.graph.FlowNode;
 import org.jenkinsci.plugins.workflow.graph.StepNode;
@@ -876,5 +878,89 @@ class WorkflowRunTest {
                             },
                             empty());
         }
+    }
+
+    /**
+     * Soft {@code /stop} and hard {@code /kill} abort must null {@code WorkflowRun.listener}.
+     * Otherwise {@link WorkflowRun#isLogUpdated()} stays true and
+     * {@link WorkflowJob#getCauseOfBlockage()} parks later builds when concurrent builds are disabled.
+     *
+     * @see <a href="https://github.com/jenkinsci/workflow-job-plugin/issues/760">#760</a>
+     */
+    @Issue("https://github.com/jenkinsci/workflow-job-plugin/issues/760")
+    @Test
+    void abortClearsListenerSoDisableConcurrentBuildsDoesNotQueueForever() throws Exception {
+        assertAbortClearsListenerAndUnblocksQueue("soft-stop", false);
+        assertAbortClearsListenerAndUnblocksQueue("hard-kill", true);
+    }
+
+    /**
+     * {@link FlowExecutionListener#fireCompleted} does not isolate listeners. A throw from
+     * {@code onCompleted} used to skip the path that nulls {@code listener} and calls
+     * {@link Run#onEndBuilding()}, matching the #760 zombie-run field dump.
+     */
+    @Issue("https://github.com/jenkinsci/workflow-job-plugin/issues/760")
+    @Test
+    void completionListenerFailureStillClearsListener() throws Exception {
+        WorkflowJob p = r.jenkins.createProject(WorkflowJob.class, "p");
+        p.setConcurrentBuild(false);
+        p.setDefinition(new CpsFlowDefinition("semaphore 'broken-listener'", true));
+        WorkflowRun b = p.scheduleBuild2(0).waitForStart();
+        SemaphoreStep.waitForStart("broken-listener/1", b);
+        Executor ex = b.getExecutor();
+        assertNotNull(ex);
+        ex.doStop();
+        r.assertBuildStatus(Result.ABORTED, r.waitForCompletion(b));
+        await().until(b::isLogUpdated, is(false));
+        assertNull(listenerOf(b));
+        assertFalse(b.isBuilding());
+        assertTrue(b.completed);
+        assertNull(p.getCauseOfBlockage());
+        p.setDefinition(new CpsFlowDefinition("echo 'unblocked'", true));
+        WorkflowRun next = r.buildAndAssertSuccess(p);
+        assertEquals(2, next.getNumber());
+        await().until(next::isLogUpdated, is(false));
+        assertNull(listenerOf(next));
+    }
+
+    @TestExtension("completionListenerFailureStillClearsListener")
+    public static final class ThrowingOnCompleted extends FlowExecutionListener {
+        @Override
+        public void onCompleted(@NonNull FlowExecution execution) {
+            throw new IllegalStateException("intentional onCompleted failure");
+        }
+    }
+
+    private void assertAbortClearsListenerAndUnblocksQueue(String name, boolean hardKill) throws Exception {
+        WorkflowJob p = r.jenkins.createProject(WorkflowJob.class, name);
+        p.setConcurrentBuild(false);
+        p.setDefinition(new CpsFlowDefinition("semaphore '" + name + "'", true));
+        WorkflowRun b = p.scheduleBuild2(0).waitForStart();
+        SemaphoreStep.waitForStart(name + "/1", b);
+        if (hardKill) {
+            b.doKill();
+            r.waitForMessage("Hard kill!", b);
+        } else {
+            Executor ex = b.getExecutor();
+            assertNotNull(ex);
+            ex.doStop();
+        }
+        r.assertBuildStatus(Result.ABORTED, r.waitForCompletion(b));
+        await().until(b::isLogUpdated, is(false));
+        assertNull(listenerOf(b));
+        assertFalse(b.isBuilding());
+        assertTrue(b.completed);
+        assertNull(p.getCauseOfBlockage());
+        p.setDefinition(new CpsFlowDefinition("echo 'unblocked'", true));
+        WorkflowRun next = r.buildAndAssertSuccess(p);
+        assertEquals(2, next.getNumber());
+        await().until(next::isLogUpdated, is(false));
+        assertNull(listenerOf(next));
+    }
+
+    private static BuildListener listenerOf(WorkflowRun b) throws Exception {
+        Field listener = WorkflowRun.class.getDeclaredField("listener");
+        listener.setAccessible(true);
+        return (BuildListener) listener.get(b);
     }
 }
