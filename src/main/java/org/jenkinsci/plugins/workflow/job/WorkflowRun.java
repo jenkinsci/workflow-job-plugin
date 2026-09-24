@@ -620,11 +620,11 @@ public final class WorkflowRun extends Run<WorkflowJob, WorkflowRun>
 
     @Override
     protected void onLoad() {
-        if (getTimeInMillis() == 0L) {
-            throw new IllegalStateException("Possibly corrupt " + new File(getRootDir(), "build.xml"));
-        }
         super.onLoad();
         try {
+            if (getTimeInMillis() == 0L) {
+                throw new IllegalStateException("Possibly corrupt " + new File(getRootDir(), "build.xml"));
+            }
             synchronized (getMetadataGuard()) {
                 loaded = true;
                 if (executionLoaded) {
@@ -693,7 +693,6 @@ public final class WorkflowRun extends Run<WorkflowJob, WorkflowRun>
                 }
             }
         } finally { // Ensure the run is ALWAYS removed from loading even if something failed, so threads awaken.
-            checkouts(null); // only for diagnostics
             LOGGER.fine(() -> "Removing " + getExternalizableId() + " from LOADING_RUNS");
             synchronized (LOADING_RUNS) {
                 // or could just make the value type be WeakReference<WorkflowRun>
