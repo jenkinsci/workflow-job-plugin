@@ -575,11 +575,11 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
     }
 
     @Override protected void onLoad() {
-        super.onLoad();
         try {
             if (getTimeInMillis() == 0L) {
                 throw new IllegalStateException("Possibly corrupt " + new File(getRootDir(), "build.xml"));
             }
+            super.onLoad();
             synchronized (getMetadataGuard()) {
                 loaded = true;
                 if (executionLoaded) {
