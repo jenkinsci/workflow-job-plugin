@@ -29,7 +29,9 @@ import static org.hamcrest.Matchers.greaterThan;
 import static org.hamcrest.Matchers.notNullValue;
 import static org.junit.jupiter.api.Assertions.fail;
 
+import hudson.diagnosis.OldDataMonitor;
 import java.nio.file.Files;
+import java.util.logging.Level;
 import org.jenkinsci.plugins.workflow.cps.CpsFlowDefinition;
 import org.jenkinsci.plugins.workflow.job.workflowRunOnLoadTest.WeirdAction;
 import org.junit.jupiter.api.Test;
@@ -44,7 +46,8 @@ final class WorkflowRunOnLoadTest {
     @RegisterExtension
     private final RealJenkinsExtension rj = new RealJenkinsExtension()
             .addSyntheticPlugin(
-                    new RealJenkinsExtension.SyntheticPlugin(WeirdAction.class).shortName("WorkflowRunOnLoadTest"));
+                    new RealJenkinsExtension.SyntheticPlugin(WeirdAction.class).shortName("WorkflowRunOnLoadTest"))
+            .withLogger(OldDataMonitor.class, Level.FINE);
 
     @Test
     void brokenDeser() throws Throwable {
