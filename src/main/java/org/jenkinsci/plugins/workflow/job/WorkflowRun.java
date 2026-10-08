@@ -729,37 +729,49 @@ public final class WorkflowRun extends Run<WorkflowJob, WorkflowRun>
             }
             duration = Math.max(0, System.currentTimeMillis() - getStartTimeInMillis());
             LOGGER.log(Level.FINE, "{0} completed: {1}", new Object[] {toString(), getResult()});
-            if (myListener == null) {
-                // Never even made it to running, either failed when fresh-started or resumed
-                // -- otherwise getListener would have run
-                LOGGER.log(Level.WARNING, this + " failed to start", t);
-            } else {
-                if (t instanceof AbortException) {
-                    myListener.error(t.getMessage());
-                } else if (t instanceof FlowInterruptedException) {
-                    ((FlowInterruptedException) t).handle(this, myListener);
-                } else if (t != null) {
-                    Functions.printStackTrace(t, myListener.getLogger());
-                }
-                RunListener.fireCompleted(WorkflowRun.this, myListener);
-                fireCompleted();
-                myListener.finished(getResult());
-                try {
-                    StashManager.maybeClearAll(this, myListener);
-                } catch (IOException | InterruptedException x) {
-                    Functions.printStackTrace(x, myListener.error("Failed to clean up stashes"));
-                }
-                if (myListener instanceof AutoCloseable) {
+            try {
+                if (myListener == null) {
+                    // Never even made it to running, either failed when fresh-started or resumed
+                    // -- otherwise getListener would have run
+                    LOGGER.log(Level.WARNING, this + " failed to start", t);
+                } else {
                     try {
-                        ((AutoCloseable) myListener).close();
-                    } catch (Exception x) {
-                        LOGGER.log(Level.WARNING, "could not close build log for " + this, x);
+                        if (t instanceof AbortException) {
+                            myListener.error(t.getMessage());
+                        } else if (t instanceof FlowInterruptedException) {
+                            ((FlowInterruptedException) t).handle(this, myListener);
+                        } else if (t != null) {
+                            Functions.printStackTrace(t, myListener.getLogger());
+                        }
+                        RunListener.fireCompleted(WorkflowRun.this, myListener);
+                        fireCompleted();
+                    } catch (RuntimeException x) {
+                        // FlowExecutionListener.fireCompleted does not isolate listeners.
+                        LOGGER.log(Level.WARNING, "could not finish " + this, x);
+                    }
+                    try {
+                        myListener.finished(getResult());
+                        StashManager.maybeClearAll(this, myListener);
+                    } catch (IOException | InterruptedException x) {
+                        Functions.printStackTrace(x, myListener.error("Failed to clean up stashes"));
+                    } catch (RuntimeException x) {
+                        LOGGER.log(Level.WARNING, "could not write finish footer for " + this, x);
+                    }
+                    if (myListener instanceof AutoCloseable) {
+                        try {
+                            ((AutoCloseable) myListener).close();
+                        } catch (Exception x) {
+                            LOGGER.log(Level.WARNING, "could not close build log for " + this, x);
+                        }
                     }
                 }
+            } finally {
+                // Must run even if a completion listener throws; otherwise isLogUpdated() stays true
+                // and disableConcurrentBuilds() queues later builds forever.
                 listener = null;
+                saveWithoutFailing(true);
+                onEndBuilding();
             }
-            saveWithoutFailing(true);
-            onEndBuilding();
         } finally { // Ensure this is ALWAYS removed from FlowExecutionList
             FlowExecutionList.get().unregister(new Owner(this));
             completeAsynchronousExecution();
