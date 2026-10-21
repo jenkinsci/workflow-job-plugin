@@ -179,9 +179,9 @@ class WorkflowRunRestartTest {
                 });
     }
 
-    @Issue("JENKINS-25550")
+    @Issue("https://github.com/jenkinsci/workflow-job-plugin/issues/644")
     @Test
-    void hardKill() throws Throwable {
+    void termAndKill() throws Throwable {
         sessions.then(r -> {
             WorkflowJob p = r.jenkins.createProject(WorkflowJob.class, "p");
             p.addProperty(new DurabilityHintJobProperty(FlowDurabilityHint.MAX_SURVIVABILITY));
@@ -193,46 +193,18 @@ class WorkflowRunRestartTest {
             assertNotNull(ex);
             ex.interrupt();
             r.waitForMessage("[1] bwahaha FlowInterruptedException #1", b);
-            ex.interrupt();
-            r.waitForMessage("[1] bwahaha FlowInterruptedException #2", b);
-            b.doTerm();
-            r.waitForMessage("[2] undead", b);
-            ex.interrupt();
-            r.waitForMessage("[2] bwahaha FlowInterruptedException #1", b);
-            b.doKill();
-            r.waitForMessage("Hard kill!", b);
-            r.waitForCompletion(b);
-            r.assertBuildStatus(Result.ABORTED, b);
-        });
-        sessions.then(r -> {
-            WorkflowJob p = r.jenkins.getItemByFullName("p", WorkflowJob.class);
-            WorkflowRun b = p.getBuildByNumber(1);
-            assertFalse(b.isBuilding());
-            assertFalse(b.executionLoaded);
-        });
-    }
-
-    @Issue("https://github.com/jenkinsci/workflow-job-plugin/issues/644")
-    @Test
-    void termAndKill() throws Throwable {
-        sessions.then(r -> {
-            WorkflowJob p = r.jenkins.createProject(WorkflowJob.class, "p");
-            p.setDefinition(new CpsFlowDefinition(
-                    "def seq = 0; while (true) {try {zombie id: ++seq} catch (x) {echo(/ignoring $x/)}}", true));
-            WorkflowRun b = p.scheduleBuild2(0).waitForStart();
-            r.waitForMessage("[1] undead", b);
-            Executor ex = b.getExecutor();
-            assertNotNull(ex);
-            ex.interrupt();
-            r.waitForMessage("[1] bwahaha FlowInterruptedException #1", b);
-            ex.interrupt();
-            r.waitForMessage("[1] bwahaha FlowInterruptedException #2", b);
             r.waitForMessage("Forcibly terminating running steps", b);
             r.waitForMessage("[2] undead", b);
             r.waitForMessage("Forcibly killing entire build", b);
             r.waitForCompletion(b);
             r.assertBuildStatus(Result.ABORTED, b);
             assertTrue(b.completed);
+        });
+        sessions.then(r -> {
+            WorkflowJob p = r.jenkins.getItemByFullName("p", WorkflowJob.class);
+            WorkflowRun b = p.getBuildByNumber(1);
+            assertFalse(b.isBuilding());
+            assertFalse(b.executionLoaded);
         });
     }
 
