@@ -66,8 +66,15 @@ final class TerminationGracePeriodTest {
         sessions.then(r -> {
             WorkflowJob p = r.jenkins.createProject(WorkflowJob.class, "p");
             p.addProperty(new DurabilityHintJobProperty(FlowDurabilityHint.MAX_SURVIVABILITY));
-            p.setDefinition(new CpsFlowDefinition(
-                    "def seq = 0; while (true) {try {zombie id: ++seq} catch (x) {echo(/ignoring $x/)}}", true));
+            p.setDefinition(new CpsFlowDefinition("""
+                def seq = 0
+                while (true) {
+                  try {
+                    zombie id: ++seq
+                  } catch (x) {
+                    echo "ignoring $x"
+                  }
+                }""", true));
             WorkflowRun b = p.scheduleBuild2(0).waitForStart();
             r.waitForMessage("[1] undead", b);
             b.doStop();
