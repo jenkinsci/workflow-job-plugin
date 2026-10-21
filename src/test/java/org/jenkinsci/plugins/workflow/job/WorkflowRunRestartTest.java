@@ -37,7 +37,6 @@ import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import edu.umd.cs.findbugs.annotations.NonNull;
 import hudson.ExtensionList;
-import hudson.model.Executor;
 import hudson.model.InvisibleAction;
 import hudson.model.Result;
 import hudson.model.Run;
@@ -189,9 +188,7 @@ class WorkflowRunRestartTest {
                     "def seq = 0; while (true) {try {zombie id: ++seq} catch (x) {echo(/ignoring $x/)}}", true));
             WorkflowRun b = p.scheduleBuild2(0).waitForStart();
             r.waitForMessage("[1] undead", b);
-            Executor ex = b.getExecutor();
-            assertNotNull(ex);
-            ex.interrupt();
+            b.doStop();
             r.waitForMessage("[1] bwahaha FlowInterruptedException #1", b);
             r.waitForMessage("Forcibly terminating running steps", b);
             r.waitForMessage("[2] undead", b);
