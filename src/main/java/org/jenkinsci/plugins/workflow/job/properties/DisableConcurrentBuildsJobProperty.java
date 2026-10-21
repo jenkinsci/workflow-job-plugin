@@ -31,6 +31,8 @@ import hudson.model.Result;
 import hudson.model.Run;
 import hudson.model.TaskListener;
 import hudson.model.listeners.RunListener;
+import java.time.Duration;
+import java.time.Instant;
 import jenkins.model.CauseOfInterruption;
 import jenkins.model.OptionalJobProperty;
 import org.jenkinsci.Symbol;
@@ -120,6 +122,33 @@ public class DisableConcurrentBuildsJobProperty extends OptionalJobProperty<Work
                     var e = prev.getExecutor();
                     if (e != null) {
                         e.interrupt(Result.NOT_BUILT, new DisableConcurrentBuildsJobProperty.CancelledCause(r));
+                        var waitLimit = WorkflowRun.termGracePeriod()
+                                .plus(WorkflowRun.killGracePeriod())
+                                .plus(Duration.ofSeconds(10));
+                        var deadline = Instant.now().plus(waitLimit);
+                        var notifyAt = Instant.now().plusSeconds(10);
+                        var notified = false;
+                        while (prev.isLogUpdated()) {
+                            var now = Instant.now();
+                            if (now.isAfter(deadline)) {
+                                listener.getLogger()
+                                        .printf(
+                                                "Previous build %s did not complete within %ds; proceeding anyway%n",
+                                                prev.getDisplayName(), waitLimit.toSeconds());
+                                break;
+                            }
+                            if (!notified && now.isAfter(notifyAt)) {
+                                notified = true;
+                                listener.getLogger()
+                                        .printf("Waiting for previous build %s to complete…%n", prev.getDisplayName());
+                            }
+                            try {
+                                Thread.sleep(100);
+                            } catch (InterruptedException x) {
+                                Thread.currentThread().interrupt();
+                                break;
+                            }
+                        }
                     }
                 }
                 // Not bothering to look for other older builds in progress, since once we turn this on,

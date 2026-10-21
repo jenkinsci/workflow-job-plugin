@@ -410,12 +410,7 @@ public final class WorkflowRun extends Run<WorkflowJob, WorkflowRun>
                     executor.recordCauseOfInterruption(WorkflowRun.this, getListener());
                     Timer.get()
                             .schedule(
-                                    WorkflowRun.this::doTerm,
-                                    SystemProperties.getDuration(
-                                                    WorkflowRun.class.getName() + ".termGracePeriod",
-                                                    Duration.ofSeconds(Main.isUnitTest ? 3 : 15))
-                                            .toMillis(),
-                                    TimeUnit.MILLISECONDS);
+                                    WorkflowRun.this::doTerm, termGracePeriod().toMillis(), TimeUnit.MILLISECONDS);
                 });
             }
 
@@ -430,6 +425,18 @@ public final class WorkflowRun extends Run<WorkflowJob, WorkflowRun>
                 return blocksRestart();
             }
         };
+    }
+
+    @Restricted(NoExternalUse.class)
+    public static Duration termGracePeriod() {
+        return SystemProperties.getDuration(
+                WorkflowRun.class.getName() + ".termGracePeriod", Duration.ofSeconds(Main.isUnitTest ? 3 : 15));
+    }
+
+    @Restricted(NoExternalUse.class)
+    public static Duration killGracePeriod() {
+        return SystemProperties.getDuration(
+                WorkflowRun.class.getName() + ".killGracePeriod", Duration.ofSeconds(Main.isUnitTest ? 3 : 15));
     }
 
     /** Sends {@link StepContext#onFailure} to all running (leaf) steps. */
@@ -484,14 +491,7 @@ public final class WorkflowRun extends Run<WorkflowJob, WorkflowRun>
                     @Override
                     public void onFailure(@NonNull Throwable t) {}
                 });
-        Timer.get()
-                .schedule(
-                        WorkflowRun.this::doKill,
-                        SystemProperties.getDuration(
-                                        WorkflowRun.class.getName() + ".killGracePeriod",
-                                        Duration.ofSeconds(Main.isUnitTest ? 3 : 15))
-                                .toMillis(),
-                        TimeUnit.MILLISECONDS);
+        Timer.get().schedule(WorkflowRun.this::doKill, killGracePeriod().toMillis(), TimeUnit.MILLISECONDS);
     }
 
     /** Immediately kills the build. */

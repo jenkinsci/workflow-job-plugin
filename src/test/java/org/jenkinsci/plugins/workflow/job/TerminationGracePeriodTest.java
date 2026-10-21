@@ -35,6 +35,7 @@ import java.util.Collections;
 import java.util.Set;
 import org.jenkinsci.plugins.workflow.cps.CpsFlowDefinition;
 import org.jenkinsci.plugins.workflow.flow.FlowDurabilityHint;
+import org.jenkinsci.plugins.workflow.job.properties.DisableConcurrentBuildsJobProperty;
 import org.jenkinsci.plugins.workflow.job.properties.DurabilityHintJobProperty;
 import org.jenkinsci.plugins.workflow.steps.Step;
 import org.jenkinsci.plugins.workflow.steps.StepContext;
@@ -91,6 +92,37 @@ final class TerminationGracePeriodTest {
             WorkflowRun b = p.getBuildByNumber(1);
             assertFalse(b.isBuilding());
             assertFalse(b.executionLoaded);
+        });
+    }
+
+    @Test
+    void abortPreviousWaits() throws Throwable {
+        sessions.then(r -> {
+            WorkflowJob p = r.jenkins.createProject(WorkflowJob.class, "p");
+            p.addProperty(new DurabilityHintJobProperty(FlowDurabilityHint.MAX_SURVIVABILITY));
+            var dcb = new DisableConcurrentBuildsJobProperty();
+            dcb.setAbortPrevious(true);
+            p.addProperty(dcb);
+            p.setDefinition(new CpsFlowDefinition("""
+                    if (env.BUILD_NUMBER == '1') {
+                      echo 'build 1 waiting'
+                      try {
+                        sleep 999
+                      } catch (x) {
+                        echo "caught ${x.class.simpleName}"
+                        sleep 10
+                      }
+                    }
+                    echo "build ${env.BUILD_NUMBER} done"
+                    """, true));
+            WorkflowRun b1 = p.scheduleBuild2(0).waitForStart();
+            r.waitForMessage("build 1 waiting", b1);
+            WorkflowRun b2 = p.scheduleBuild2(0).waitForStart();
+            r.waitForCompletion(b2);
+            r.assertBuildStatus(Result.ABORTED, b1);
+            r.assertBuildStatusSuccess(b2);
+            r.assertLogContains("caught FlowInterruptedException", b1);
+            r.assertLogContains("build 2 done", b2);
         });
     }
 
