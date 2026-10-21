@@ -422,7 +422,14 @@ public final class WorkflowRun extends Run<WorkflowJob, WorkflowRun>
                         LOGGER.log(Level.WARNING, null, x);
                     }
                     executor.recordCauseOfInterruption(WorkflowRun.this, getListener());
-                    Timer.get().schedule(WorkflowRun.this::doTerm, 15, TimeUnit.SECONDS);
+                    Timer.get()
+                            .schedule(
+                                    WorkflowRun.this::doTerm,
+                                    SystemProperties.getDuration(
+                                                    WorkflowRun.class.getName() + ".termGracePeriod",
+                                                    Duration.ofSeconds(Main.isUnitTest ? 3 : 15))
+                                            .toMillis(),
+                                    TimeUnit.MILLISECONDS);
                 });
             }
 
@@ -491,7 +498,14 @@ public final class WorkflowRun extends Run<WorkflowJob, WorkflowRun>
                     @Override
                     public void onFailure(@NonNull Throwable t) {}
                 });
-        Timer.get().schedule(this::doKill, 15, TimeUnit.SECONDS);
+        Timer.get()
+                .schedule(
+                        WorkflowRun.this::doKill,
+                        SystemProperties.getDuration(
+                                        WorkflowRun.class.getName() + ".killGracePeriod",
+                                        Duration.ofSeconds(Main.isUnitTest ? 3 : 15))
+                                .toMillis(),
+                        TimeUnit.MILLISECONDS);
     }
 
     /** Immediately kills the build. */
