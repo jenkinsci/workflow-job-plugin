@@ -117,7 +117,6 @@ import org.jenkinsci.plugins.workflow.graph.FlowEndNode;
 import org.jenkinsci.plugins.workflow.graph.FlowNode;
 import org.jenkinsci.plugins.workflow.graphanalysis.DepthFirstScanner;
 import org.jenkinsci.plugins.workflow.job.console.NewNodeConsoleNote;
-import org.jenkinsci.plugins.workflow.job.properties.DisableConcurrentBuildsJobProperty;
 import org.jenkinsci.plugins.workflow.log.LogStorage;
 import org.jenkinsci.plugins.workflow.log.TaskListenerDecorator;
 import org.jenkinsci.plugins.workflow.steps.FlowInterruptedException;
@@ -354,19 +353,6 @@ public final class WorkflowRun extends Run<WorkflowJob, WorkflowRun>
             FlowExecutionListener.fireCreated(newExecution);
             newExecution.start(); // We should probably have the promise set before beginning, no?
             FlowExecutionListener.fireRunning(newExecution);
-
-            DisableConcurrentBuildsJobProperty dcb = getParent().getProperty(DisableConcurrentBuildsJobProperty.class);
-            if (dcb != null && dcb.isAbortPrevious()) {
-                WorkflowRun prev = getPreviousBuild();
-                if (prev != null && prev.isBuilding()) {
-                    Executor e = prev.getExecutor();
-                    if (e != null) {
-                        e.interrupt(Result.NOT_BUILT, new DisableConcurrentBuildsJobProperty.CancelledCause(this));
-                    }
-                }
-                // Not bothering to look for other older builds in progress, since once we turn this on,
-                // going forward there should be at most one.
-            }
         } catch (Throwable x) {
             execution = null; // ensures isInProgress returns false
             executionLoaded = true;

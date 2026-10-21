@@ -27,12 +27,15 @@ import edu.umd.cs.findbugs.annotations.NonNull;
 import edu.umd.cs.findbugs.annotations.Nullable;
 import hudson.Extension;
 import hudson.console.ModelHyperlinkNote;
+import hudson.model.Result;
 import hudson.model.Run;
 import hudson.model.TaskListener;
+import hudson.model.listeners.RunListener;
 import jenkins.model.CauseOfInterruption;
 import jenkins.model.OptionalJobProperty;
 import org.jenkinsci.Symbol;
 import org.jenkinsci.plugins.workflow.job.WorkflowJob;
+import org.jenkinsci.plugins.workflow.job.WorkflowRun;
 import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.DataBoundSetter;
 import org.kohsuke.stapler.export.Exported;
@@ -102,6 +105,25 @@ public class DisableConcurrentBuildsJobProperty extends OptionalJobProperty<Work
                 listener.getLogger().println("Superseded by " + ModelHyperlinkNote.encodeTo(b));
             } else {
                 super.print(listener);
+            }
+        }
+    }
+
+    @Extension
+    public static final class Listener extends RunListener<WorkflowRun> {
+        @Override
+        public void onStarted(WorkflowRun r, TaskListener listener) {
+            var dcb = r.getParent().getProperty(DisableConcurrentBuildsJobProperty.class);
+            if (dcb != null && dcb.isAbortPrevious()) {
+                var prev = r.getPreviousBuild();
+                if (prev != null && prev.isBuilding()) {
+                    var e = prev.getExecutor();
+                    if (e != null) {
+                        e.interrupt(Result.NOT_BUILT, new DisableConcurrentBuildsJobProperty.CancelledCause(r));
+                    }
+                }
+                // Not bothering to look for other older builds in progress, since once we turn this on,
+                // going forward there should be at most one.
             }
         }
     }
