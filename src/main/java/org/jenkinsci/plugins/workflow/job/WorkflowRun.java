@@ -64,6 +64,7 @@ import hudson.util.Iterators;
 import hudson.util.LogTaskListener;
 import hudson.util.NullStream;
 import hudson.util.PersistedList;
+import jakarta.servlet.http.HttpServletResponse;
 import java.io.BufferedReader;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -82,7 +83,6 @@ import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.Future;
@@ -95,6 +95,7 @@ import jenkins.model.lazy.BuildReference;
 import jenkins.model.lazy.LazyBuildMixIn;
 import jenkins.model.queue.AsynchronousExecution;
 import jenkins.scm.RunWithSCM;
+import jenkins.security.stapler.StaplerNotDispatchable;
 import jenkins.util.SystemProperties;
 import jenkins.util.Timer;
 import org.jenkinsci.plugins.workflow.FilePathUtils;
@@ -125,14 +126,13 @@ import org.jenkinsci.plugins.workflow.steps.StepExecution;
 import org.jenkinsci.plugins.workflow.support.PipelineIOUtils;
 import org.jenkinsci.plugins.workflow.support.concurrent.Futures;
 import org.jenkinsci.plugins.workflow.support.concurrent.WithThreadName;
-import org.jenkinsci.plugins.workflow.support.steps.input.POSTHyperlinkNote;
 import org.kohsuke.accmod.Restricted;
 import org.kohsuke.accmod.restrictions.DoNotUse;
+import org.kohsuke.accmod.restrictions.NoExternalUse;
 import org.kohsuke.stapler.HttpResponse;
 import org.kohsuke.stapler.HttpResponses;
 import org.kohsuke.stapler.StaplerRequest2;
 import org.kohsuke.stapler.StaplerResponse2;
-import org.kohsuke.stapler.WebMethod;
 import org.kohsuke.stapler.export.Exported;
 import org.kohsuke.stapler.interceptor.RequirePOST;
 import org.springframework.security.core.Authentication;
@@ -144,15 +144,6 @@ public final class WorkflowRun extends Run<WorkflowJob, WorkflowRun>
                 RunWithSCM<WorkflowJob, WorkflowRun> {
 
     private static final Logger LOGGER = Logger.getLogger(WorkflowRun.class.getName());
-
-    private enum StopState {
-        TERM,
-        KILL;
-
-        public String url() {
-            return this.name().toLowerCase(Locale.ENGLISH);
-        }
-    }
 
     /** Null until started, or after serious failures or hard kill. */
     @CheckForNull
@@ -172,10 +163,6 @@ public final class WorkflowRun extends Run<WorkflowJob, WorkflowRun>
                 }
             };
     private transient volatile BuildListener listener;
-
-    private transient boolean allowTerm;
-
-    private transient boolean allowKill;
 
     /** Controls whether or not our execution has been initialized via its {@link FlowExecution#onLoad(FlowExecutionOwner)} method yet.*/
     transient volatile boolean executionLoaded = false; // NonPrivate for tests
@@ -435,7 +422,7 @@ public final class WorkflowRun extends Run<WorkflowJob, WorkflowRun>
                         LOGGER.log(Level.WARNING, null, x);
                     }
                     executor.recordCauseOfInterruption(WorkflowRun.this, getListener());
-                    printLater(StopState.TERM, "Click here to forcibly terminate running steps");
+                    Timer.get().schedule(WorkflowRun.this::doTerm, 15, TimeUnit.SECONDS);
                 });
             }
 
@@ -452,35 +439,15 @@ public final class WorkflowRun extends Run<WorkflowJob, WorkflowRun>
         };
     }
 
-    private void printLater(final StopState state, final String message) {
-        Timer.get()
-                .schedule(
-                        () -> {
-                            if (!isInProgress()) {
-                                return;
-                            }
-                            switch (state) {
-                                case TERM:
-                                    allowTerm = true;
-                                    break;
-                                case KILL:
-                                    allowKill = true;
-                                    break;
-                            }
-                            getListener()
-                                    .getLogger()
-                                    .println(POSTHyperlinkNote.encodeTo("/" + getUrl() + state.url(), message));
-                        },
-                        15,
-                        TimeUnit.SECONDS);
-    }
-
     /** Sends {@link StepContext#onFailure} to all running (leaf) steps. */
+    @Restricted(NoExternalUse.class) // for internal use and tests only
+    @StaplerNotDispatchable // name is historic
     public void doTerm() {
         checkPermission(Item.CANCEL);
         if (!isInProgress() || /* redundant, but make FindBugs happy */ execution == null) {
             return;
         }
+        getListener().getLogger().println("Forcibly terminating running steps");
         final Throwable x = new FlowInterruptedException(Result.ABORTED);
         FlowExecution exec = getExecution();
         if (exec == null) { // Already dead, just make sure statuses reflect that.
@@ -524,26 +491,19 @@ public final class WorkflowRun extends Run<WorkflowJob, WorkflowRun>
                     @Override
                     public void onFailure(@NonNull Throwable t) {}
                 });
-        printLater(StopState.KILL, "Click here to forcibly kill entire build");
-    }
-
-    /** Sends {@link StepContext#onFailure} to all running (leaf) steps. */
-    @RequirePOST
-    @WebMethod(name = "term")
-    @Restricted(DoNotUse.class) // for Stapler routing only
-    public HttpResponse httpTerm() {
-        doTerm();
-        return HttpResponses.forwardToPreviousPage();
+        Timer.get().schedule(this::doKill, 15, TimeUnit.SECONDS);
     }
 
     /** Immediately kills the build. */
+    @Restricted(NoExternalUse.class) // for internal use and tests only
+    @StaplerNotDispatchable // name is historic
     public void doKill() {
         checkPermission(Item.CANCEL);
         if (!isBuilding() || /* probably redundant, but just to be sure */ execution == null) {
             return;
         }
         synchronized (getMetadataGuard()) {
-            getListener().getLogger().println("Hard kill!");
+            getListener().getLogger().println("Forcibly killing entire build");
         }
         synchronized (this) {
             execution = null; // ensures isInProgress returns false
@@ -554,15 +514,6 @@ public final class WorkflowRun extends Run<WorkflowJob, WorkflowRun>
         getSettableExecutionPromise().setException(suddenDeath);
         // TODO CpsFlowExecution.onProgramEnd does some cleanup which we cannot access here;
         // perhaps need a FlowExecution.halt(Throwable) API?
-    }
-
-    /** Immediately kills the build. */
-    @RequirePOST
-    @WebMethod(name = "kill")
-    @Restricted(DoNotUse.class) // for Stapler routing only
-    public HttpResponse httpKill() {
-        doKill();
-        return HttpResponses.forwardToPreviousPage();
     }
 
     @NonNull
@@ -579,16 +530,6 @@ public final class WorkflowRun extends Run<WorkflowJob, WorkflowRun>
 
         EnvVars.resolve(env);
         return env;
-    }
-
-    @Restricted(DoNotUse.class) // Jelly
-    public boolean hasAllowTerm() {
-        return isBuilding() && allowTerm;
-    }
-
-    @Restricted(DoNotUse.class) // Jelly
-    public boolean hasAllowKill() {
-        return isBuilding() && allowKill;
     }
 
     private static final Map<String, WorkflowRun> LOADING_RUNS = new HashMap<>();
@@ -1003,7 +944,8 @@ public final class WorkflowRun extends Run<WorkflowJob, WorkflowRun>
         if (e != null) {
             return e.doStop();
         } else {
-            return httpKill();
+            doKill();
+            return HttpResponses.status(HttpServletResponse.SC_ACCEPTED);
         }
     }
 

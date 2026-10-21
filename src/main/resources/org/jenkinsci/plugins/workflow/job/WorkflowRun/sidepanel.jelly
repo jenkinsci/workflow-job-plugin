@@ -32,26 +32,6 @@
 
             <j:choose>
                 <j:when test="${newBuildPage}">
-                    <j:if test="${it.hasAllowTerm()}">
-                        <l:task icon="symbol-close-outline plugin-ionicons-api"
-                                href="${buildUrl.baseUrl}/term"
-                                title="${%Abort Running Steps}"
-                                contextMenu="false"
-                                post="true"
-                                permission="${it.CANCEL}"
-                                requiresConfirmation="true"
-                                confirmationMessage="${%Really forcibly abort running steps?}"/>
-                    </j:if>
-                    <j:if test="${it.hasAllowKill()}">
-                        <l:task icon="symbol-close-outline plugin-ionicons-api"
-                                href="${buildUrl.baseUrl}/kill"
-                                title="${%Force Abort of Entire Build}"
-                                contextMenu="false"
-                                post="true"
-                                permission="${it.CANCEL}"
-                                requiresConfirmation="true"
-                                confirmationMessage="${%Really forcibly abort entire build?}"/>
-                    </j:if>
                     <st:include page="actions.jelly"/>
                     <t:actions actions="${it.transientActions}"/>
                     <st:include page="delete.jelly"/>
@@ -62,26 +42,6 @@
                     <l:task href="${h.getConsoleUrl(it)}" icon="symbol-terminal-outline plugin-ionicons-api" title="${%Console Output}"/>
 
                     <st:include page="delete.jelly"/>
-                    <j:if test="${it.hasAllowTerm()}">
-                        <l:task icon="symbol-close-outline plugin-ionicons-api"
-                                href="${buildUrl.baseUrl}/term"
-                                title="${%Abort Running Steps}"
-                                contextMenu="false"
-                                post="true"
-                                permission="${it.CANCEL}"
-                                requiresConfirmation="true"
-                                confirmationMessage="${%Really forcibly abort running steps?}"/>
-                    </j:if>
-                    <j:if test="${it.hasAllowKill()}">
-                        <l:task icon="symbol-close-outline plugin-ionicons-api"
-                                href="${buildUrl.baseUrl}/kill"
-                                title="${%Force Abort of Entire Build}"
-                                contextMenu="false"
-                                post="true"
-                                permission="${it.CANCEL}"
-                                requiresConfirmation="true"
-                                confirmationMessage="${%Really forcibly abort entire build?}"/>
-                    </j:if>
                     <st:include page="actions.jelly"/>
                     <t:actions actions="${it.transientActions}"/>
                     <j:if test="${it.previousBuild!=null}">

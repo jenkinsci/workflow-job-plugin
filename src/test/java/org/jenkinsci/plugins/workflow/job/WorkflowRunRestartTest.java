@@ -69,7 +69,6 @@ import org.jenkinsci.plugins.workflow.test.steps.SemaphoreStep;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.jvnet.hudson.test.Issue;
-import org.jvnet.hudson.test.JenkinsRule;
 import org.jvnet.hudson.test.LogRecorder;
 import org.jvnet.hudson.test.TestExtension;
 import org.jvnet.hudson.test.junit.jupiter.BuildWatcherExtension;
@@ -213,9 +212,9 @@ class WorkflowRunRestartTest {
         });
     }
 
-    @Issue("JENKINS-33721")
+    @Issue("https://github.com/jenkinsci/workflow-job-plugin/issues/644")
     @Test
-    void termAndKillInSidePanel() throws Throwable {
+    void termAndKill() throws Throwable {
         sessions.then(r -> {
             WorkflowJob p = r.jenkins.createProject(WorkflowJob.class, "p");
             p.setDefinition(new CpsFlowDefinition(
@@ -228,18 +227,9 @@ class WorkflowRunRestartTest {
             r.waitForMessage("[1] bwahaha FlowInterruptedException #1", b);
             ex.interrupt();
             r.waitForMessage("[1] bwahaha FlowInterruptedException #2", b);
-            assertFalse(hasTermOrKillLink(r, b, "term"));
-            assertFalse(hasTermOrKillLink(r, b, "kill"));
-            r.waitForMessage("Click here to forcibly terminate running steps", b);
-            assertTrue(hasTermOrKillLink(r, b, "term"));
-            assertFalse(hasTermOrKillLink(r, b, "kill"));
-            b.doTerm();
+            r.waitForMessage("Forcibly terminating running steps", b);
             r.waitForMessage("[2] undead", b);
-            r.waitForMessage("Click here to forcibly kill entire build", b);
-            assertTrue(hasTermOrKillLink(r, b, "term"));
-            assertTrue(hasTermOrKillLink(r, b, "kill"));
-            b.doKill();
-            r.waitForMessage("Hard kill!", b);
+            r.waitForMessage("Forcibly killing entire build", b);
             r.waitForCompletion(b);
             r.assertBuildStatus(Result.ABORTED, b);
             assertTrue(b.completed);
@@ -337,13 +327,6 @@ class WorkflowRunRestartTest {
                 assert false : x;
             }
         }
-    }
-
-    private boolean hasTermOrKillLink(JenkinsRule r, WorkflowRun b, String termOrKill) throws Exception {
-        return !r.createWebClient()
-                .getPage(b)
-                .getByXPath("//a[@href = '#' and contains(@data-url, '/" + b.getUrl() + termOrKill + "')]")
-                .isEmpty();
     }
 
     @SuppressWarnings("unused")
