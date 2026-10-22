@@ -187,6 +187,32 @@ final class TerminationGracePeriodTest {
     }
 
     @Test
+    void milestone() throws Throwable {
+        sessions.then(r -> {
+            var p = r.jenkins.createProject(WorkflowJob.class, "p");
+            var dcb = new DisableConcurrentBuildsJobProperty();
+            dcb.setAbortPrevious(true);
+            p.addProperty(dcb);
+            p.setDefinition(new CpsFlowDefinition("""
+                milestone 1
+                try {
+                  sleep 999
+                } catch (x) {
+                  echo "caught $x"
+                  sleep 999
+                }
+                """, true));
+            var b1 = p.scheduleBuild2(0).waitForStart();
+            r.waitForMessage("Sleeping for ", b1);
+            var b2 = p.scheduleBuild2(0).waitForStart();
+            r.waitForCompletion(b1);
+            r.assertBuildStatus(Result.ABORTED, r.waitForCompletion(b1));
+            b2.doStop();
+            r.assertBuildStatus(Result.ABORTED, r.waitForCompletion(b2));
+        });
+    }
+
+    @Test
     void repeatedInterrupt() throws Throwable {
         sessions.then(r -> {
             var p = r.jenkins.createProject(WorkflowJob.class, "p");
