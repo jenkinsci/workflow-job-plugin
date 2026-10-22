@@ -24,6 +24,8 @@
 
 package org.jenkinsci.plugins.workflow.job;
 
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -33,6 +35,7 @@ import hudson.model.TaskListener;
 import java.io.Serial;
 import java.util.Collections;
 import java.util.Set;
+import java.util.regex.Pattern;
 import org.jenkinsci.plugins.workflow.cps.CpsFlowDefinition;
 import org.jenkinsci.plugins.workflow.flow.FlowDurabilityHint;
 import org.jenkinsci.plugins.workflow.job.properties.DisableConcurrentBuildsJobProperty;
@@ -44,6 +47,7 @@ import org.jenkinsci.plugins.workflow.steps.StepExecution;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.jvnet.hudson.test.Issue;
+import org.jvnet.hudson.test.JenkinsRule;
 import org.jvnet.hudson.test.TestExtension;
 import org.jvnet.hudson.test.junit.jupiter.BuildWatcherExtension;
 import org.jvnet.hudson.test.junit.jupiter.JenkinsSessionExtension;
@@ -123,6 +127,61 @@ final class TerminationGracePeriodTest {
             r.assertBuildStatusSuccess(b2);
             r.assertLogContains("caught FlowInterruptedException", b1);
             r.assertLogContains("build 2 done", b2);
+        });
+    }
+
+    @Test
+    void repeatedInterrupt() throws Throwable {
+        sessions.then(r -> {
+            var p = r.jenkins.createProject(WorkflowJob.class, "p");
+            p.setDefinition(new CpsFlowDefinition("""
+                while (true) {
+                    try {
+                      sleep 999
+                    } catch (x) {
+                      echo "caught $x"
+                    }
+                }
+                """, true));
+            var b = p.scheduleBuild2(0).waitForStart();
+            r.waitForMessage("Sleeping for ", b);
+            b.doStop();
+            r.waitForMessage("caught ", b);
+            b.doStop();
+            r.waitForCompletion(b);
+            r.assertBuildStatus(Result.ABORTED, b);
+            assertThat(
+                    "Duplicated timers are probably harmless but might lead to race conditions",
+                    Pattern.compile("Forcibly terminating running steps")
+                            .matcher(JenkinsRule.getLog(b))
+                            .results()
+                            .count(),
+                    is(1L));
+        });
+    }
+
+    @Test
+    void interruptAcrossRestart() throws Throwable {
+        sessions.then(r -> {
+            var p = r.jenkins.createProject(WorkflowJob.class, "p");
+            p.setDefinition(new CpsFlowDefinition("""
+                while (true) {
+                    try {
+                      sleep 999
+                    } catch (x) {
+                      echo "caught $x"
+                    }
+                }
+                """, true));
+            var b = p.scheduleBuild2(0).waitForStart();
+            r.waitForMessage("Sleeping for ", b);
+            b.doStop();
+            r.waitForMessage("caught ", b);
+        });
+        sessions.then(r -> {
+            var b = r.jenkins.getItemByFullName("p", WorkflowJob.class).getBuildByNumber(1);
+            r.waitForCompletion(b);
+            r.assertBuildStatus(Result.ABORTED, b);
         });
     }
 

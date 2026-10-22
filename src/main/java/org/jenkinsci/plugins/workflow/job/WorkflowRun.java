@@ -186,6 +186,11 @@ public final class WorkflowRun extends Run<WorkflowJob, WorkflowRun>
     volatile Boolean completed; // Non-private for testing
 
     /**
+     * Whether {@link AsynchronousExecution#interrupt} has been called.
+     */
+    private boolean interrupted;
+
+    /**
      * Whether {@link #onLoad} might be needed from {@link #reload}.
      * Unfortunately {@link #reload} can be called either directly or implicitly via {@link #WorkflowRun(WorkflowJob, File)}
      * and this is the only way to tell which of those cases this is.
@@ -408,6 +413,14 @@ public final class WorkflowRun extends Run<WorkflowJob, WorkflowRun>
                         LOGGER.log(Level.WARNING, null, x);
                     }
                     executor.recordCauseOfInterruption(WorkflowRun.this, getListener());
+                    synchronized (getMetadataGuard()) {
+                        if (interrupted) {
+                            getListener().getLogger().println("Already interrupted");
+                            return;
+                        }
+                        interrupted = true;
+                    }
+                    saveWithoutFailing(true);
                     Timer.get()
                             .schedule(
                                     WorkflowRun.this::doTerm, termGracePeriod().toMillis(), TimeUnit.MILLISECONDS);
@@ -611,6 +624,13 @@ public final class WorkflowRun extends Run<WorkflowJob, WorkflowRun>
                                         .submit(() -> Queue.getInstance()
                                                 .schedule(new AfterRestartTask(WorkflowRun.this), 0)); // JENKINS-31614
                                 FlowExecutionListener.fireResumed(fetchedExecution);
+                                if (interrupted) {
+                                    Timer.get()
+                                            .schedule(
+                                                    this::doTerm,
+                                                    termGracePeriod().toMillis(),
+                                                    TimeUnit.MILLISECONDS);
+                                }
                             }
                         }
                     } else { // Execution nulled due to a critical failure, explicitly mark completed
