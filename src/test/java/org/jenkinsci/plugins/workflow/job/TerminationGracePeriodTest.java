@@ -33,13 +33,10 @@ import edu.umd.cs.findbugs.annotations.NonNull;
 import hudson.model.Result;
 import hudson.model.TaskListener;
 import java.io.Serial;
-import java.util.Collections;
 import java.util.Set;
 import java.util.regex.Pattern;
 import org.jenkinsci.plugins.workflow.cps.CpsFlowDefinition;
-import org.jenkinsci.plugins.workflow.flow.FlowDurabilityHint;
 import org.jenkinsci.plugins.workflow.job.properties.DisableConcurrentBuildsJobProperty;
-import org.jenkinsci.plugins.workflow.job.properties.DurabilityHintJobProperty;
 import org.jenkinsci.plugins.workflow.steps.Step;
 import org.jenkinsci.plugins.workflow.steps.StepContext;
 import org.jenkinsci.plugins.workflow.steps.StepDescriptor;
@@ -69,8 +66,7 @@ final class TerminationGracePeriodTest {
     @Test
     void escalation() throws Throwable {
         sessions.then(r -> {
-            WorkflowJob p = r.jenkins.createProject(WorkflowJob.class, "p");
-            p.addProperty(new DurabilityHintJobProperty(FlowDurabilityHint.MAX_SURVIVABILITY));
+            var p = r.jenkins.createProject(WorkflowJob.class, "p");
             p.setDefinition(new CpsFlowDefinition("""
                 def seq = 0
                 while (true) {
@@ -80,7 +76,7 @@ final class TerminationGracePeriodTest {
                     echo "ignoring $x"
                   }
                 }""", true));
-            WorkflowRun b = p.scheduleBuild2(0).waitForStart();
+            var b = p.scheduleBuild2(0).waitForStart();
             r.waitForMessage("[1] undead", b);
             b.doStop();
             r.waitForMessage("[1] bwahaha FlowInterruptedException #1", b);
@@ -92,18 +88,78 @@ final class TerminationGracePeriodTest {
             assertTrue(b.completed);
         });
         sessions.then(r -> {
-            WorkflowJob p = r.jenkins.getItemByFullName("p", WorkflowJob.class);
-            WorkflowRun b = p.getBuildByNumber(1);
+            var p = r.jenkins.getItemByFullName("p", WorkflowJob.class);
+            var b = p.getBuildByNumber(1);
             assertFalse(b.isBuilding());
             assertFalse(b.executionLoaded);
         });
     }
 
+    @SuppressWarnings("unused")
+    public static class Zombie extends Step {
+        @DataBoundSetter
+        public int id;
+
+        @DataBoundConstructor
+        public Zombie() {}
+
+        @Override
+        public StepExecution start(StepContext context) {
+            return new Execution(context, id);
+        }
+
+        private static class Execution extends StepExecution {
+            @Serial
+            private static final long serialVersionUID = 1L;
+
+            int id;
+            int count;
+
+            Execution(StepContext context, int id) {
+                super(context);
+                this.id = id;
+            }
+
+            @Override
+            public boolean start() throws Exception {
+                getContext().get(TaskListener.class).getLogger().printf("[%d] undead%n", id);
+                return false;
+            }
+
+            @Override
+            public void stop(Throwable cause) throws Exception {
+                getContext()
+                        .get(TaskListener.class)
+                        .getLogger()
+                        .printf("[%d] bwahaha %s #%d%n", id, cause.getClass().getSimpleName(), ++count);
+            }
+        }
+
+        @TestExtension("escalation")
+        public static class DescriptorImpl extends StepDescriptor {
+
+            @Override
+            public String getFunctionName() {
+                return "zombie";
+            }
+
+            @NonNull
+            @Override
+            public String getDisplayName() {
+                return "zombie";
+            }
+
+            @Override
+            public Set<? extends Class<?>> getRequiredContext() {
+                return Set.of(TaskListener.class);
+            }
+        }
+    }
+
     @Test
     void abortPreviousWaits() throws Throwable {
         sessions.then(r -> {
-            WorkflowJob p = r.jenkins.createProject(WorkflowJob.class, "p");
-            p.addProperty(new DurabilityHintJobProperty(FlowDurabilityHint.MAX_SURVIVABILITY));
+            var p = r.jenkins.createProject(WorkflowJob.class, "p");
             var dcb = new DisableConcurrentBuildsJobProperty();
             dcb.setAbortPrevious(true);
             p.addProperty(dcb);
@@ -119,9 +175,9 @@ final class TerminationGracePeriodTest {
                     }
                     echo "build ${env.BUILD_NUMBER} done"
                     """, true));
-            WorkflowRun b1 = p.scheduleBuild2(0).waitForStart();
+            var b1 = p.scheduleBuild2(0).waitForStart();
             r.waitForMessage("build 1 waiting", b1);
-            WorkflowRun b2 = p.scheduleBuild2(0).waitForStart();
+            var b2 = p.scheduleBuild2(0).waitForStart();
             r.waitForCompletion(b2);
             r.assertBuildStatus(Result.ABORTED, b1);
             r.assertBuildStatusSuccess(b2);
@@ -183,66 +239,5 @@ final class TerminationGracePeriodTest {
             r.waitForCompletion(b);
             r.assertBuildStatus(Result.ABORTED, b);
         });
-    }
-
-    @SuppressWarnings("unused")
-    public static class Zombie extends Step {
-        @DataBoundSetter
-        public int id;
-
-        @DataBoundConstructor
-        public Zombie() {}
-
-        @Override
-        public StepExecution start(StepContext context) {
-            return new Execution(context, id);
-        }
-
-        private static class Execution extends StepExecution {
-            @Serial
-            private static final long serialVersionUID = 1L;
-
-            int id;
-            int count;
-
-            Execution(StepContext context, int id) {
-                super(context);
-                this.id = id;
-            }
-
-            @Override
-            public boolean start() throws Exception {
-                getContext().get(TaskListener.class).getLogger().printf("[%d] undead%n", id);
-                return false;
-            }
-
-            @Override
-            public void stop(Throwable cause) throws Exception {
-                getContext()
-                        .get(TaskListener.class)
-                        .getLogger()
-                        .printf("[%d] bwahaha %s #%d%n", id, cause.getClass().getSimpleName(), ++count);
-            }
-        }
-
-        @TestExtension
-        public static class DescriptorImpl extends StepDescriptor {
-
-            @Override
-            public String getFunctionName() {
-                return "zombie";
-            }
-
-            @NonNull
-            @Override
-            public String getDisplayName() {
-                return "zombie";
-            }
-
-            @Override
-            public Set<? extends Class<?>> getRequiredContext() {
-                return Collections.singleton(TaskListener.class);
-            }
-        }
     }
 }
