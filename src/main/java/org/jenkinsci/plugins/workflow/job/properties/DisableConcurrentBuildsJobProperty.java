@@ -33,11 +33,14 @@ import hudson.model.TaskListener;
 import hudson.model.listeners.RunListener;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.function.BooleanSupplier;
 import jenkins.model.CauseOfInterruption;
 import jenkins.model.OptionalJobProperty;
 import org.jenkinsci.Symbol;
 import org.jenkinsci.plugins.workflow.job.WorkflowJob;
 import org.jenkinsci.plugins.workflow.job.WorkflowRun;
+import org.kohsuke.accmod.Restricted;
+import org.kohsuke.accmod.restrictions.Beta;
 import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.DataBoundSetter;
 import org.kohsuke.stapler.export.Exported;
@@ -111,6 +114,42 @@ public class DisableConcurrentBuildsJobProperty extends OptionalJobProperty<Work
         }
     }
 
+    /**
+     * Waits a limited amount of time for a previous aborted build to complete before proceeding with the current one.
+     * @param running whether the previous build {@link Run#isLogUpdated}
+     * @param listener log of the new build
+     * @param previousBuildDisplayName {@link Run#getDisplayName} of the previous build
+     */
+    @Restricted(Beta.class)
+    public static void awaitAborted(BooleanSupplier running, TaskListener listener, String previousBuildDisplayName) {
+        var waitLimit = WorkflowRun.termGracePeriod()
+                .plus(WorkflowRun.killGracePeriod())
+                .plus(Duration.ofSeconds(10));
+        var deadline = Instant.now().plus(waitLimit);
+        var notifyAt = Instant.now().plusSeconds(10);
+        var notified = false;
+        while (running.getAsBoolean()) {
+            var now = Instant.now();
+            if (now.isAfter(deadline)) {
+                listener.getLogger()
+                        .printf(
+                                "Previous build %s did not complete within %ds; proceeding anyway%n",
+                                previousBuildDisplayName, waitLimit.toSeconds());
+                break;
+            }
+            if (!notified && now.isAfter(notifyAt)) {
+                notified = true;
+                listener.getLogger().printf("Waiting for previous build %s to complete…%n", previousBuildDisplayName);
+            }
+            try {
+                Thread.sleep(100);
+            } catch (InterruptedException x) {
+                Thread.currentThread().interrupt();
+                break;
+            }
+        }
+    }
+
     @Extension
     public static final class Listener extends RunListener<WorkflowRun> {
         @Override
@@ -122,33 +161,7 @@ public class DisableConcurrentBuildsJobProperty extends OptionalJobProperty<Work
                     var e = prev.getExecutor();
                     if (e != null) {
                         e.interrupt(Result.NOT_BUILT, new DisableConcurrentBuildsJobProperty.CancelledCause(r));
-                        var waitLimit = WorkflowRun.termGracePeriod()
-                                .plus(WorkflowRun.killGracePeriod())
-                                .plus(Duration.ofSeconds(10));
-                        var deadline = Instant.now().plus(waitLimit);
-                        var notifyAt = Instant.now().plusSeconds(10);
-                        var notified = false;
-                        while (prev.isLogUpdated()) {
-                            var now = Instant.now();
-                            if (now.isAfter(deadline)) {
-                                listener.getLogger()
-                                        .printf(
-                                                "Previous build %s did not complete within %ds; proceeding anyway%n",
-                                                prev.getDisplayName(), waitLimit.toSeconds());
-                                break;
-                            }
-                            if (!notified && now.isAfter(notifyAt)) {
-                                notified = true;
-                                listener.getLogger()
-                                        .printf("Waiting for previous build %s to complete…%n", prev.getDisplayName());
-                            }
-                            try {
-                                Thread.sleep(100);
-                            } catch (InterruptedException x) {
-                                Thread.currentThread().interrupt();
-                                break;
-                            }
-                        }
+                        awaitAborted(prev::isLogUpdated, listener, prev.getDisplayName());
                     }
                 }
                 // Not bothering to look for other older builds in progress, since once we turn this on,
