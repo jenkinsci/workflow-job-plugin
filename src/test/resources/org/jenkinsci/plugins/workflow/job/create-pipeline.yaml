@@ -1,0 +1,7 @@
+items:
+  - pipeline:
+      name: "my-new-pipeline"
+      description: "A brand new pipeline created by JCasC"
+      definition:
+        cps:
+          script: "node { echo 'Hello, JCasC!' }"
