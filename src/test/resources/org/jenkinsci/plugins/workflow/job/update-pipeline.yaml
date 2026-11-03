@@ -1,0 +1,7 @@
+items:
+  - pipeline:
+      name: "existing-pipeline"
+      description: "Updated description via JCasC"
+      definition:
+        cps:
+          script: "node { echo 'Updated script!' }"
