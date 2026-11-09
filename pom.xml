@@ -51,7 +51,7 @@
   <properties>
     <changelist>999999-SNAPSHOT</changelist>
     <jenkins.baseline>2.568</jenkins.baseline>
-    <jenkins.version>${jenkins.baseline}.1</jenkins.version>
+    <jenkins.version>2.589-SNAPSHOT</jenkins.version>
     <no-test-jar>false</no-test-jar>
     <useBeta>true</useBeta>
     <hpi.compatibleSinceVersion>2.26</hpi.compatibleSinceVersion>
